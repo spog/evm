@@ -1,4 +1,42 @@
 Building:
 =========
 
+Native build:
+-------------
 
+Out-of-source-build (preferred):
+--------------------------------
+$ cd evm
+$ mkdir build
+$ cd build
+$ cmake ../
+$ make
+
+In-source-build:
+----------------
+$ cd evm
+$ cmake ./
+$ make
+
+Installation:
+=============
+
+$ make install
+
+If you need to specify installation path:
+-----------------------------------------
+cmake <src_dir> -DCMAKE_INSTALL_PREFIX=<install_dir>
+
+For example:
+$ cmake ../ -DCMAKE_INSTALL_PREFIX=../install
+$ make
+$ make install
+
+Cleaning:
+=========
+
+$ make clean
+
+If you want to remove all files not under version control and you are using git:
+--------------------------------------------------------------------------------
+$ git clean -d -f -x
