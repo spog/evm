@@ -10,9 +10,11 @@
 #define libevm_h
 
 #include <errno.h>
+#if 0
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#endif
 #include <sys/poll.h>
 #include <time.h>
 
@@ -60,8 +62,11 @@ struct evm_fds_struct {
 	unsigned int ev_type_fds[FDS_TAB_SIZE];
 	struct pollfd ev_poll_fds[FDS_TAB_SIZE];
 	struct message_struct *msg_ptrs[FDS_TAB_SIZE];
+	int (*msg_receive[FDS_TAB_SIZE])(int fd, struct message_struct *msg_ptr);
+#if 0
 	int (*msg_receive[FDS_TAB_SIZE])(int socket, struct message_struct *msg_ptr);
 	int (*msg_send[FDS_TAB_SIZE])(int sock, struct sockaddr_in *sockAddr, const char *buffer);
+#endif
 };
 
 struct evm_ids {
@@ -97,7 +102,9 @@ struct message_struct {
 	struct message_struct *next_msg;
 	int rval_decode;
 	void *msg_decode;
+#if 0
 	struct sockaddr_in msg_addr;
+#endif
 	int recv_size;
 	char recv_buff[MAX_RECV_SIZE];
 };

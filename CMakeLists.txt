@@ -4,8 +4,11 @@
 cmake_minimum_required (VERSION 2.8)
 project (EVM)
 
+# Make sure the compiler can find isolated public include files of our evm library.
+include_directories (${EVM_SOURCE_DIR}/include)
+
 # Recurse into the "libs/evm" and "demo" subdirectories. This does not actually
 # cause another cmake executable to run. The same process will walk through
 # the project's entire directory structure.
 add_subdirectory (libs/evm)
-#add_subdirectory (demo) 
+add_subdirectory (demos) 
