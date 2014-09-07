@@ -66,9 +66,9 @@ static struct evm_tab_struct evm_tbl[] = {
  * HELLO messages
  */
 /* hello message */
+static char *hello_str = "HELLO";
 static struct message_struct helloMsg = {
 	.msg_ids.ev_id = EV_ID_HELLO_MSG_HELLO,
-	.recv_buff = "(:HELLO:)"
 };
 
 static int hello_messages_link(int ev_id, int evm_idx)
@@ -120,7 +120,7 @@ static int evHelloMsg(void *ev_ptr)
 	struct message_struct *msg = (struct message_struct *)ev_ptr;
 #if 1
 	log_debug("(cb entry) ev_ptr=%p\n", ev_ptr);
-	log_verbose("HELLO msg received:\"%s\"\n", msg->recv_buff);
+	log_verbose("HELLO msg received: \"%s\"\n", msg->recv_buff);
 
 	helloIdleTmr = hello_startIdle_timer(helloIdleTmr, 10, 0, NULL);
 #else
@@ -133,11 +133,14 @@ static int evHelloMsg(void *ev_ptr)
 
 static int evHelloTmrIdle(void *ev_ptr)
 {
+	static unsigned int count;
 	int status = 0;
 
 	log_debug("(cb entry) ev_ptr=%p\n", ev_ptr);
 	log_verbose("IDLE timer expired!\n");
 
+	count++;
+	sprintf(helloMsg.recv_buff, "%s: %u", hello_str, count);
 	evm_message_pass(&helloMsg);
 
 	return status;
