@@ -38,8 +38,7 @@ static int signal_processing(int sig, void *ptr);
 
 #define EV_ID_FIRST 0
 enum hello_msg_ev_ids {
-	EV_ID_HELLO_MSG_UNKNOWN = EV_ID_FIRST,
-	EV_ID_HELLO_MSG_HELLO
+	EV_ID_HELLO_MSG_HELLO = EV_ID_FIRST
 };
 enum event_types {
 	EV_TYPE_UNKNOWN = 0,
@@ -55,7 +54,6 @@ enum hello_tmr_ev_ids {
 static int hello_messages_link(int ev_id, int evm_idx);
 static int helloTmrs_link(int ev_id, int evm_idx);
 
-static int evUnknownMsg(void *ev_ptr);
 static int evHelloMsg(void *ev_ptr);
 static int evHelloTmrIdle(void *ev_ptr);
 

@@ -48,12 +48,6 @@ static struct evm_link_struct evs_linkage[] = {
 static struct evm_tab_struct evm_tbl[] = {
 	{ /*HELLO messages*/
 		.ev_type = EV_TYPE_HELLO_MSG,
-		.ev_id = EV_ID_HELLO_MSG_UNKNOWN,
-		.ev_prepare = NULL,
-		.ev_handle = evUnknownMsg,
-		.ev_finalize = NULL, /*nothing to free*/
-	}, {
-		.ev_type = EV_TYPE_HELLO_MSG,
 		.ev_id = EV_ID_HELLO_MSG_HELLO,
 		.ev_prepare = NULL,
 		.ev_handle = evHelloMsg,
@@ -71,23 +65,16 @@ static struct evm_tab_struct evm_tbl[] = {
 /*
  * HELLO messages
  */
-/* unknown message */
-static struct message_struct unknownMsg = {
-	.msg_ids.ev_id = EV_ID_HELLO_MSG_UNKNOWN
-};
-
 /* hello message */
 static struct message_struct helloMsg = {
-	.msg_ids.ev_id = EV_ID_HELLO_MSG_HELLO
+	.msg_ids.ev_id = EV_ID_HELLO_MSG_HELLO,
+	.recv_buff = "(:HELLO:)"
 };
 
 static int hello_messages_link(int ev_id, int evm_idx)
 {
 	log_debug("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
 	switch (ev_id) {
-	case EV_ID_HELLO_MSG_UNKNOWN:
-		unknownMsg.msg_ids.evm_idx = evm_idx;
-		break;
 	case EV_ID_HELLO_MSG_HELLO:
 		helloMsg.msg_ids.evm_idx = evm_idx;
 		break;
@@ -128,19 +115,12 @@ static struct timer_struct * hello_startIdle_timer(struct timer_struct *tmr, tim
 /*
  * HELLO event handlers
  */
-static int evUnknownMsg(void *ev_ptr)
-{
-	log_debug("(cb entry) ev_ptr=%p\n", ev_ptr);
-	log_verbose("Unknown msg received!\n");
-
-	return 0;
-}
-
 static int evHelloMsg(void *ev_ptr)
 {
+	struct message_struct *msg = (struct message_struct *)ev_ptr;
 #if 1
 	log_debug("(cb entry) ev_ptr=%p\n", ev_ptr);
-	log_verbose("HELLO msg received!\n");
+	log_verbose("HELLO msg received:\"%s\"\n", msg->recv_buff);
 
 	helloIdleTmr = hello_startIdle_timer(helloIdleTmr, 10, 0, NULL);
 #else
