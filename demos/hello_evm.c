@@ -15,13 +15,137 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
 
-#include <evm/libevm.h>
 #include "hello_evm.h"
 
-unsigned int COMP_MODULE = 1;
+/*
+ * The MAIN part.
+ */
 unsigned int log_mask;
+unsigned int log_normal = 1;
+unsigned int log_verbose = 0;
+unsigned int log_trace = 0;
+unsigned int log_debug = 0;
 unsigned int use_syslog = 0;
+
+static void usage_help(char *argv[])
+{
+	printf("Usage:\n");
+	printf("\t%s [options]\n", argv[0]);
+	printf("options:\n");
+	printf("\t-q, --quiet              Disable all output.\n");
+	printf("\t-t, --trace              Enable trace output.\n");
+	printf("\t-v, --verbose            Enable verbose output.\n");
+	printf("\t-g, --debug              Enable debug output.\n");
+	printf("\t-s, --syslog             Enable syslog output (instead of stdout, stderr).\n");
+	printf("\t-h, --help               Displays this text.\n");
+}
+
+static int usage_check(int argc, char *argv[])
+{
+	int c;
+
+#if 0
+	if (argc < 2) {
+		usage_help(argv);
+		exit(EXIT_FAILURE);
+	}
+#endif
+
+	while (1) {
+		int option_index = 0;
+		static struct option long_options[] = {
+			{"quiet", 0, 0, 'q'},
+			{"trace", 0, 0, 't'},
+			{"verbose", 0, 0, 'v'},
+			{"debug", 0, 0, 'g'},
+			{"syslog", 0, 0, 's'},
+			{"help", 0, 0, 'h'},
+			{0, 0, 0, 0}
+		};
+
+		c = getopt_long(argc, argv, "qtvgsh", long_options, &option_index);
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case 'q':
+			log_normal = 0;
+			break;
+
+		case 't':
+			log_trace = 1;
+			break;
+
+		case 'v':
+			log_verbose = 1;
+			break;
+
+		case 'g':
+			log_debug = 1;
+			break;
+
+		case 's':
+			use_syslog = 1;
+			break;
+
+		case 'h':
+			usage_help(argv);
+			exit(EXIT_SUCCESS);
+
+		case '?':
+			exit(EXIT_FAILURE);
+			break;
+
+		default:
+			printf("?? getopt returned character code 0%o ??\n", c);
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	if (optind < argc) {
+		printf("non-option ARGV-elements: ");
+		while (optind < argc)
+			printf("%s ", argv[optind++]);
+		printf("\n");
+		exit(EXIT_FAILURE);
+	}
+
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	usage_check(argc, argv);
+
+	log_mask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) | LOG_MASK(LOG_ERR);
+
+	/* Setup LOG_MASK according to startup arguments! */
+	if (log_normal) {
+		log_mask |= LOG_MASK(LOG_WARNING);
+		log_mask |= LOG_MASK(LOG_NOTICE);
+	}
+	if ((log_verbose) || (log_trace))
+		log_mask |= LOG_MASK(LOG_INFO);
+	if (log_debug)
+		log_mask |= LOG_MASK(LOG_DEBUG);
+
+	setlogmask(log_mask);
+
+	if (hello_evm_init() < 0)
+		exit(EXIT_FAILURE);
+
+	if (hello_evm_run() < 0)
+		exit(EXIT_FAILURE);
+
+	exit(EXIT_SUCCESS);
+}
+
+/*
+ * The EVM part.
+ */
+#include <evm/libevm.h>
 
 static struct evm_init_struct evs_init;
 
@@ -35,7 +159,7 @@ static struct evm_sigpost_struct evs_sigpost = {
 
 static int signal_processing(int sig, void *ptr)
 {
-	log_debug("(entry) sig=%d, ptr=%p\n", sig, ptr);
+	log_info("(entry) sig=%d, ptr=%p\n", sig, ptr);
 	return 0;
 }
 
@@ -62,10 +186,7 @@ static struct evm_tab_struct evm_tbl[] = {
 	},
 };
 
-/*
- * HELLO messages
- */
-/* hello message */
+/* HELLO messages */
 static char *hello_str = "HELLO";
 static struct message_struct helloMsg = {
 	.msg_ids.ev_id = EV_ID_HELLO_MSG_HELLO,
@@ -73,7 +194,7 @@ static struct message_struct helloMsg = {
 
 static int hello_messages_link(int ev_id, int evm_idx)
 {
-	log_debug("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
+	log_info("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
 	switch (ev_id) {
 	case EV_ID_HELLO_MSG_HELLO:
 		helloMsg.msg_ids.evm_idx = evm_idx;
@@ -84,9 +205,7 @@ static int hello_messages_link(int ev_id, int evm_idx)
 	return 0;
 }
 
-/*
- * HELLO timers
- */
+/* HELLO timers */
 static struct timer_struct *helloIdleTmr;
 static struct evm_ids helloIdleTmr_evm_ids = {
 	.ev_id = EV_ID_HELLO_TMR_IDLE
@@ -94,7 +213,7 @@ static struct evm_ids helloIdleTmr_evm_ids = {
 
 static int helloTmrs_link(int ev_id, int evm_idx)
 {
-	log_debug("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
+	log_info("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
 	switch (ev_id) {
 	case EV_ID_HELLO_TMR_IDLE:
 		helloIdleTmr_evm_ids.evm_idx = evm_idx;
@@ -107,20 +226,18 @@ static int helloTmrs_link(int ev_id, int evm_idx)
 
 static struct timer_struct * hello_startIdle_timer(struct timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr)
 {
-	log_debug("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
+	log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
 	stop_timer(tmr);
 	return start_timer(evm_tbl, helloIdleTmr_evm_ids, tv_sec, tv_nsec, ctx_ptr);
 }
 
-/*
- * HELLO event handlers
- */
+/* HELLO event handlers */
 static int evHelloMsg(void *ev_ptr)
 {
 	struct message_struct *msg = (struct message_struct *)ev_ptr;
 #if 1
-	log_debug("(cb entry) ev_ptr=%p\n", ev_ptr);
-	log_verbose("HELLO msg received: \"%s\"\n", msg->recv_buff);
+	log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
+	log_notice("HELLO msg received: \"%s\"\n", msg->recv_buff);
 
 	helloIdleTmr = hello_startIdle_timer(helloIdleTmr, 10, 0, NULL);
 #else
@@ -136,8 +253,8 @@ static int evHelloTmrIdle(void *ev_ptr)
 	static unsigned int count;
 	int status = 0;
 
-	log_debug("(cb entry) ev_ptr=%p\n", ev_ptr);
-	log_verbose("IDLE timer expired!\n");
+	log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
+	log_notice("IDLE timer expired!\n");
 
 	count++;
 	sprintf(helloMsg.recv_buff, "%s: %u", hello_str, count);
@@ -146,10 +263,8 @@ static int evHelloTmrIdle(void *ev_ptr)
 	return status;
 }
 
-/*
- * Main HELLO initialization
- */
-int main(int argc, char *argv[])
+/* EVM initialization */
+static int hello_evm_init(void)
 {
 	int status = 0;
 
@@ -175,17 +290,21 @@ int main(int argc, char *argv[])
 	evs_init.evm_fds = &evs_fds;
 	log_debug("evs_linkage index size = %d\n", evs_init.evm_link_max);
 	if ((status = evm_init(&evs_init)) < 0) {
-		exit(status);
+		return status;
 	}
 
+	return 0;
+}
+
+/* Main core processing (event loop) */
+static int hello_evm_run(void)
+{
 	/* Set initial timer */
 	helloIdleTmr = hello_startIdle_timer(NULL, 1, 0, NULL);
 
 	/*
 	 * Main EVM processing (event loop)
 	 */
-	status = evm_run(&evs_init);
-
-	exit(status);
+	return evm_run(&evs_init);
 }
 

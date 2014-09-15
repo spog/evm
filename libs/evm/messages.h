@@ -27,10 +27,6 @@
 #include <signal.h>
 #include <semaphore.h>
 
-#define COMP_MODULE libevm_module
-EXTERN unsigned int COMP_MODULE;
-#include "evm/log_conf.h"
-
 #include "evm/libevm.h"
 
 EXTERN int messages_init(struct evm_init_struct *evm_init_ptr);
@@ -44,6 +40,9 @@ EXTERN struct message_struct * message_dequeue(void);
  * Here is the PRIVATE stuff (within above ifdef).
  * It is here so we make sure, that the following PRIVATE stuff get included into own source ONLY!
  */
+#include "evm/log_conf.h"
+LOG_MODULE_INIT(EVM_MSGS, 1)
+
 struct message_queue_struct {
 	struct message_struct *first_msg;
 	struct message_struct *last_msg;

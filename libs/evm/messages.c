@@ -63,11 +63,11 @@ int messages_init(struct evm_init_struct *evm_init_ptr)
 		log_debug("Signal post-processing handler undefined!\n");
 
 	if (sem_init(&semaphore, 0, 0) == -1)
-		return_err("sem_init()\n");
+		return_system_err("sem_init()\n");
 
 	sigfillset(&evm_sigmask);
 	if (sigprocmask(SIG_UNBLOCK, &evm_sigmask, NULL) < 0) {
-		return_err("sigprocmask() SIG_UNBLOCK\n");
+		return_system_err("sigprocmask() SIG_UNBLOCK\n");
 	}
 
 	memset (&act, '\0', sizeof(act));
@@ -77,10 +77,10 @@ int messages_init(struct evm_init_struct *evm_init_ptr)
 	act.sa_flags = SA_SIGINFO;
  
 	if (sigaction(SIGCHLD, &act, NULL) < 0)
-		return_err("sigaction() SIGCHLD\n");
+		return_system_err("sigaction() SIGCHLD\n");
 
 	if (sigaction(SIGHUP, &act, NULL) < 0)
-		return_err("sigaction() SIGHUP\n");
+		return_system_err("sigaction() SIGHUP\n");
 
 	status = 0;
 	return status;
@@ -108,11 +108,11 @@ static int messages_poll(struct evm_fds_struct *evm_fds, struct evm_sigpost_stru
 						sem_trywait(&semaphore); /*after signal, lock semaphore*/
 						sigfillset(&evm_sigmask);
 						if (sigprocmask(SIG_UNBLOCK, &evm_sigmask, NULL) < 0) {
-							return_err("sigprocmask() SIG_UNBLOCK\n");
+							return_system_err("sigprocmask() SIG_UNBLOCK\n");
 						}
 					}
 				} else {
-					return_err("poll(), nfds=%lu\n", evm_fds->nfds)
+					return_system_err("poll(), nfds=%lu\n", evm_fds->nfds)
 				}
 				/* On EINTR do not report / return any error! */
 				log_debug("EINTR: nfds=%lu, FDS_TAB_SIZE=%d!\n", evm_fds->nfds, FDS_TAB_SIZE);
@@ -135,8 +135,7 @@ static int messages_poll(struct evm_fds_struct *evm_fds, struct evm_sigpost_stru
 				log_debug("Polled FDs[%d] without allocated message buffers - Allocate now!\n", i);
 				evm_fds->msg_ptrs[i] = (struct message_struct *)calloc(1, sizeof(struct message_struct));
 				if (evm_fds->msg_ptrs[i] == NULL) {
-					errno = ENOMEM;
-					return_err("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
+					return_system_err("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
 				}
 				evm_fds->msg_ptrs[i]->fds_index = i;
 			}
@@ -159,7 +158,6 @@ static int messages_receive(int fds_idx, struct evm_fds_struct *evm_fds, struct 
 		return -1;
 
 	if (evm_fds->msg_receive[fds_idx] == NULL) {
-		errno = EINVAL;
 		log_error("Missing receive call-back function!\n");
 		sleep(1);
 		return -1;

@@ -13,7 +13,7 @@
 
 #include "evm.h"
 
-unsigned int COMP_MODULE = 1;
+//static unsigned int COMP_MODULE = 1;
 
 /*
  * Event machine linkage initialization

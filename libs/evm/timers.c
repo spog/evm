@@ -40,35 +40,35 @@ int timers_init(void)
 	evm_timers_ptr->first_tmr = NULL;
 
 	if (sem_init(&semaphore, 0, 0) == -1)
-		return_err("sem_init() TIMERS\n");
+		return_system_err("sem_init()\n");
 
 	/* Establish handler for timer signal */
-	log_verbose("Establishing handler for signal %d\n", SIG);
+	log_notice("Establishing handler for signal %d\n", SIG);
 	sact.sa_flags = SA_SIGINFO;
 	sact.sa_sigaction = timers_sighandler;
 	sigemptyset(&sact.sa_mask);
 	if (sigaction(SIG, &sact, NULL) == -1)
-		return_err("sigaction() TIMERS\n");
+		return_system_err("sigaction()\n");
 
 	/* Block timer signal temporarily */
 	log_debug("Blocking signal %d\n", SIG);
 	sigemptyset(&mask);
 	sigaddset(&mask, SIG);
 	if (sigprocmask(SIG_SETMASK, &mask, NULL) == -1)
-		return_err("sigprocmask() TIMERS");
+		return_system_err("sigprocmask()");
 
 	/* Create the timer */
 	sev.sigev_notify = SIGEV_SIGNAL;
 	sev.sigev_signo = SIG;
 	sev.sigev_value.sival_ptr = &timerid;
 	if (timer_create(CLOCKID, &sev, &timerid) == -1)
-		return_err("timer_create() timerid=%lx\n", (unsigned long)timerid);
+		return_system_err("timer_create() timerid=%lx\n", (unsigned long)timerid);
 
-	log_verbose("timer ID is 0x%lx\n", (unsigned long) timerid);
+	log_info("timer ID is 0x%lx\n", (unsigned long) timerid);
 
 	log_debug("Unblocking signal %d\n", SIG);
 	if (sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1)
-		return_err("sigprocmask() TIMERS\n");
+		return_system_err("sigprocmask()\n");
 
 	return 0;
 }
@@ -100,11 +100,11 @@ struct timer_struct * timers_check(void)
 	its.it_interval.tv_nsec = 0;
 
 	if (clock_gettime(CLOCK_MONOTONIC, &time_stamp) == -1) {
-		log_error("clock_gettime() TIMERS\n");
+		log_system_error("clock_gettime()\n");
 		/* on clock_gettime() failure reschedule timer_check() to next second */
 		its.it_value.tv_sec = 1;
 		if (timer_settime(timerid, 0, &its, NULL) == -1) {
-			log_error("timer_settime timerid=%lx\n", (unsigned long)timerid);
+			log_system_error("timer_settime timerid=%lx\n", (unsigned long)timerid);
 		}
 		return NULL;
 	}
@@ -150,7 +150,7 @@ struct timer_struct * timers_check(void)
 //		log_debug("its(sec)=%ld, its(nsec)=%ld\n", its.it_value.tv_sec, its.it_value.tv_nsec);
 		if ((its.it_value.tv_sec != 0) || (its.it_value.tv_nsec != 0)) {
 			if (timer_settime(timerid, 0, &its, NULL) == -1) {
-				log_error("timer_settime timerid=%lx\n", (unsigned long)timerid);
+				log_system_error("timer_settime timerid=%lx\n", (unsigned long)timerid);
 			}
 		} else {
 			log_debug("its(sec)=%ld, its(nsec)=%ld, tmr_return=%p\n", its.it_value.tv_sec, its.it_value.tv_nsec, tmr_return);
@@ -184,7 +184,7 @@ struct timer_struct * start_timer(struct evm_tab_struct *evm_tab, struct evm_ids
 	new->tmr_ids.evm_idx = tmr_evm_ids.evm_idx;
 
 	if (clock_gettime(CLOCK_MONOTONIC, &new->tm_stamp) == -1) {
-		log_error("clock_gettime() TIMERS\n");
+		log_system_error("clock_gettime()\n");
 		free(new);
 		new = NULL;
 		return NULL;
@@ -201,7 +201,7 @@ struct timer_struct * start_timer(struct evm_tab_struct *evm_tab, struct evm_ids
 	/* If no timers set, we are the first to expire -> start it!*/
 	if (tmr == NULL) {
 		if (timer_settime(timerid, 0, &its, NULL) == -1) {
-			log_error("timer_settime timerid=%lx\n", (unsigned long)timerid);
+			log_system_error("timer_settime timerid=%lx\n", (unsigned long)timerid);
 			free(new);
 			new = NULL;
 			return NULL;
@@ -224,7 +224,7 @@ struct timer_struct * start_timer(struct evm_tab_struct *evm_tab, struct evm_ids
 			/* If first in the list, we are the first to expire -> start it!*/
 			if (tmr == evm_timers_ptr->first_tmr) {
 				if (timer_settime(timerid, 0, &its, NULL) == -1) {
-					log_error("timer_settime timerid=%lx\n", (unsigned long)timerid);
+					log_system_error("timer_settime timerid=%lx\n", (unsigned long)timerid);
 					free(new);
 					new = NULL;
 					return NULL;

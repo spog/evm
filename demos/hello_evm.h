@@ -22,18 +22,17 @@
  * Here starts the PUBLIC stuff:
  *	Enter PUBLIC declarations using EXTERN!
  */
-EXTERN unsigned int log_mask;
-EXTERN unsigned int use_syslog;
-#undef COMP_MODULE
-#define COMP_MODULE hello_evm_module
-EXTERN unsigned int COMP_MODULE;
-#include <evm/log_conf.h>
 
 #ifdef hello_evm_c
 /*
  * Here is the PRIVATE stuff (within above ifdef).
  * It is here so we make sure, that the following PRIVATE stuff get included into own source ONLY!
  */
+//#undef COMP_MODULE
+//#define COMP_MODULE hello_evm_module
+#include <evm/log_conf.h>
+LOG_MODULE_INIT(DEMO_EVM, 2);
+
 static int signal_processing(int sig, void *ptr);
 
 #define EV_ID_FIRST 0
@@ -56,6 +55,9 @@ static int helloTmrs_link(int ev_id, int evm_idx);
 
 static int evHelloMsg(void *ev_ptr);
 static int evHelloTmrIdle(void *ev_ptr);
+
+static int hello_evm_init(void);
+static int hello_evm_run(void);
 
 #endif /*hello_evm_c*/
 /*

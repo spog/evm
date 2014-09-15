@@ -29,10 +29,6 @@
 #include <signal.h>
 #include <semaphore.h>
 
-#define COMP_MODULE libevm_module
-EXTERN unsigned int COMP_MODULE;
-#include "evm/log_conf.h"
-
 #include "evm/libevm.h"
 
 EXTERN int timers_init(void);
@@ -43,6 +39,9 @@ EXTERN struct timer_struct * timers_check(void);
  * Here is the PRIVATE stuff (within above ifdef).
  * It is here so we make sure, that the following PRIVATE stuff get included into own source ONLY!
  */
+#include "evm/log_conf.h"
+LOG_MODULE_INIT(EVM_TMRS, 1)
+
 
 #define CLOCKID CLOCK_REALTIME
 #define SIG SIGRTMIN
