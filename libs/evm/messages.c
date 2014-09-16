@@ -42,32 +42,32 @@ int messages_init(struct evm_init_struct *evm_init_ptr)
 	struct evm_sigpost_struct *evm_sigpost;
 
 	if (evm_init_ptr == NULL) {
-		log_error("Event machine init structure undefined!\n");
+		evm_log_error("Event machine init structure undefined!\n");
 		return status;
 	}
 
 	evm_linkage = evm_init_ptr->evm_link;
 	if (evm_linkage == NULL) {
-		log_error("Event types linkage table empty - event machine init failed!\n");
+		evm_log_error("Event types linkage table empty - event machine init failed!\n");
 		return status;
 	}
 
 	evm_fds = evm_init_ptr->evm_fds;
 	if (evm_fds == NULL) {
-		log_error("FDs table empty - event machine init failed!\n");
+		evm_log_error("FDs table empty - event machine init failed!\n");
 		return status;
 	}
 
 	evm_sigpost = evm_init_ptr->evm_sigpost;
 	if (evm_sigpost == NULL)
-		log_debug("Signal post-processing handler undefined!\n");
+		evm_log_debug("Signal post-processing handler undefined!\n");
 
 	if (sem_init(&semaphore, 0, 0) == -1)
-		return_system_err("sem_init()\n");
+		evm_log_return_system_err("sem_init()\n");
 
 	sigfillset(&evm_sigmask);
 	if (sigprocmask(SIG_UNBLOCK, &evm_sigmask, NULL) < 0) {
-		return_system_err("sigprocmask() SIG_UNBLOCK\n");
+		evm_log_return_system_err("sigprocmask() SIG_UNBLOCK\n");
 	}
 
 	memset (&act, '\0', sizeof(act));
@@ -77,10 +77,10 @@ int messages_init(struct evm_init_struct *evm_init_ptr)
 	act.sa_flags = SA_SIGINFO;
  
 	if (sigaction(SIGCHLD, &act, NULL) < 0)
-		return_system_err("sigaction() SIGCHLD\n");
+		evm_log_return_system_err("sigaction() SIGCHLD\n");
 
 	if (sigaction(SIGHUP, &act, NULL) < 0)
-		return_system_err("sigaction() SIGHUP\n");
+		evm_log_return_system_err("sigaction() SIGHUP\n");
 
 	status = 0;
 	return status;
@@ -100,7 +100,7 @@ static int messages_poll(struct evm_fds_struct *evm_fds, struct evm_sigpost_stru
 					sem_getvalue(&semaphore, &semVal); /*after signal, check semaphore*/
 					if (semVal > 0) {
 						/* do something on SIGNALs here */
-						log_debug("Signal num %d received\n", evm_signum);
+						evm_log_debug("Signal num %d received\n", evm_signum);
 						if (evm_sigpost != NULL) {
 							evm_sigpost->sigpost_handle(evm_signum, NULL);
 						}
@@ -108,19 +108,19 @@ static int messages_poll(struct evm_fds_struct *evm_fds, struct evm_sigpost_stru
 						sem_trywait(&semaphore); /*after signal, lock semaphore*/
 						sigfillset(&evm_sigmask);
 						if (sigprocmask(SIG_UNBLOCK, &evm_sigmask, NULL) < 0) {
-							return_system_err("sigprocmask() SIG_UNBLOCK\n");
+							evm_log_return_system_err("sigprocmask() SIG_UNBLOCK\n");
 						}
 					}
 				} else {
-					return_system_err("poll(), nfds=%lu\n", evm_fds->nfds)
+					evm_log_return_system_err("poll(), nfds=%lu\n", evm_fds->nfds)
 				}
 				/* On EINTR do not report / return any error! */
-				log_debug("EINTR: nfds=%lu, FDS_TAB_SIZE=%d!\n", evm_fds->nfds, FDS_TAB_SIZE);
+				evm_log_debug("EINTR: nfds=%lu, FDS_TAB_SIZE=%d!\n", evm_fds->nfds, FDS_TAB_SIZE);
 				status = -1;
 				return status;
 			}
 		} else {
-			log_error("Number of polled FDs overflow: nfds=%lu, FDS_TAB_SIZE=%d!\n", evm_fds->nfds, FDS_TAB_SIZE);
+			evm_log_error("Number of polled FDs overflow: nfds=%lu, FDS_TAB_SIZE=%d!\n", evm_fds->nfds, FDS_TAB_SIZE);
 			status = -1;
 			return status;
 		}
@@ -132,19 +132,19 @@ static int messages_poll(struct evm_fds_struct *evm_fds, struct evm_sigpost_stru
 			evm_fds->ev_poll_fds[i].revents = 0;
 			status--;
 			if (evm_fds->msg_ptrs[i] == NULL) {
-				log_debug("Polled FDs[%d] without allocated message buffers - Allocate now!\n", i);
+				evm_log_debug("Polled FDs[%d] without allocated message buffers - Allocate now!\n", i);
 				evm_fds->msg_ptrs[i] = (struct message_struct *)calloc(1, sizeof(struct message_struct));
 				if (evm_fds->msg_ptrs[i] == NULL) {
-					return_system_err("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
+					evm_log_return_system_err("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
 				}
 				evm_fds->msg_ptrs[i]->fds_index = i;
 			}
-			log_debug("Polled FDs[%d]!\n", i);
+			evm_log_debug("Polled FDs[%d]!\n", i);
 			return i;
 		}
 	}
 
-	log_error("No retured events - however poll returned %d!\n", status);
+	evm_log_error("No retured events - however poll returned %d!\n", status);
 	status = -1;
 	return status;
 }
@@ -158,18 +158,18 @@ static int messages_receive(int fds_idx, struct evm_fds_struct *evm_fds, struct 
 		return -1;
 
 	if (evm_fds->msg_receive[fds_idx] == NULL) {
-		log_error("Missing receive call-back function!\n");
+		evm_log_error("Missing receive call-back function!\n");
 		sleep(1);
 		return -1;
 	} else {
 		/* Receive whatever message comes in. */
 		status = evm_fds->msg_receive[fds_idx](evm_fds->ev_poll_fds[fds_idx].fd, evm_fds->msg_ptrs[fds_idx]);
 		if (status < 0) {
-			log_error("Receive call-back function failed!\n");
+			evm_log_error("Receive call-back function failed!\n");
 		} else if (status == 0) {
-			log_debug("Receive call-back function - empty receive!\n");
+			evm_log_debug("Receive call-back function - empty receive!\n");
 		} else {
-			log_debug("Receive call-back function - buffered %d bytes!\n", evm_fds->msg_ptrs[fds_idx]->recv_size);
+			evm_log_debug("Receive call-back function - buffered %d bytes!\n", evm_fds->msg_ptrs[fds_idx]->recv_size);
 		}
 	}
 
@@ -225,17 +225,17 @@ struct message_struct * messages_check(struct evm_init_struct *evm_init_ptr)
 	int fds_index;
 
 	if (evm_init_ptr == NULL) {
-		log_error("Event machine init structure undefined!\n");
+		evm_log_error("Event machine init structure undefined!\n");
 		abort();
 	}
 
 	if (evm_init_ptr->evm_fds == NULL) {
-		log_error("FDs table empty - event machine init failed!\n");
+		evm_log_error("FDs table empty - event machine init failed!\n");
 		abort();
 	}
 
 	if (evm_init_ptr->evm_link == NULL) {
-		log_error("Event types linkage table empty - event machine init failed!\n");
+		evm_log_error("Event types linkage table empty - event machine init failed!\n");
 		abort();
 	}
 
@@ -251,13 +251,13 @@ struct message_struct * messages_check(struct evm_init_struct *evm_init_ptr)
 
 	/* Receive any data. */
 	if ((status = messages_receive(fds_index, evm_init_ptr->evm_fds, evm_init_ptr->evm_link)) < 0) {
-		log_debug("evm_receive() returned %d\n", status);
+		evm_log_debug("evm_receive() returned %d\n", status);
 		return NULL;
 	}
 
 	/* Parse received data. */
 	if ((status = messages_parse(fds_index, evm_init_ptr->evm_fds, evm_init_ptr->evm_link)) < 0) {
-		log_debug("evm_parse_message() returned %d\n", status);
+		evm_log_debug("evm_parse_message() returned %d\n", status);
 		return NULL;
 	}
 	return evm_init_ptr->evm_fds->msg_ptrs[fds_index];

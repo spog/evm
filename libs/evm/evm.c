@@ -13,8 +13,6 @@
 
 #include "evm.h"
 
-//static unsigned int COMP_MODULE = 1;
-
 /*
  * Event machine linkage initialization
  */
@@ -26,24 +24,24 @@ int evm_link_init(struct evm_init_struct *evm_init_ptr)
 	struct evm_tab_struct *evm_table;
 
 	if (evm_init_ptr == NULL) {
-		log_error("Event machine init structure undefined!\n");
+		evm_log_error("Event machine init structure undefined!\n");
 		return status;
 	}
 
 	evm_linkage = evm_init_ptr->evm_link;
 	ev_type_max = evm_init_ptr->evm_link_max;
 	if (ev_type_max < 0) {
-		log_error("Wrong evm_linkage table max index = %d\n", ev_type_max);
+		evm_log_error("Wrong evm_linkage table max index = %d\n", ev_type_max);
 		return status;
 	}
 	if (evm_linkage == NULL) {
-		log_error("Event types linkage table empty - event machine init failed!\n");
+		evm_log_error("Event types linkage table empty - event machine init failed!\n");
 		return status;
 	}
 
 	evm_table = evm_init_ptr->evm_tab;
 	if (evm_table == NULL) {
-		log_error("Events table empty - event machine init failed!\n");
+		evm_log_error("Events table empty - event machine init failed!\n");
 		return status;
 	}
 
@@ -51,16 +49,16 @@ int evm_link_init(struct evm_init_struct *evm_init_ptr)
 		if (evm_table[i].ev_type <= ev_type_max) {
 			if (evm_linkage[evm_table[i].ev_type].ev_type_link != NULL) {
 				if ((status = evm_linkage[evm_table[i].ev_type].ev_type_link(evm_table[i].ev_id, i)) < 0) {
-					log_error("Events table index %d (linkage error %d) - event machine init failed!\n", i, status);
+					evm_log_error("Events table index %d (linkage error %d) - event machine init failed!\n", i, status);
 					return status;
 				}
 			} else {
 				errno = EINVAL;
-				return_err("Events table index %d (linkage undefined) - event machine init failed!\n", i);
+				evm_log_return_err("Events table index %d (linkage undefined) - event machine init failed!\n", i);
 			};
 		} else {
 			errno = EINVAL;
-			return_err("Events table index %d (wrong event type) - event machine init failed!\n", i);
+			evm_log_return_err("Events table index %d (wrong event type) - event machine init failed!\n", i);
 		};
 		i++;
 	}
@@ -83,19 +81,19 @@ int evm_init(struct evm_init_struct *evm_init_ptr)
 	}
 
 	if (evm_init_ptr == NULL) {
-		log_error("Event machine init structure undefined!\n");
+		evm_log_error("Event machine init structure undefined!\n");
 		return status;
 	}
 
 	evm_linkage = evm_init_ptr->evm_link;
 	if (evm_linkage == NULL) {
-		log_error("Event types linkage table empty - event machine init failed!\n");
+		evm_log_error("Event types linkage table empty - event machine init failed!\n");
 		return status;
 	}
 
 	evm_fds = evm_init_ptr->evm_fds;
 	if (evm_fds == NULL) {
-		log_error("FDs table empty - event machine init failed!\n");
+		evm_log_error("FDs table empty - event machine init failed!\n");
 		return status;
 	}
 
@@ -117,12 +115,12 @@ int evm_run(struct evm_init_struct *evm_init_ptr)
 	struct message_struct *recvdMsg;
 
 	if (evm_init_ptr == NULL) {
-		log_error("Event machine init structure undefined!\n");
+		evm_log_error("Event machine init structure undefined!\n");
 		abort();
 	}
 
 	if (evm_init_ptr->evm_tab == NULL) {
-		log_error("Events table NOT specified - Starting event machine failed!\n");
+		evm_log_error("Events table NOT specified - Starting event machine failed!\n");
 		abort();
 	}
 
@@ -131,7 +129,7 @@ int evm_run(struct evm_init_struct *evm_init_ptr)
 		/* Handle expired timer (NON-BLOCKING). */
 		if ((expdTmr = timers_check()) != NULL) {
 			if ((status = evm_handle_timer(expdTmr)) < 0)
-				log_debug("evm_handle_timer() returned %d\n", status);
+				evm_log_debug("evm_handle_timer() returned %d\n", status);
 			continue;
 		}
 
@@ -139,7 +137,7 @@ int evm_run(struct evm_init_struct *evm_init_ptr)
 		if ((recvdMsg = messages_check(evm_init_ptr)) != NULL) {
 			recvdMsg->evm_tab = evm_init_ptr->evm_tab;
 			if ((status = evm_handle_message(recvdMsg)) < 0)
-				log_debug("evm_handle_message() returned %d\n", status);
+				evm_log_debug("evm_handle_message() returned %d\n", status);
 		}
 	}
 
@@ -184,12 +182,12 @@ static int evm_handle_timer(struct timer_struct *expdTmr)
 	if (expdTmr->stopped == 0) {
 		status1 = evm_handle_event(expdTmr->evm_tab, expdTmr->tmr_ids.evm_idx, expdTmr);
 		if (status1 < 0)
-			log_debug("evm_handle_event() returned %d\n", status1);
+			evm_log_debug("evm_handle_event() returned %d\n", status1);
 	}
 
 	status2 = evm_finalize_event(expdTmr->evm_tab, expdTmr->tmr_ids.evm_idx, expdTmr);
 	if (status2 < 0)
-		log_debug("evm_handle_event() returned %d\n", status2);
+		evm_log_debug("evm_handle_event() returned %d\n", status2);
 
 	return (status1 | status2);
 }
@@ -202,15 +200,15 @@ static int evm_handle_message(struct message_struct *recvdMsg)
 
 	status0 = evm_prepare_event(recvdMsg->evm_tab, recvdMsg->msg_ids.evm_idx, recvdMsg);
 	if (status0 < 0)
-		log_debug("evm_prepare_event() returned %d\n", status0);
+		evm_log_debug("evm_prepare_event() returned %d\n", status0);
 
 	status1 = evm_handle_event(recvdMsg->evm_tab, recvdMsg->msg_ids.evm_idx, recvdMsg);
 	if (status1 < 0)
-		log_debug("evm_handle_event() returned %d\n", status1);
+		evm_log_debug("evm_handle_event() returned %d\n", status1);
 
 	status2 = evm_finalize_event(recvdMsg->evm_tab, recvdMsg->msg_ids.evm_idx, recvdMsg);
 	if (status2 < 0)
-		log_debug("evm_finalize_event() returned %d\n", status2);
+		evm_log_debug("evm_finalize_event() returned %d\n", status2);
 
 	return (status0 | status1 | status2);
 }

@@ -30,8 +30,8 @@
  */
 //#undef COMP_MODULE
 //#define COMP_MODULE hello_evm_module
-#include <evm/log_conf.h>
-LOG_MODULE_INIT(DEMO_EVM, 2);
+#include <evm/log_module.h>
+EVMLOG_MODULE_INIT(DEMO_EVM, 2);
 
 static int signal_processing(int sig, void *ptr);
 

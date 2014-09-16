@@ -23,11 +23,12 @@
  * The MAIN part.
  */
 unsigned int log_mask;
-unsigned int log_normal = 1;
-unsigned int log_verbose = 0;
-unsigned int log_trace = 0;
-unsigned int log_debug = 0;
-unsigned int use_syslog = 0;
+unsigned int evmlog_normal = 1;
+unsigned int evmlog_verbose = 0;
+unsigned int evmlog_trace = 0;
+unsigned int evmlog_debug = 0;
+unsigned int evmlog_use_syslog = 0;
+unsigned int evmlog_add_header = 1;
 
 static void usage_help(char *argv[])
 {
@@ -38,6 +39,7 @@ static void usage_help(char *argv[])
 	printf("\t-t, --trace              Enable trace output.\n");
 	printf("\t-v, --verbose            Enable verbose output.\n");
 	printf("\t-g, --debug              Enable debug output.\n");
+	printf("\t-n, --no-header          No EVMLOG header added to evm_log_... output.\n");
 	printf("\t-s, --syslog             Enable syslog output (instead of stdout, stderr).\n");
 	printf("\t-h, --help               Displays this text.\n");
 }
@@ -46,13 +48,6 @@ static int usage_check(int argc, char *argv[])
 {
 	int c;
 
-#if 0
-	if (argc < 2) {
-		usage_help(argv);
-		exit(EXIT_FAILURE);
-	}
-#endif
-
 	while (1) {
 		int option_index = 0;
 		static struct option long_options[] = {
@@ -60,34 +55,39 @@ static int usage_check(int argc, char *argv[])
 			{"trace", 0, 0, 't'},
 			{"verbose", 0, 0, 'v'},
 			{"debug", 0, 0, 'g'},
+			{"no-header", 0, 0, 'n'},
 			{"syslog", 0, 0, 's'},
 			{"help", 0, 0, 'h'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "qtvgsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qtvgnsh", long_options, &option_index);
 		if (c == -1)
 			break;
 
 		switch (c) {
 		case 'q':
-			log_normal = 0;
+			evmlog_normal = 0;
 			break;
 
 		case 't':
-			log_trace = 1;
+			evmlog_trace = 1;
 			break;
 
 		case 'v':
-			log_verbose = 1;
+			evmlog_verbose = 1;
 			break;
 
 		case 'g':
-			log_debug = 1;
+			evmlog_debug = 1;
+			break;
+
+		case 'n':
+			evmlog_add_header = 0;
 			break;
 
 		case 's':
-			use_syslog = 1;
+			evmlog_use_syslog = 1;
 			break;
 
 		case 'h':
@@ -122,13 +122,13 @@ int main(int argc, char *argv[])
 	log_mask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) | LOG_MASK(LOG_ERR);
 
 	/* Setup LOG_MASK according to startup arguments! */
-	if (log_normal) {
+	if (evmlog_normal) {
 		log_mask |= LOG_MASK(LOG_WARNING);
 		log_mask |= LOG_MASK(LOG_NOTICE);
 	}
-	if ((log_verbose) || (log_trace))
+	if ((evmlog_verbose) || (evmlog_trace))
 		log_mask |= LOG_MASK(LOG_INFO);
-	if (log_debug)
+	if (evmlog_debug)
 		log_mask |= LOG_MASK(LOG_DEBUG);
 
 	setlogmask(log_mask);
@@ -159,7 +159,7 @@ static struct evm_sigpost_struct evs_sigpost = {
 
 static int signal_processing(int sig, void *ptr)
 {
-	log_info("(entry) sig=%d, ptr=%p\n", sig, ptr);
+	evm_log_info("(entry) sig=%d, ptr=%p\n", sig, ptr);
 	return 0;
 }
 
@@ -194,7 +194,7 @@ static struct message_struct helloMsg = {
 
 static int hello_messages_link(int ev_id, int evm_idx)
 {
-	log_info("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
+	evm_log_info("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
 	switch (ev_id) {
 	case EV_ID_HELLO_MSG_HELLO:
 		helloMsg.msg_ids.evm_idx = evm_idx;
@@ -213,7 +213,7 @@ static struct evm_ids helloIdleTmr_evm_ids = {
 
 static int helloTmrs_link(int ev_id, int evm_idx)
 {
-	log_info("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
+	evm_log_info("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
 	switch (ev_id) {
 	case EV_ID_HELLO_TMR_IDLE:
 		helloIdleTmr_evm_ids.evm_idx = evm_idx;
@@ -226,7 +226,7 @@ static int helloTmrs_link(int ev_id, int evm_idx)
 
 static struct timer_struct * hello_startIdle_timer(struct timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr)
 {
-	log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
+	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
 	stop_timer(tmr);
 	return start_timer(evm_tbl, helloIdleTmr_evm_ids, tv_sec, tv_nsec, ctx_ptr);
 }
@@ -236,8 +236,8 @@ static int evHelloMsg(void *ev_ptr)
 {
 	struct message_struct *msg = (struct message_struct *)ev_ptr;
 #if 1
-	log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
-	log_notice("HELLO msg received: \"%s\"\n", msg->recv_buff);
+	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
+	evm_log_notice("HELLO msg received: \"%s\"\n", msg->recv_buff);
 
 	helloIdleTmr = hello_startIdle_timer(helloIdleTmr, 10, 0, NULL);
 #else
@@ -253,8 +253,8 @@ static int evHelloTmrIdle(void *ev_ptr)
 	static unsigned int count;
 	int status = 0;
 
-	log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
-	log_notice("IDLE timer expired!\n");
+	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
+	evm_log_notice("IDLE timer expired!\n");
 
 	count++;
 	sprintf(helloMsg.recv_buff, "%s: %u", hello_str, count);
@@ -277,7 +277,7 @@ static int hello_evm_init(void)
 	evs_fds.msg_ptrs[evs_fds.nfds] = (struct message_struct *)calloc(1, sizeof(struct message_struct));
 	if (evs_fds.msg_ptrs[evs_fds.nfds] == NULL) {
 		errno = ENOMEM;
-		return_err("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
+		evm_log_return_err("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
 	}
 	evs_fds.msg_ptrs[evs_fds.nfds]->fds_index = evs_fds.nfds;
 	evs_fds.nfds++;
@@ -288,7 +288,7 @@ static int hello_evm_init(void)
 	evs_init.evm_link_max = sizeof(evs_linkage) / sizeof(struct evm_link_struct) - 1;
 	evs_init.evm_tab = evm_tbl;
 	evs_init.evm_fds = &evs_fds;
-	log_debug("evs_linkage index size = %d\n", evs_init.evm_link_max);
+	evm_log_debug("evs_linkage index size = %d\n", evs_init.evm_link_max);
 	if ((status = evm_init(&evs_init)) < 0) {
 		return status;
 	}

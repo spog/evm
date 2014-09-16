@@ -39,8 +39,8 @@ EXTERN struct timer_struct * timers_check(void);
  * Here is the PRIVATE stuff (within above ifdef).
  * It is here so we make sure, that the following PRIVATE stuff get included into own source ONLY!
  */
-#include "evm/log_conf.h"
-LOG_MODULE_INIT(EVM_TMRS, 1)
+#include "evm/log_module.h"
+EVMLOG_MODULE_INIT(EVM_TMRS, 1)
 
 
 #define CLOCKID CLOCK_REALTIME
