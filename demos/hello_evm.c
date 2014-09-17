@@ -36,11 +36,15 @@ static void usage_help(char *argv[])
 	printf("\t%s [options]\n", argv[0]);
 	printf("options:\n");
 	printf("\t-q, --quiet              Disable all output.\n");
-	printf("\t-t, --trace              Enable trace output.\n");
 	printf("\t-v, --verbose            Enable verbose output.\n");
+#if (EVMLOG_MODULE_TRACE != 0)
+	printf("\t-t, --trace              Enable trace output.\n");
+#endif
+#if (EVMLOG_MODULE_DEBUG != 0)
 	printf("\t-g, --debug              Enable debug output.\n");
-	printf("\t-n, --no-header          No EVMLOG header added to evm_log_... output.\n");
+#endif
 	printf("\t-s, --syslog             Enable syslog output (instead of stdout, stderr).\n");
+	printf("\t-n, --no-header          No EVMLOG header added to every evm_log_... output.\n");
 	printf("\t-h, --help               Displays this text.\n");
 }
 
@@ -52,16 +56,28 @@ static int usage_check(int argc, char *argv[])
 		int option_index = 0;
 		static struct option long_options[] = {
 			{"quiet", 0, 0, 'q'},
-			{"trace", 0, 0, 't'},
 			{"verbose", 0, 0, 'v'},
+#if (EVMLOG_MODULE_TRACE != 0)
+			{"trace", 0, 0, 't'},
+#endif
+#if (EVMLOG_MODULE_DEBUG != 0)
 			{"debug", 0, 0, 'g'},
+#endif
 			{"no-header", 0, 0, 'n'},
 			{"syslog", 0, 0, 's'},
 			{"help", 0, 0, 'h'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "qtvgnsh", long_options, &option_index);
+#if (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG != 0)
+		c = getopt_long(argc, argv, "qvtgnsh", long_options, &option_index);
+#elif (EVMLOG_MODULE_TRACE == 0) && (EVMLOG_MODULE_DEBUG != 0)
+		c = getopt_long(argc, argv, "qvgnsh", long_options, &option_index);
+#elif (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG == 0)
+		c = getopt_long(argc, argv, "qvtnsh", long_options, &option_index);
+#else
+		c = getopt_long(argc, argv, "qvnsh", long_options, &option_index);
+#endif
 		if (c == -1)
 			break;
 
@@ -70,17 +86,21 @@ static int usage_check(int argc, char *argv[])
 			evmlog_normal = 0;
 			break;
 
-		case 't':
-			evmlog_trace = 1;
-			break;
-
 		case 'v':
 			evmlog_verbose = 1;
 			break;
 
+#if (EVMLOG_MODULE_TRACE != 0)
+		case 't':
+			evmlog_trace = 1;
+			break;
+#endif
+
+#if (EVMLOG_MODULE_DEBUG != 0)
 		case 'g':
 			evmlog_debug = 1;
 			break;
+#endif
 
 		case 'n':
 			evmlog_add_header = 0;
