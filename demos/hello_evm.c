@@ -1,9 +1,14 @@
 /*
- *  Copyright (C) 2012  Samo Pogacnik
+ *  Copyright (C) 2014  Samo Pogacnik
  */
 
 /*
- * The hello_evm demo
+ * The hello_evm demo:
+ * This demo shows minimal event machine usage within a single process. It sends
+ * HELLO message to itself on every timeout expiration.
+ * 1. The MAIN part shows standard C program initialization with options for
+ *    different logging capabilities of EVM.
+ * 2. The EVM part demonstrates EVM initialization. 
  */
 #ifndef hello_evm_c
 #define hello_evm_c
@@ -167,12 +172,22 @@ int main(int argc, char *argv[])
  */
 #include <evm/libevm.h>
 
+/*
+ * General EVM structure - required by evm_init() and evm_run():
+ */
 static struct evm_init_struct evs_init;
 
+/*
+ * File descriptors structure/table - required by evm_init():
+ */
 static struct evm_fds_struct evs_fds = {
 	.nfds = 0
 };
 
+/*
+ * Signal post-processing callback - optional for evm_init():
+ * Covers SIGHUP and SIGCHLD
+ */
 static struct evm_sigpost_struct evs_sigpost = {
 	.sigpost_handle = signal_processing
 };
@@ -183,12 +198,20 @@ static int signal_processing(int sig, void *ptr)
 	return 0;
 }
 
+/*
+ * Event types table - required by evm_init():
+ * Per event type parser and linkage callbacks
+ */
 static struct evm_link_struct evs_linkage[] = {
 	[EV_TYPE_HELLO_MSG].ev_type_parse = NULL,
 	[EV_TYPE_HELLO_MSG].ev_type_link = hello_messages_link,
 	[EV_TYPE_HELLO_TMR].ev_type_link = helloTmrs_link,
 };
 
+/*
+ * Events table - required by evm_init():
+ * Messages and timers - their individual IDs and callbacks
+ */
 static struct evm_tab_struct evm_tbl[] = {
 	{ /*HELLO messages*/
 		.ev_type = EV_TYPE_HELLO_MSG,
@@ -261,7 +284,7 @@ static int evHelloMsg(void *ev_ptr)
 
 	helloIdleTmr = hello_startIdle_timer(helloIdleTmr, 10, 0, NULL);
 #else
-	/* liveloop */
+	/* liveloop - 100 %CPU usage */
 	evm_message_pass(&helloMsg);
 #endif
 
