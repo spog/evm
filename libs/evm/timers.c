@@ -81,7 +81,7 @@ struct timer_struct * timers_check(void)
 	struct timespec time_stamp;
 	struct itimerspec its;
 
-	evm_log_debug("(entry) first_tmr=%p\n", evm_timers_ptr->first_tmr);
+	evm_log_info("(entry) first_tmr=%p\n", evm_timers_ptr->first_tmr);
 
 	tmr = evm_timers_ptr->first_tmr;
 	if (tmr == NULL)
@@ -260,7 +260,7 @@ int evm_finalize_timer(void *ptr)
 {
 	struct timer_struct *timer = (struct timer_struct *)ptr;
 
-	evm_log_debug("(cb entry) ptr=%p\n", ptr);
+	evm_log_info("(cb entry) ptr=%p\n", ptr);
 	if (timer == NULL)
 		return -1;
 
