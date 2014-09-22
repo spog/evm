@@ -398,6 +398,7 @@ static int hello2_receive(int sock, struct message_struct *message)
 		}
 		return -err_save;
 	}
+	message->iov_buff.iov_len = ret;
 	((char *)message->iov_buff.iov_base)[ret] = '\0';
 
 	evm_log_debug("buffered=%zd, received data: %s\n", message->iov_buff.iov_len, (char *)message->iov_buff.iov_base);
