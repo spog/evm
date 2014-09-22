@@ -169,7 +169,7 @@ static int messages_receive(int fds_idx, struct evm_fds_struct *evm_fds, struct 
 		} else if (status == 0) {
 			evm_log_debug("Receive call-back function - empty receive!\n");
 		} else {
-			evm_log_debug("Receive call-back function - buffered %d bytes!\n", evm_fds->msg_ptrs[fds_idx]->recv_size);
+			evm_log_debug("Receive call-back function - buffered %d bytes!\n", evm_fds->msg_ptrs[fds_idx]->iov_buff.iov_len);
 		}
 	}
 

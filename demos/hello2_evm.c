@@ -177,7 +177,8 @@ int main(int argc, char *argv[])
 /*
  * The EVM part.
  */
-static child = 0;
+static int child = 0;
+static int hello_count = 0;
 static int sock;
 
 /*
@@ -238,9 +239,12 @@ static struct evm_tab_struct evm_tbl[] = {
 };
 
 /* HELLO messages */
+static char send_buff[MAX_BUFF_SIZE] = "";
+static char recv_buff[MAX_BUFF_SIZE] = "";
 static char *hello_str = "HELLO";
 static struct message_struct helloMsg = {
 	.msg_ids.ev_id = EV_ID_HELLO_MSG_HELLO,
+	.iov_buff.iov_base = (void *)send_buff,
 };
 
 static int hello_messages_link(int ev_id, int evm_idx)
@@ -288,7 +292,7 @@ static int evHelloMsg(void *ev_ptr)
 	struct message_struct *msg = (struct message_struct *)ev_ptr;
 
 	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
-	evm_log_notice("HELLO msg received: \"%s\"\n", msg->recv_buff);
+	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)msg->iov_buff.iov_base);
 
 	helloIdleTmr = hello_startIdle_timer(helloIdleTmr, 10, 0, NULL);
 
@@ -334,22 +338,21 @@ static int hello2_connect(void)
 
 static int hello2_send_hello(int sock)
 {
-	socklen_t addrSize = sizeof(struct sockaddr_in);
-	struct iovec io;
 	struct msghdr msg;
 	int err_save = EINVAL;
 	int ret;
 
 	evm_log_info("(entry) sockfd=%d\n", sock);
 
-	/* Send HELLO message. */
-	io.iov_base = hello_str;
-	io.iov_len = strlen(hello_str);
+	/* Prepare message buffer. */
+	sprintf((char *)helloMsg.iov_buff.iov_base, "%s: %d", hello_str, ++hello_count);
+	helloMsg.iov_buff.iov_len = strlen(send_buff);
 	memset(&msg, 0, sizeof(msg));
-	msg.msg_iov = &io;
+	msg.msg_iov = &helloMsg.iov_buff;
 	msg.msg_iovlen = 1;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
+	/* Send HELLO message. */
 	ret = sendmsg(sock, &msg, 0);
 	if (ret == -1) {
 		err_save = errno;
@@ -365,7 +368,6 @@ static int hello2_send_hello(int sock)
 
 static int hello2_receive(int sock, struct message_struct *message)
 {
-	struct iovec io;
 	struct msghdr msg;
 	char *recv_ptr;
 	int err_save = EINVAL;
@@ -378,15 +380,16 @@ static int hello2_receive(int sock, struct message_struct *message)
 		return -err_save;
 	}
 
-	/* Receive whatever message comes through out port. */
-	message->recv_buff[0] = '\0';
-	io.iov_base = message->recv_buff;
-	io.iov_len = MAX_RECV_SIZE;
+	/* Prepare receive buffer. */
+	recv_buff[0] = '\0';
+	message->iov_buff.iov_base = recv_buff;
+	message->iov_buff.iov_len = MAX_BUFF_SIZE;
 	memset(&msg, 0, sizeof(msg));
-	msg.msg_iov = &io;
+	msg.msg_iov = &message->iov_buff;
 	msg.msg_iovlen = 1;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
+	/* Receive whatever message comes in. */
 	ret = recvmsg(sock, &msg, 0);
 	if (ret == -1) {
 		err_save = errno;
@@ -395,15 +398,14 @@ static int hello2_receive(int sock, struct message_struct *message)
 		}
 		return -err_save;
 	}
-	message->recv_size = ret;
-	message->recv_buff[ret] = '\0';
+	((char *)message->iov_buff.iov_base)[ret] = '\0';
 
-	evm_log_debug("buffered=%d, received data: %s\n", message->recv_size, message->recv_buff);
+	evm_log_debug("buffered=%zd, received data: %s\n", message->iov_buff.iov_len, (char *)message->iov_buff.iov_base);
 	return ret;
 }
 
 /*
- * Message parsing
+ * Over symplified message parsing:)
  */
 static int hello2_parse_message(void *ptr)
 {
@@ -413,18 +415,19 @@ static int hello2_parse_message(void *ptr)
 	if (message == NULL)
 		return -EINVAL;
 
-	evm_log_debug("message->recv_size=%d\n", message->recv_size);
-	if (message->recv_size == 0) {
+	evm_log_debug("message->iov_buff.iov_len=%zd\n", message->iov_buff.iov_len);
+	if (message->iov_buff.iov_len == 0) {
 		evm_log_debug("No event decoded (empty receive buffer).\n");
 		return -1;
 	} else {
 		/* Decode the INPUT buffer. */ 
-		message->recv_buff[message->recv_size] = '\0';
-		if (strncmp(message->recv_buff, hello_str, sizeof(hello_str)) == 0) {
+		((char *)message->iov_buff.iov_base)[message->iov_buff.iov_len] = '\0';
+		if (strncmp((char *)message->iov_buff.iov_base, hello_str, sizeof(hello_str)) == 0) {
 			message->msg_ids.ev_id = helloMsg.msg_ids.ev_id;
 			message->msg_ids.evm_idx = helloMsg.msg_ids.evm_idx;
+			sscanf((char *)message->iov_buff.iov_base, "HELLO: %d", &hello_count);
 		} else {
-			evm_log_debug("No event decoded (unknown data: %s).\n", message->recv_buff);
+			evm_log_debug("No event decoded (unknown data: %s).\n", (char *)message->iov_buff.iov_base);
 			return -1;
 		}
 	}

@@ -66,4 +66,6 @@ static int hello2_evm_run(void);
  * Here continues the PUBLIC stuff, if necessary.
  */
 
+#define MAX_BUFF_SIZE 1024
+
 #endif /*hello2_evm_h*/

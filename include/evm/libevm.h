@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #endif
+#include <sys/uio.h>
 #include <sys/poll.h>
 #include <time.h>
 
@@ -90,9 +91,6 @@ EXTERN void evm_message_pass(struct message_struct *msg);
 #	define EXTERN extern
 #endif
 
-#define MAX_RECV_SIZE 1024
-#define MAX_SEND_SIZE MAX_RECV_SIZE
-
 struct message_struct {
 	struct evm_tab_struct *evm_tab;
 	int saved;
@@ -105,8 +103,7 @@ struct message_struct {
 #if 0
 	struct sockaddr_in msg_addr;
 #endif
-	int recv_size;
-	char recv_buff[MAX_RECV_SIZE];
+	struct iovec iov_buff;
 };
 
 EXTERN int message_concatenate(const void *buffer, size_t size, void *msgBuf);
