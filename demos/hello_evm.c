@@ -178,11 +178,9 @@ int main(int argc, char *argv[])
 static struct evm_init_struct evs_init;
 
 /*
- * File descriptors structure/table - required by evm_init():
+ * File descriptors structure - required by evm_fd_add():
  */
-static struct evm_fds_struct evs_fds = {
-	.nfds = 0
-};
+static struct evm_fd_struct evs_fd;
 
 /*
  * Signal post-processing callback - optional for evm_init():
@@ -313,28 +311,29 @@ static int hello_evm_init(void)
 {
 	int status = 0;
 
-	/* Prepare dummy FD (used STDIN in this case) for EVM to operate over internal message queue only. */
-	evs_fds.ev_type_fds[evs_fds.nfds] = EV_TYPE_HELLO_MSG;
-	evs_fds.ev_poll_fds[evs_fds.nfds].fd = 0; /*STDIN*/
-	evs_fds.ev_poll_fds[evs_fds.nfds].events = 0 /*POLLIN*/;
-	evs_fds.msg_receive[evs_fds.nfds] = NULL;
-//	evs_fds.msg_send[evs_fds.nfds] = NULL;
-	evs_fds.msg_ptrs[evs_fds.nfds] = (struct message_struct *)calloc(1, sizeof(struct message_struct));
-	if (evs_fds.msg_ptrs[evs_fds.nfds] == NULL) {
-		errno = ENOMEM;
-		evm_log_return_err("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
-	}
-	evs_fds.msg_ptrs[evs_fds.nfds]->fds_index = evs_fds.nfds;
-	evs_fds.nfds++;
+	evm_log_info("(entry)\n");
 
 	/* Initialize event machine... */
 	evs_init.evm_sigpost = &evs_sigpost;;
 	evs_init.evm_link = evs_linkage;
 	evs_init.evm_link_max = sizeof(evs_linkage) / sizeof(struct evm_link_struct) - 1;
 	evs_init.evm_tab = evm_tbl;
-	evs_init.evm_fds = &evs_fds;
+	evs_init.evm_epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
 	evm_log_debug("evs_linkage index size = %d\n", evs_init.evm_link_max);
 	if ((status = evm_init(&evs_init)) < 0) {
+		evm_log_error("evm_init() failed!\n");
+		return status;
+	}
+	evm_log_debug("evm epoll FD is %d\n", evs_init.evm_epollfd);
+
+	/* Prepare dummy FD (used STDIN in this case) for EVM to operate over internal message queue only. */
+	evs_fd.fd = 0; /*STDIN*/
+	evs_fd.ev_type = EV_TYPE_HELLO_MSG;
+	evs_fd.ev_epoll.events = 0 /*EPOLLPRI*/ /*EPOLLIN*/;
+	evs_fd.ev_epoll.data.ptr = (void *)&evs_fd /*our own address*/;
+	evs_fd.msg_receive = NULL;
+//	evs_fd.msg_send = NULL;
+	if ((status = evm_message_fd_add(&evs_init, &evs_fd)) < 0) {
 		return status;
 	}
 

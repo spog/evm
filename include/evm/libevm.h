@@ -16,7 +16,7 @@
 #include <sys/socket.h>
 #endif
 #include <sys/uio.h>
-#include <sys/poll.h>
+#include <sys/epoll.h>
 #include <time.h>
 
 #ifdef evm_c
@@ -34,7 +34,8 @@ struct evm_init_struct {
 	struct evm_link_struct *evm_link;
 	int evm_link_max;
 	struct evm_tab_struct *evm_tab;
-	struct evm_fds_struct *evm_fds;
+	int evm_epoll_max_events;
+	int evm_epollfd;
 };
 
 /*User provided signal post-handling EVM callbacks!*/
@@ -57,16 +58,14 @@ struct evm_tab_struct {
 	int (*ev_finalize)(void *ev_ptr);
 };
 
-#define FDS_TAB_SIZE 10
-struct evm_fds_struct {
-	nfds_t nfds;
-	unsigned int ev_type_fds[FDS_TAB_SIZE];
-	struct pollfd ev_poll_fds[FDS_TAB_SIZE];
-	struct message_struct *msg_ptrs[FDS_TAB_SIZE];
-	int (*msg_receive[FDS_TAB_SIZE])(int fd, struct message_struct *msg_ptr);
+struct evm_fd_struct {
+	int fd;
+	unsigned int ev_type;
+	struct epoll_event ev_epoll;
+	struct message_struct *msg_ptr;
+	int (*msg_receive)(int fd, struct message_struct *msg_ptr);
 #if 0
-	int (*msg_receive[FDS_TAB_SIZE])(int socket, struct message_struct *msg_ptr);
-	int (*msg_send[FDS_TAB_SIZE])(int sock, struct sockaddr_in *sockAddr, const char *buffer);
+	int (*msg_send)(int sock, struct sockaddr_in *sockAddr, const char *buffer);
 #endif
 };
 
@@ -79,6 +78,7 @@ EXTERN int evm_link_init(struct evm_init_struct *evm_init_ptr);
 EXTERN int evm_init(struct evm_init_struct *evm_init_ptr);
 EXTERN int evm_run(struct evm_init_struct *evm_init_ptr);
 
+EXTERN int evm_message_fd_add(struct evm_init_struct *evm_init_ptr, struct evm_fd_struct *evm_fd_ptr);
 EXTERN void evm_message_pass(struct message_struct *msg);
 
 #ifdef messages_c

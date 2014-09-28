@@ -13,6 +13,9 @@
 
 #include "messages.h"
 
+static msgs_epoll_max_events = 1;
+static struct epoll_event *msgs_epoll_events;
+
 static sem_t semaphore;
 static unsigned int evm_signum = 0;
 static sigset_t evm_sigmask;
@@ -38,7 +41,6 @@ int messages_init(struct evm_init_struct *evm_init_ptr)
 	int status = -1;
 	struct sigaction act;
 	struct evm_link_struct *evm_linkage;
-	struct evm_fds_struct *evm_fds;
 	struct evm_sigpost_struct *evm_sigpost;
 
 	if (evm_init_ptr == NULL) {
@@ -49,12 +51,6 @@ int messages_init(struct evm_init_struct *evm_init_ptr)
 	evm_linkage = evm_init_ptr->evm_link;
 	if (evm_linkage == NULL) {
 		evm_log_error("Event types linkage table empty - event machine init failed!\n");
-		return status;
-	}
-
-	evm_fds = evm_init_ptr->evm_fds;
-	if (evm_fds == NULL) {
-		evm_log_error("FDs table empty - event machine init failed!\n");
 		return status;
 	}
 
@@ -82,74 +78,94 @@ int messages_init(struct evm_init_struct *evm_init_ptr)
 	if (sigaction(SIGHUP, &act, NULL) < 0)
 		evm_log_return_system_err("sigaction() SIGHUP\n");
 
-	status = 0;
-	return status;
+	if ((evm_init_ptr->evm_epollfd = epoll_create1(0)) < 0)
+		evm_log_return_system_err("epoll_create1()\n");
+
+	if (evm_init_ptr->evm_epoll_max_events > 0)
+		msgs_epoll_max_events = evm_init_ptr->evm_epoll_max_events;
+
+	msgs_epoll_events = (struct epoll_event *)calloc(msgs_epoll_max_events, sizeof(struct epoll_event));
+	if (msgs_epoll_events == NULL) {
+		errno = ENOMEM;
+		evm_log_system_error("calloc(): %d times %zd bytes\n", msgs_epoll_max_events, sizeof(struct epoll_event));
+		return status;
+	}
+
+	return 0;
 }
 
-static int messages_poll(struct evm_fds_struct *evm_fds, struct evm_sigpost_struct *evm_sigpost)
+static struct evm_fd_struct * messages_epoll(int evm_epollfd, struct evm_sigpost_struct *evm_sigpost)
 {
-	int i, semVal;
-	static int status = 0;
+	int semVal;
+	struct evm_fd_struct *evs_fd_ptr;
+	static int nfds = -1;
 
-	if (status <= 0) {
-		if (evm_fds->nfds <= FDS_TAB_SIZE) {
-			/* THE ACTUAL BLOCKING POINT! */
-			status = poll(evm_fds->ev_poll_fds, evm_fds->nfds, -1);
-			if (status < 0) {
-				if (errno == EINTR) {
-					sem_getvalue(&semaphore, &semVal); /*after signal, check semaphore*/
-					if (semVal > 0) {
-						/* do something on SIGNALs here */
-						evm_log_debug("Signal num %d received\n", evm_signum);
-						if (evm_sigpost != NULL) {
-							evm_sigpost->sigpost_handle(evm_signum, NULL);
-						}
-						evm_signum = 0;
-						sem_trywait(&semaphore); /*after signal, lock semaphore*/
-						sigfillset(&evm_sigmask);
-						if (sigprocmask(SIG_UNBLOCK, &evm_sigmask, NULL) < 0) {
-							evm_log_return_system_err("sigprocmask() SIG_UNBLOCK\n");
-						}
+	evm_log_info("(entry)\n");
+	if (nfds <= 0) {
+//not sure, if necessary:		bzero((void *)msgs_epoll_events, sizeof(msgs_epoll_events) * msgs_epoll_max_events);
+		evm_log_debug("msgs_epoll_max_events: %d, sizeof(struct epoll_event): %zu\n", msgs_epoll_max_events, sizeof(struct epoll_event));
+		/* THE ACTUAL BLOCKING POINT! */
+		nfds = epoll_wait(evm_epollfd, msgs_epoll_events, msgs_epoll_max_events, -1);
+		if (nfds < 0) {
+			if (errno == EINTR) {
+				sem_getvalue(&semaphore, &semVal); /*after signal, check semaphore*/
+				if (semVal > 0) {
+					/* do something on SIGNALs here */
+					evm_log_debug("Signal num %d received\n", evm_signum);
+					if (evm_sigpost != NULL) {
+						evm_sigpost->sigpost_handle(evm_signum, NULL);
 					}
-				} else {
-					evm_log_return_system_err("poll(), nfds=%lu\n", evm_fds->nfds)
+					evm_signum = 0;
+					sem_trywait(&semaphore); /*after signal, lock semaphore*/
+					sigfillset(&evm_sigmask);
+					if (sigprocmask(SIG_UNBLOCK, &evm_sigmask, NULL) < 0) {
+						evm_log_system_error("sigprocmask() SIG_UNBLOCK\n");
+						return NULL;
+					}
 				}
-				/* On EINTR do not report / return any error! */
-				evm_log_debug("EINTR: nfds=%lu, FDS_TAB_SIZE=%d!\n", evm_fds->nfds, FDS_TAB_SIZE);
-				status = -1;
-				return status;
+			} else {
+				evm_log_system_error("epoll()\n")
+				return NULL;
 			}
-		} else {
-			evm_log_error("Number of polled FDs overflow: nfds=%lu, FDS_TAB_SIZE=%d!\n", evm_fds->nfds, FDS_TAB_SIZE);
-			status = -1;
-			return status;
+			/* On EINTR do not report / return any error! */
+			evm_log_debug("epoll_wait(): EINTR\n");
+			return NULL;
 		}
 	}
 
-	/* Pick first FD index with returned event. */
-	for (i = 0; i < evm_fds->nfds; i++) {
-		if (evm_fds->ev_poll_fds[i].revents != 0) {
-			evm_fds->ev_poll_fds[i].revents = 0;
-			status--;
-			if (evm_fds->msg_ptrs[i] == NULL) {
-				evm_log_debug("Polled FDs[%d] without allocated message buffers - Allocate now!\n", i);
-				evm_fds->msg_ptrs[i] = (struct message_struct *)calloc(1, sizeof(struct message_struct));
-				if (evm_fds->msg_ptrs[i] == NULL) {
-					evm_log_return_system_err("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
-				}
-				evm_fds->msg_ptrs[i]->fds_index = i;
-			}
-			evm_log_debug("Polled FDs[%d]!\n", i);
-			return i;
-		}
+	evm_log_debug("Epoll returned %d FDs ready!\n", nfds);
+	if (nfds == 0) {
+		return NULL;
 	}
 
-	evm_log_error("No retured events - however poll returned %d!\n", status);
-	status = -1;
-	return status;
+	/* Pick the last events element with returned event. */
+	nfds--;
+	evs_fd_ptr = (struct evm_fd_struct *)msgs_epoll_events[nfds].data.ptr;
+	evm_log_debug("evs_fd_ptr: %p\n", evs_fd_ptr);
+	if (
+		(msgs_epoll_events[nfds].events != 0) &&
+		((msgs_epoll_events[nfds].events & EPOLLERR) == 0) &&
+		((msgs_epoll_events[nfds].events & EPOLLHUP) == 0)
+	) {
+		if (evs_fd_ptr->msg_ptr == NULL) {
+			evm_log_debug("Polled FD without allocated message buffers - Allocate now!\n");
+			evs_fd_ptr->msg_ptr = (struct message_struct *)calloc(1, sizeof(struct message_struct));
+			if (evs_fd_ptr->msg_ptr == NULL) {
+				errno = ENOMEM;
+				evm_log_system_error("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
+				return NULL;
+			}
+		}
+		evm_log_debug("Polled FD (%d) (events mask 0x%x)!\n", evs_fd_ptr->fd, msgs_epoll_events[nfds].events);
+	} else {
+		evm_log_debug("Polled FD (%d) with ERROR (events mask 0x%x)!\n", evs_fd_ptr->fd, msgs_epoll_events[nfds].events);
+	}
+
+	evm_log_info("(exit)\n");
+	return evs_fd_ptr;
 }
 
-static int messages_receive(int fds_idx, struct evm_fds_struct *evm_fds, struct evm_link_struct *evm_linkage)
+static int messages_receive(struct evm_fd_struct *evs_fd_ptr, struct evm_link_struct *evm_linkage)
 {
 	int status = -1;
 
@@ -157,33 +173,33 @@ static int messages_receive(int fds_idx, struct evm_fds_struct *evm_fds, struct 
 	if (evm_linkage == NULL)
 		return -1;
 
-	if (evm_fds->msg_receive[fds_idx] == NULL) {
+	if (evs_fd_ptr->msg_receive == NULL) {
 		evm_log_error("Missing receive call-back function!\n");
 		sleep(1);
 		return -1;
 	} else {
 		/* Receive whatever message comes in. */
-		status = evm_fds->msg_receive[fds_idx](evm_fds->ev_poll_fds[fds_idx].fd, evm_fds->msg_ptrs[fds_idx]);
+		status = evs_fd_ptr->msg_receive(evs_fd_ptr->fd, evs_fd_ptr->msg_ptr);
 		if (status < 0) {
 			evm_log_error("Receive call-back function failed!\n");
 		} else if (status == 0) {
 			evm_log_debug("Receive call-back function - empty receive!\n");
 		} else {
-			evm_log_debug("Receive call-back function - buffered %d bytes!\n", evm_fds->msg_ptrs[fds_idx]->iov_buff.iov_len);
+			evm_log_debug("Receive call-back function - buffered %d bytes!\n", evs_fd_ptr->msg_ptr->iov_buff.iov_len);
 		}
 	}
 
 	return status;
 }
 
-static int messages_parse(int fds_idx, struct evm_fds_struct *evm_fds, struct evm_link_struct *evm_linkage)
+static int messages_parse(struct evm_fd_struct *evs_fd_ptr, struct evm_link_struct *evm_linkage)
 {
-	unsigned int ev_type = evm_fds->ev_type_fds[fds_idx];
+	unsigned int ev_type = evs_fd_ptr->ev_type;
 
 	if (evm_linkage != NULL) {
 		/* Add to parser all received data */
 		if (evm_linkage[ev_type].ev_type_parse != NULL)
-			return evm_linkage[ev_type].ev_type_parse((void *)evm_fds->msg_ptrs[fds_idx]);
+			return evm_linkage[ev_type].ev_type_parse((void *)evs_fd_ptr->msg_ptr);
 	}
 
 	/*no extra parser function - expected to be parsed already*/
@@ -222,15 +238,10 @@ struct message_struct * message_dequeue(void)
 struct message_struct * messages_check(struct evm_init_struct *evm_init_ptr)
 {
 	int status = 0;
-	int fds_index;
+	struct evm_fd_struct *evs_fd_ptr;
 
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
-		abort();
-	}
-
-	if (evm_init_ptr->evm_fds == NULL) {
-		evm_log_error("FDs table empty - event machine init failed!\n");
 		abort();
 	}
 
@@ -244,23 +255,23 @@ struct message_struct * messages_check(struct evm_init_struct *evm_init_ptr)
 		return message_dequeue();
 	}
 
-	/* Poll the input (WAIT - THE ONLY BLOCKING POINT). */
-	if ((fds_index = messages_poll(evm_init_ptr->evm_fds, evm_init_ptr->evm_sigpost)) < 0) {
+	/* EPOLL the input (WAIT - THE ONLY BLOCKING POINT). */
+	if ((evs_fd_ptr = messages_epoll(evm_init_ptr->evm_epollfd, evm_init_ptr->evm_sigpost)) == NULL) {
 		return NULL;
 	}
 
 	/* Receive any data. */
-	if ((status = messages_receive(fds_index, evm_init_ptr->evm_fds, evm_init_ptr->evm_link)) < 0) {
-		evm_log_debug("evm_receive() returned %d\n", status);
+	if ((status = messages_receive(evs_fd_ptr, evm_init_ptr->evm_link)) < 0) {
+		evm_log_debug("messages_receive() returned %d\n", status);
 		return NULL;
 	}
 
 	/* Parse received data. */
-	if ((status = messages_parse(fds_index, evm_init_ptr->evm_fds, evm_init_ptr->evm_link)) < 0) {
+	if ((status = messages_parse(evs_fd_ptr, evm_init_ptr->evm_link)) < 0) {
 		evm_log_debug("evm_parse_message() returned %d\n", status);
 		return NULL;
 	}
-	return evm_init_ptr->evm_fds->msg_ptrs[fds_index];
+	return evs_fd_ptr->msg_ptr;
 }
 
 #if 1 /*orig*/

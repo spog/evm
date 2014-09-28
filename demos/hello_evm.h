@@ -31,6 +31,8 @@
 #include <evm/log_module.h>
 EVMLOG_MODULE_INIT(DEMO_EVM, 2);
 
+#define MAX_EPOLL_EVENTS_PER_RUN 10
+
 static int signal_processing(int sig, void *ptr);
 
 #define EV_ID_FIRST 0

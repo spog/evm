@@ -73,7 +73,6 @@ int evm_init(struct evm_init_struct *evm_init_ptr)
 {
 	int status = -1;
 	struct evm_link_struct *evm_linkage;
-	struct evm_fds_struct *evm_fds;
 
 	/* Initialize timers infrastructure... */
 	if ((status = timers_init()) < 0) {
@@ -88,12 +87,6 @@ int evm_init(struct evm_init_struct *evm_init_ptr)
 	evm_linkage = evm_init_ptr->evm_link;
 	if (evm_linkage == NULL) {
 		evm_log_error("Event types linkage table empty - event machine init failed!\n");
-		return status;
-	}
-
-	evm_fds = evm_init_ptr->evm_fds;
-	if (evm_fds == NULL) {
-		evm_log_error("FDs table empty - event machine init failed!\n");
 		return status;
 	}
 
@@ -216,5 +209,25 @@ static int evm_handle_message(struct message_struct *recvdMsg)
 void evm_message_pass(struct message_struct *msg)
 {
 	message_enqueue(msg);
+}
+
+int evm_message_fd_add(struct evm_init_struct *evm_init_ptr, struct evm_fd_struct *evm_fd_ptr)
+{
+	if (evm_init_ptr == NULL)
+		return -1;
+
+	if (evm_fd_ptr == NULL)
+		return -1;
+
+	evm_fd_ptr->msg_ptr = (struct message_struct *)calloc(1, sizeof(struct message_struct));
+	if (evm_fd_ptr->msg_ptr == NULL) {
+		errno = ENOMEM;
+		evm_log_return_err("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
+	}
+	evm_log_debug("evm_fd_ptr: %p, &evm_fd_ptr->ev_epoll: %p\n", evm_fd_ptr, &evm_fd_ptr->ev_epoll);
+	evm_log_debug("evm_init_ptr->evm_epollfd: %d, evm_fd_ptr->fd: %d\n", evm_init_ptr->evm_epollfd, evm_fd_ptr->fd);
+	if (epoll_ctl(evm_init_ptr->evm_epollfd, EPOLL_CTL_ADD, evm_fd_ptr->fd, &evm_fd_ptr->ev_epoll) < 0) {
+		evm_log_return_system_err("epoll_ctl()\n");
+	}
 }
 

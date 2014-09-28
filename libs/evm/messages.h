@@ -48,9 +48,9 @@ struct message_queue_struct {
 	struct message_struct *last_msg;
 };
 
-static int messages_poll(struct evm_fds_struct *evm_fds, struct evm_sigpost_struct *evm_sigpost);
-static int messages_receive(int fds_idx, struct evm_fds_struct *evm_fds, struct evm_link_struct *evm_linkage);
-static int messages_parse(int fds_idx, struct evm_fds_struct *evm_fds, struct evm_link_struct *evm_linkage);
+static struct evm_fd_struct * messages_epoll(int evm_epollfd, struct evm_sigpost_struct *evm_sigpost);
+static int messages_receive(struct evm_fd_struct *evs_fd_ptr, struct evm_link_struct *evm_linkage);
+static int messages_parse(struct evm_fd_struct *evs_fd_ptr, struct evm_link_struct *evm_linkage);
 
 #endif /*messages_c*/
 /*
