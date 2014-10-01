@@ -3,13 +3,13 @@
  */
 
 /*
- * The messages module
+ * The EVM messages module
  */
 
-#ifndef messages_h
-#define messages_h
+#ifndef evm_messages_h
+#define evm_messages_h
 
-#ifdef messages_c
+#ifdef evm_messages_c
 /* PRIVATE usage of the PUBLIC part. */
 #	undef EXTERN
 #	define EXTERN
@@ -29,13 +29,12 @@
 
 #include "evm/libevm.h"
 
-EXTERN int messages_init(struct evm_init_struct *evm_init_ptr);
-EXTERN struct message_struct * messages_check(struct evm_init_struct *evm_init_ptr);
+EXTERN int evm_messages_init(struct evm_init_struct *evm_init_ptr);
+EXTERN struct message_struct * evm_messages_check(struct evm_init_struct *evm_init_ptr);
 
-EXTERN void message_enqueue(struct message_struct *msg);
-EXTERN struct message_struct * message_dequeue(void);
+EXTERN void evm_message_enqueue(struct message_struct *msg);
 
-#ifdef messages_c
+#ifdef evm_messages_c
 /*
  * Here is the PRIVATE stuff (within above ifdef).
  * It is here so we make sure, that the following PRIVATE stuff get included into own source ONLY!
@@ -51,10 +50,11 @@ struct message_queue_struct {
 static struct evm_fd_struct * messages_epoll(int evm_epollfd, struct evm_sigpost_struct *evm_sigpost);
 static int messages_receive(struct evm_fd_struct *evs_fd_ptr, struct evm_link_struct *evm_linkage);
 static int messages_parse(struct evm_fd_struct *evs_fd_ptr, struct evm_link_struct *evm_linkage);
+static struct message_struct * message_dequeue(void);
 
-#endif /*messages_c*/
+#endif /*evm_messages_c*/
 /*
  * Here continues the PUBLIC stuff, if necessary.
  */
 
-#endif /*messages_h*/
+#endif /*evm_messages_h*/

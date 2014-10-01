@@ -230,7 +230,7 @@ static struct evm_tab_struct evm_tbl[] = {
 		.ev_type = EV_TYPE_HELLO_TMR,
 		.ev_id = EV_ID_HELLO_TMR_IDLE,
 		.ev_handle = evHelloTmrIdle,
-		.ev_finalize = evm_finalize_timer, /*internal freeing*/
+		.ev_finalize = evm_timer_finalize, /*internal freeing*/
 	}, { /*EOT - (End Of Table)*/
 		.ev_handle = NULL,
 	},
@@ -280,8 +280,8 @@ static int helloTmrs_link(int ev_id, int evm_idx)
 static struct timer_struct * hello_startIdle_timer(struct timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr)
 {
 	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
-	stop_timer(tmr);
-	return start_timer(evm_tbl, helloIdleTmr_evm_ids, tv_sec, tv_nsec, ctx_ptr);
+	evm_timer_stop(tmr);
+	return evm_timer_start(evm_tbl, helloIdleTmr_evm_ids, tv_sec, tv_nsec, ctx_ptr);
 }
 
 /* HELLO event handlers */

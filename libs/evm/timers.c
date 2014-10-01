@@ -3,12 +3,12 @@
  */
 
 /*
- * The timers module
+ * The EVM timers module
  */
-#ifndef timers_c
-#define timers_c
+#ifndef evm_timers_c
+#define evm_timers_c
 #else
-#error Preprocesor macro timers_c conflict!
+#error Preprocesor macro evm_timers_c conflict!
 #endif
 
 #include "timers.h"
@@ -32,7 +32,7 @@ static void timers_sighandler(int signum, siginfo_t *siginfo, void *context)
 
 static struct timers_struct evm_timers;
 static struct timers_struct *evm_timers_ptr = &evm_timers;
-int timers_init(void)
+int evm_timers_init(void)
 {
 	struct sigaction sact;
 	struct sigevent sev;
@@ -73,7 +73,7 @@ int timers_init(void)
 	return 0;
 }
 
-struct timer_struct * timers_check(void)
+struct timer_struct * evm_timers_check(void)
 {
 	int semVal;
 	struct timer_struct *tmr_return = NULL;
@@ -161,7 +161,7 @@ struct timer_struct * timers_check(void)
 	return tmr_return;
 }
 
-struct timer_struct * start_timer(struct evm_tab_struct *evm_tab, struct evm_ids tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr)
+struct timer_struct * evm_timer_start(struct evm_tab_struct *evm_tab, struct evm_ids tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr)
 {
 	struct itimerspec its;
 	struct timer_struct *new, *prev, *tmr;
@@ -246,7 +246,7 @@ struct timer_struct * start_timer(struct evm_tab_struct *evm_tab, struct evm_ids
 	return new;
 }
 
-int stop_timer(struct timer_struct *timer)
+int evm_timer_stop(struct timer_struct *timer)
 {
 	if (timer == NULL)
 		return -1;
@@ -256,7 +256,7 @@ int stop_timer(struct timer_struct *timer)
 	return 0;
 }
 
-int evm_finalize_timer(void *ptr)
+int evm_timer_finalize(void *ptr)
 {
 	struct timer_struct *timer = (struct timer_struct *)ptr;
 

@@ -106,7 +106,7 @@ struct message_struct {
 	struct iovec iov_buff;
 };
 
-EXTERN int message_concatenate(const void *buffer, size_t size, void *msgBuf);
+EXTERN int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf);
 
 #ifdef timers_c
 /* PRIVATE usage of the PUBLIC part. */
@@ -131,9 +131,9 @@ struct timers_struct {
 	struct timer_struct *first_tmr;
 };
 
-EXTERN struct timer_struct * start_timer(struct evm_tab_struct *evm_tab, struct evm_ids tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr);
-EXTERN int stop_timer(struct timer_struct *timer);
-EXTERN int evm_finalize_timer(void *ptr);
+EXTERN struct timer_struct * evm_timer_start(struct evm_tab_struct *evm_tab, struct evm_ids tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr);
+EXTERN int evm_timer_stop(struct timer_struct *timer);
+EXTERN int evm_timer_finalize(void *ptr);
 
 
 #endif /*libevm_h*/

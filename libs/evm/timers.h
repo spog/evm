@@ -3,13 +3,13 @@
  */
 
 /*
- * The timers module
+ * The EVM timers module
  */
 
-#ifndef timers_h
-#define timers_h
+#ifndef evm_timers_h
+#define evm_timers_h
 
-#ifdef timers_c
+#ifdef evm_timers_c
 /* PRIVATE usage of the PUBLIC part. */
 #	undef EXTERN
 #	define EXTERN
@@ -31,10 +31,10 @@
 
 #include "evm/libevm.h"
 
-EXTERN int timers_init(void);
-EXTERN struct timer_struct * timers_check(void);
+EXTERN int evm_timers_init(void);
+EXTERN struct timer_struct * evm_timers_check(void);
 
-#ifdef timers_c
+#ifdef evm_timers_c
 /*
  * Here is the PRIVATE stuff (within above ifdef).
  * It is here so we make sure, that the following PRIVATE stuff get included into own source ONLY!
@@ -46,9 +46,9 @@ EVMLOG_MODULE_INIT(EVM_TMRS, 1)
 #define CLOCKID CLOCK_REALTIME
 #define SIG SIGRTMIN
 
-#endif /*timers_c*/
+#endif /*evm_timers_c*/
 /*
  * Here continues the PUBLIC stuff, if necessary.
  */
 
-#endif /*timers_h*/
+#endif /*evm_timers_h*/

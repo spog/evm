@@ -3,17 +3,17 @@
  */
 
 /*
- * The messages module
+ * The EVM messages module
  */
-#ifndef messages_c
-#define messages_c
+#ifndef evm_messages_c
+#define evm_messages_c
 #else
-#error Preprocesor macro messages_c conflict!
+#error Preprocesor macro evm_messages_c conflict!
 #endif
 
 #include "messages.h"
 
-static msgs_epoll_max_events = 1;
+static msgs_epoll_max_events = 1; /*default*/
 static struct epoll_event *msgs_epoll_events;
 
 static sem_t semaphore;
@@ -36,7 +36,7 @@ static struct message_queue_struct evm_msg_queue = {
 	.last_msg = NULL,
 };
 
-int messages_init(struct evm_init_struct *evm_init_ptr)
+int evm_messages_init(struct evm_init_struct *evm_init_ptr)
 {
 	int status = -1;
 	struct sigaction act;
@@ -206,7 +206,7 @@ static int messages_parse(struct evm_fd_struct *evs_fd_ptr, struct evm_link_stru
 	return 0;
 }
 
-void message_enqueue(struct message_struct *msg)
+void evm_message_enqueue(struct message_struct *msg)
 {
 	if (evm_msg_queue.last_msg == NULL)
 		evm_msg_queue.first_msg = msg;
@@ -217,7 +217,7 @@ void message_enqueue(struct message_struct *msg)
 	msg->next_msg = NULL;
 }
 
-struct message_struct * message_dequeue(void)
+static struct message_struct * message_dequeue(void)
 {
 	struct message_struct *msg;
 
@@ -235,7 +235,7 @@ struct message_struct * message_dequeue(void)
 	return msg;
 }
 
-struct message_struct * messages_check(struct evm_init_struct *evm_init_ptr)
+struct message_struct * evm_messages_check(struct evm_init_struct *evm_init_ptr)
 {
 	int status = 0;
 	struct evm_fd_struct *evs_fd_ptr;
@@ -275,7 +275,7 @@ struct message_struct * messages_check(struct evm_init_struct *evm_init_ptr)
 }
 
 #if 1 /*orig*/
-int message_concatenate(const void *buffer, size_t size, void *msgBuf)
+int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf)
 {
 	if ((buffer == NULL) || (msgBuf == NULL))
 		return -1;

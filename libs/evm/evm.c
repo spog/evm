@@ -75,7 +75,7 @@ int evm_init(struct evm_init_struct *evm_init_ptr)
 	struct evm_link_struct *evm_linkage;
 
 	/* Initialize timers infrastructure... */
-	if ((status = timers_init()) < 0) {
+	if ((status = evm_timers_init()) < 0) {
 		return status;
 	}
 
@@ -90,8 +90,8 @@ int evm_init(struct evm_init_struct *evm_init_ptr)
 		return status;
 	}
 
-	/* Initialize messages infrastructure... */
-	if ((status = messages_init(evm_init_ptr)) < 0) {
+	/* Initialize EVM messages infrastructure... */
+	if ((status = evm_messages_init(evm_init_ptr)) < 0) {
 		return status;
 	}
 
@@ -120,14 +120,14 @@ int evm_run(struct evm_init_struct *evm_init_ptr)
 	/* Main protocol loop! */
 	for (;;) {
 		/* Handle expired timer (NON-BLOCKING). */
-		if ((expdTmr = timers_check()) != NULL) {
+		if ((expdTmr = evm_timers_check()) != NULL) {
 			if ((status = evm_handle_timer(expdTmr)) < 0)
 				evm_log_debug("evm_handle_timer() returned %d\n", status);
 			continue;
 		}
 
 		/* Handle handle received message (WAIT - THE ONLY BLOCKING POINT). */
-		if ((recvdMsg = messages_check(evm_init_ptr)) != NULL) {
+		if ((recvdMsg = evm_messages_check(evm_init_ptr)) != NULL) {
 			recvdMsg->evm_tab = evm_init_ptr->evm_tab;
 			if ((status = evm_handle_message(recvdMsg)) < 0)
 				evm_log_debug("evm_handle_message() returned %d\n", status);
@@ -208,7 +208,7 @@ static int evm_handle_message(struct message_struct *recvdMsg)
 
 void evm_message_pass(struct message_struct *msg)
 {
-	message_enqueue(msg);
+	evm_message_enqueue(msg);
 }
 
 int evm_message_fd_add(struct evm_init_struct *evm_init_ptr, struct evm_fd_struct *evm_fd_ptr)
