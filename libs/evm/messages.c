@@ -36,12 +36,12 @@ static struct message_queue_struct evm_msg_queue = {
 	.last_msg = NULL,
 };
 
-int evm_messages_init(struct evm_init_struct *evm_init_ptr)
+int evm_messages_init(evm_init_struct *evm_init_ptr)
 {
 	int status = -1;
 	struct sigaction act;
-	struct evm_link_struct *evm_linkage;
-	struct evm_sigpost_struct *evm_sigpost;
+	evm_link_struct *evm_linkage;
+	evm_sigpost_struct *evm_sigpost;
 
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
@@ -94,10 +94,10 @@ int evm_messages_init(struct evm_init_struct *evm_init_ptr)
 	return 0;
 }
 
-static struct evm_fd_struct * messages_epoll(int evm_epollfd, struct evm_sigpost_struct *evm_sigpost)
+static evm_fd_struct * messages_epoll(int evm_epollfd, evm_sigpost_struct *evm_sigpost)
 {
 	int semVal;
-	struct evm_fd_struct *evs_fd_ptr;
+	evm_fd_struct *evs_fd_ptr;
 	static int nfds = -1;
 
 	evm_log_info("(entry)\n");
@@ -140,7 +140,7 @@ static struct evm_fd_struct * messages_epoll(int evm_epollfd, struct evm_sigpost
 
 	/* Pick the last events element with returned event. */
 	nfds--;
-	evs_fd_ptr = (struct evm_fd_struct *)msgs_epoll_events[nfds].data.ptr;
+	evs_fd_ptr = (evm_fd_struct *)msgs_epoll_events[nfds].data.ptr;
 	evm_log_debug("evs_fd_ptr: %p\n", evs_fd_ptr);
 	if (
 		(msgs_epoll_events[nfds].events != 0) &&
@@ -149,10 +149,10 @@ static struct evm_fd_struct * messages_epoll(int evm_epollfd, struct evm_sigpost
 	) {
 		if (evs_fd_ptr->msg_ptr == NULL) {
 			evm_log_debug("Polled FD without allocated message buffers - Allocate now!\n");
-			evs_fd_ptr->msg_ptr = (struct message_struct *)calloc(1, sizeof(struct message_struct));
+			evs_fd_ptr->msg_ptr = (evm_message_struct *)calloc(1, sizeof(evm_message_struct));
 			if (evs_fd_ptr->msg_ptr == NULL) {
 				errno = ENOMEM;
-				evm_log_system_error("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
+				evm_log_system_error("calloc(): 1 times %zd bytes\n", sizeof(evm_message_struct));
 				return NULL;
 			}
 		}
@@ -165,7 +165,7 @@ static struct evm_fd_struct * messages_epoll(int evm_epollfd, struct evm_sigpost
 	return evs_fd_ptr;
 }
 
-static int messages_receive(struct evm_fd_struct *evs_fd_ptr, struct evm_link_struct *evm_linkage)
+static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage)
 {
 	int status = -1;
 
@@ -192,7 +192,7 @@ static int messages_receive(struct evm_fd_struct *evs_fd_ptr, struct evm_link_st
 	return status;
 }
 
-static int messages_parse(struct evm_fd_struct *evs_fd_ptr, struct evm_link_struct *evm_linkage)
+static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage)
 {
 	unsigned int ev_type = evs_fd_ptr->ev_type;
 
@@ -206,7 +206,7 @@ static int messages_parse(struct evm_fd_struct *evs_fd_ptr, struct evm_link_stru
 	return 0;
 }
 
-void evm_message_enqueue(struct message_struct *msg)
+void evm_message_enqueue(evm_message_struct *msg)
 {
 	if (evm_msg_queue.last_msg == NULL)
 		evm_msg_queue.first_msg = msg;
@@ -217,9 +217,9 @@ void evm_message_enqueue(struct message_struct *msg)
 	msg->next_msg = NULL;
 }
 
-static struct message_struct * message_dequeue(void)
+static evm_message_struct * message_dequeue(void)
 {
-	struct message_struct *msg;
+	evm_message_struct *msg;
 
 	msg = evm_msg_queue.first_msg;
 	if (msg == NULL)
@@ -235,10 +235,10 @@ static struct message_struct * message_dequeue(void)
 	return msg;
 }
 
-struct message_struct * evm_messages_check(struct evm_init_struct *evm_init_ptr)
+evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 {
 	int status = 0;
-	struct evm_fd_struct *evs_fd_ptr;
+	evm_fd_struct *evs_fd_ptr;
 
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");

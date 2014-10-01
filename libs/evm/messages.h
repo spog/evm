@@ -29,10 +29,10 @@
 
 #include "evm/libevm.h"
 
-EXTERN int evm_messages_init(struct evm_init_struct *evm_init_ptr);
-EXTERN struct message_struct * evm_messages_check(struct evm_init_struct *evm_init_ptr);
+EXTERN int evm_messages_init(evm_init_struct *evm_init_ptr);
+EXTERN evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr);
 
-EXTERN void evm_message_enqueue(struct message_struct *msg);
+EXTERN void evm_message_enqueue(evm_message_struct *msg);
 
 #ifdef evm_messages_c
 /*
@@ -43,14 +43,14 @@ EXTERN void evm_message_enqueue(struct message_struct *msg);
 EVMLOG_MODULE_INIT(EVM_MSGS, 1)
 
 struct message_queue_struct {
-	struct message_struct *first_msg;
-	struct message_struct *last_msg;
+	evm_message_struct *first_msg;
+	evm_message_struct *last_msg;
 };
 
-static struct evm_fd_struct * messages_epoll(int evm_epollfd, struct evm_sigpost_struct *evm_sigpost);
-static int messages_receive(struct evm_fd_struct *evs_fd_ptr, struct evm_link_struct *evm_linkage);
-static int messages_parse(struct evm_fd_struct *evs_fd_ptr, struct evm_link_struct *evm_linkage);
-static struct message_struct * message_dequeue(void);
+static evm_fd_struct * messages_epoll(int evm_epollfd, evm_sigpost_struct *evm_sigpost);
+static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage);
+static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage);
+static evm_message_struct * message_dequeue(void);
 
 #endif /*evm_messages_c*/
 /*

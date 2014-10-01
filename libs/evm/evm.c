@@ -16,12 +16,12 @@
 /*
  * Event machine linkage initialization
  */
-int evm_link_init(struct evm_init_struct *evm_init_ptr)
+int evm_link_init(evm_init_struct *evm_init_ptr)
 {
 	int i = 0, status = -1;
 	int ev_type_max = 0;
-	struct evm_link_struct *evm_linkage;
-	struct evm_tab_struct *evm_table;
+	evm_link_struct *evm_linkage;
+	evm_tab_struct *evm_table;
 
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
@@ -69,10 +69,10 @@ int evm_link_init(struct evm_init_struct *evm_init_ptr)
 /*
  * Main event machine initialization
  */
-int evm_init(struct evm_init_struct *evm_init_ptr)
+int evm_init(evm_init_struct *evm_init_ptr)
 {
 	int status = -1;
-	struct evm_link_struct *evm_linkage;
+	evm_link_struct *evm_linkage;
 
 	/* Initialize timers infrastructure... */
 	if ((status = evm_timers_init()) < 0) {
@@ -101,11 +101,11 @@ int evm_init(struct evm_init_struct *evm_init_ptr)
 /*
  * Main event machine loop
  */
-int evm_run(struct evm_init_struct *evm_init_ptr)
+int evm_run(evm_init_struct *evm_init_ptr)
 {
 	int status = 0;
-	struct timer_struct *expdTmr;
-	struct message_struct *recvdMsg;
+	evm_timer_struct *expdTmr;
+	evm_message_struct *recvdMsg;
 
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
@@ -137,7 +137,7 @@ int evm_run(struct evm_init_struct *evm_init_ptr)
 	return 0;
 }
 
-static int evm_prepare_event(struct evm_tab_struct *evm_tab, int idx, void *ev_ptr)
+static int evm_prepare_event(evm_tab_struct *evm_tab, int idx, void *ev_ptr)
 {
 	if (evm_tab != NULL) {
 		if (evm_tab[idx].ev_prepare != NULL)
@@ -148,7 +148,7 @@ static int evm_prepare_event(struct evm_tab_struct *evm_tab, int idx, void *ev_p
 	return -1;
 }
 
-static int evm_handle_event(struct evm_tab_struct *evm_tab, int idx, void *ev_ptr)
+static int evm_handle_event(evm_tab_struct *evm_tab, int idx, void *ev_ptr)
 {
 	if (evm_tab != NULL)
 		if (evm_tab[idx].ev_handle != NULL)
@@ -156,7 +156,7 @@ static int evm_handle_event(struct evm_tab_struct *evm_tab, int idx, void *ev_pt
 	return -1;
 }
 
-static int evm_finalize_event(struct evm_tab_struct *evm_tab, int idx, void *ev_ptr)
+static int evm_finalize_event(evm_tab_struct *evm_tab, int idx, void *ev_ptr)
 {
 	if (evm_tab != NULL)
 		if (evm_tab[idx].ev_finalize != NULL)
@@ -164,7 +164,7 @@ static int evm_finalize_event(struct evm_tab_struct *evm_tab, int idx, void *ev_
 	return -1;
 }
 
-static int evm_handle_timer(struct timer_struct *expdTmr)
+static int evm_handle_timer(evm_timer_struct *expdTmr)
 {
 	int status1 = 0;
 	int status2 = 0;
@@ -185,7 +185,7 @@ static int evm_handle_timer(struct timer_struct *expdTmr)
 	return (status1 | status2);
 }
 
-static int evm_handle_message(struct message_struct *recvdMsg)
+static int evm_handle_message(evm_message_struct *recvdMsg)
 {
 	int status0 = 0;
 	int status1 = 0;
@@ -206,12 +206,12 @@ static int evm_handle_message(struct message_struct *recvdMsg)
 	return (status0 | status1 | status2);
 }
 
-void evm_message_pass(struct message_struct *msg)
+void evm_message_pass(evm_message_struct *msg)
 {
 	evm_message_enqueue(msg);
 }
 
-int evm_message_fd_add(struct evm_init_struct *evm_init_ptr, struct evm_fd_struct *evm_fd_ptr)
+int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr)
 {
 	if (evm_init_ptr == NULL)
 		return -1;
@@ -219,10 +219,10 @@ int evm_message_fd_add(struct evm_init_struct *evm_init_ptr, struct evm_fd_struc
 	if (evm_fd_ptr == NULL)
 		return -1;
 
-	evm_fd_ptr->msg_ptr = (struct message_struct *)calloc(1, sizeof(struct message_struct));
+	evm_fd_ptr->msg_ptr = (evm_message_struct *)calloc(1, sizeof(evm_message_struct));
 	if (evm_fd_ptr->msg_ptr == NULL) {
 		errno = ENOMEM;
-		evm_log_return_err("calloc(): 1 times %zd bytes\n", sizeof(struct message_struct));
+		evm_log_return_err("calloc(): 1 times %zd bytes\n", sizeof(evm_message_struct));
 	}
 	evm_log_debug("evm_fd_ptr: %p, &evm_fd_ptr->ev_epoll: %p\n", evm_fd_ptr, &evm_fd_ptr->ev_epoll);
 	evm_log_debug("evm_init_ptr->evm_epollfd: %d, evm_fd_ptr->fd: %d\n", evm_init_ptr->evm_epollfd, evm_fd_ptr->fd);

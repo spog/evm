@@ -52,7 +52,7 @@ enum hello_tmr_ev_ids {
 
 static int hello2_connect(void);
 static int hello2_send_hello(int sock);
-static int hello2_receive(int sock, struct message_struct *message);
+static int hello2_receive(int sock, evm_message_struct *message);
 static int hello2_parse_message(void *ptr);
 static int hello_messages_link(int ev_id, int evm_idx);
 static int helloTmrs_link(int ev_id, int evm_idx);

@@ -45,12 +45,12 @@ EVMLOG_MODULE_INIT(EVM_CORE, 1)
 #include "timers.h"
 #include "messages.h"
 
-static int evm_prepare_event(struct evm_tab_struct *evm_tab, int idx, void *ev_ptr);
-static int evm_handle_event(struct evm_tab_struct *evm_tab, int idx, void *ev_ptr);
-static int evm_finalize_event(struct evm_tab_struct *evm_tab, int idx, void *ev_ptr);
+static int evm_prepare_event(evm_tab_struct *evm_tab, int idx, void *ev_ptr);
+static int evm_handle_event(evm_tab_struct *evm_tab, int idx, void *ev_ptr);
+static int evm_finalize_event(evm_tab_struct *evm_tab, int idx, void *ev_ptr);
 
-static int evm_handle_timer(struct timer_struct *expdTmr);
-static int evm_handle_message(struct message_struct *recvdMsg);
+static int evm_handle_timer(evm_timer_struct *expdTmr);
+static int evm_handle_message(evm_message_struct *recvdMsg);
 
 #endif /*evm_c*/
 /*

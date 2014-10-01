@@ -32,7 +32,7 @@
 #include "evm/libevm.h"
 
 EXTERN int evm_timers_init(void);
-EXTERN struct timer_struct * evm_timers_check(void);
+EXTERN evm_timer_struct * evm_timers_check(void);
 
 #ifdef evm_timers_c
 /*

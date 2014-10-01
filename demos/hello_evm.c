@@ -175,18 +175,18 @@ int main(int argc, char *argv[])
 /*
  * General EVM structure - required by evm_init() and evm_run():
  */
-static struct evm_init_struct evs_init;
+static evm_init_struct evs_init;
 
 /*
  * File descriptors structure - required by evm_fd_add():
  */
-static struct evm_fd_struct evs_fd;
+static evm_fd_struct evs_fd;
 
 /*
  * Signal post-processing callback - optional for evm_init():
  * Covers SIGHUP and SIGCHLD
  */
-static struct evm_sigpost_struct evs_sigpost = {
+static evm_sigpost_struct evs_sigpost = {
 	.sigpost_handle = signal_processing
 };
 
@@ -200,7 +200,7 @@ static int signal_processing(int sig, void *ptr)
  * Event types table - required by evm_init():
  * Per event type parser and linkage callbacks
  */
-static struct evm_link_struct evs_linkage[] = {
+static evm_link_struct evs_linkage[] = {
 	[EV_TYPE_HELLO_MSG].ev_type_parse = NULL,
 	[EV_TYPE_HELLO_MSG].ev_type_link = hello_messages_link,
 	[EV_TYPE_HELLO_TMR].ev_type_link = helloTmrs_link,
@@ -210,7 +210,7 @@ static struct evm_link_struct evs_linkage[] = {
  * Events table - required by evm_init():
  * Messages and timers - their individual IDs and callbacks
  */
-static struct evm_tab_struct evm_tbl[] = {
+static evm_tab_struct evm_tbl[] = {
 	{ /*HELLO messages*/
 		.ev_type = EV_TYPE_HELLO_MSG,
 		.ev_id = EV_ID_HELLO_MSG_HELLO,
@@ -230,7 +230,7 @@ static struct evm_tab_struct evm_tbl[] = {
 /* HELLO messages */
 static char msg_buff[MAX_BUFF_SIZE];
 static char *hello_str = "HELLO";
-static struct message_struct helloMsg = {
+static evm_message_struct helloMsg = {
 	.msg_ids.ev_id = EV_ID_HELLO_MSG_HELLO,
 	.iov_buff.iov_base = (void *)msg_buff,
 };
@@ -249,8 +249,8 @@ static int hello_messages_link(int ev_id, int evm_idx)
 }
 
 /* HELLO timers */
-static struct timer_struct *helloIdleTmr;
-static struct evm_ids helloIdleTmr_evm_ids = {
+static evm_timer_struct *helloIdleTmr;
+static evm_ids_struct helloIdleTmr_evm_ids = {
 	.ev_id = EV_ID_HELLO_TMR_IDLE
 };
 
@@ -267,7 +267,7 @@ static int helloTmrs_link(int ev_id, int evm_idx)
 	return 0;
 }
 
-static struct timer_struct * hello_startIdle_timer(struct timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr)
+static evm_timer_struct * hello_startIdle_timer(evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr)
 {
 	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
 	evm_timer_stop(tmr);
@@ -277,7 +277,7 @@ static struct timer_struct * hello_startIdle_timer(struct timer_struct *tmr, tim
 /* HELLO event handlers */
 static int evHelloMsg(void *ev_ptr)
 {
-	struct message_struct *msg = (struct message_struct *)ev_ptr;
+	evm_message_struct *msg = (evm_message_struct *)ev_ptr;
 #if 1
 	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
 	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)msg->iov_buff.iov_base);
@@ -316,7 +316,7 @@ static int hello_evm_init(void)
 	/* Initialize event machine... */
 	evs_init.evm_sigpost = &evs_sigpost;;
 	evs_init.evm_link = evs_linkage;
-	evs_init.evm_link_max = sizeof(evs_linkage) / sizeof(struct evm_link_struct) - 1;
+	evs_init.evm_link_max = sizeof(evs_linkage) / sizeof(evm_link_struct) - 1;
 	evs_init.evm_tab = evm_tbl;
 	evs_init.evm_epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
 	evm_log_debug("evs_linkage index size = %d\n", evs_init.evm_link_max);

@@ -19,6 +19,16 @@
 #include <sys/epoll.h>
 #include <time.h>
 
+typedef struct evm_init evm_init_struct;
+typedef struct evm_sigpost evm_sigpost_struct;
+typedef struct evm_link evm_link_struct;
+typedef struct evm_tab evm_tab_struct;
+typedef struct evm_fd evm_fd_struct;
+typedef struct evm_ids evm_ids_struct;
+typedef struct evm_message evm_message_struct;
+typedef struct evm_timer evm_timer_struct;
+typedef struct evm_timers evm_timers_struct;
+
 #ifdef evm_c
 /* PRIVATE usage of the PUBLIC part. */
 #	undef EXTERN
@@ -29,28 +39,28 @@
 #	define EXTERN extern
 #endif
 /*User provided initialization structure!*/
-struct evm_init_struct {
-	struct evm_sigpost_struct *evm_sigpost;
-	struct evm_link_struct *evm_link;
+struct evm_init {
+	struct evm_sigpost *evm_sigpost;
+	evm_link_struct *evm_link;
 	int evm_link_max;
-	struct evm_tab_struct *evm_tab;
+	evm_tab_struct *evm_tab;
 	int evm_epoll_max_events;
 	int evm_epollfd;
 };
 
 /*User provided signal post-handling EVM callbacks!*/
-struct evm_sigpost_struct {
+struct evm_sigpost {
 	int (*sigpost_handle)(int signum, void *ev_ptr);
 };
 
 /*Elements of the user provided event type linkage callbacks!*/
-struct evm_link_struct {
+struct evm_link {
 	int (*ev_type_parse)(void *ev_ptr);
 	int (*ev_type_link)(int ev_id, int ev_idx);
 };
 
 /*Elements of the user provided event machine table!*/
-struct evm_tab_struct {
+struct evm_tab {
 	unsigned int ev_type;
 	int ev_id;
 	int (*ev_prepare)(void *ev_ptr);
@@ -58,12 +68,12 @@ struct evm_tab_struct {
 	int (*ev_finalize)(void *ev_ptr);
 };
 
-struct evm_fd_struct {
+struct evm_fd {
 	int fd;
 	unsigned int ev_type;
 	struct epoll_event ev_epoll;
-	struct message_struct *msg_ptr;
-	int (*msg_receive)(int fd, struct message_struct *msg_ptr);
+	evm_message_struct *msg_ptr;
+	int (*msg_receive)(int fd, evm_message_struct *msg_ptr);
 #if 0
 	int (*msg_send)(int sock, struct sockaddr_in *sockAddr, const char *buffer);
 #endif
@@ -74,14 +84,14 @@ struct evm_ids {
 	unsigned int evm_idx;
 };
 
-EXTERN int evm_link_init(struct evm_init_struct *evm_init_ptr);
-EXTERN int evm_init(struct evm_init_struct *evm_init_ptr);
-EXTERN int evm_run(struct evm_init_struct *evm_init_ptr);
+EXTERN int evm_link_init(evm_init_struct *evm_init_ptr);
+EXTERN int evm_init(evm_init_struct *evm_init_ptr);
+EXTERN int evm_run(evm_init_struct *evm_init_ptr);
 
-EXTERN int evm_message_fd_add(struct evm_init_struct *evm_init_ptr, struct evm_fd_struct *evm_fd_ptr);
-EXTERN void evm_message_pass(struct message_struct *msg);
+EXTERN int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr);
+EXTERN void evm_message_pass(evm_message_struct *msg);
 
-#ifdef messages_c
+#ifdef evm_messages_c
 /* PRIVATE usage of the PUBLIC part. */
 #	undef EXTERN
 #	define EXTERN
@@ -91,13 +101,13 @@ EXTERN void evm_message_pass(struct message_struct *msg);
 #	define EXTERN extern
 #endif
 
-struct message_struct {
-	struct evm_tab_struct *evm_tab;
+struct evm_message {
+	evm_tab_struct *evm_tab;
 	int saved;
 	int fds_index;
 	void *ctx_ptr;
-	struct evm_ids msg_ids;
-	struct message_struct *next_msg;
+	evm_ids_struct msg_ids;
+	evm_message_struct *next_msg;
 	int rval_decode;
 	void *msg_decode;
 #if 0
@@ -108,7 +118,7 @@ struct message_struct {
 
 EXTERN int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf);
 
-#ifdef timers_c
+#ifdef evm_timers_c
 /* PRIVATE usage of the PUBLIC part. */
 #	undef EXTERN
 #	define EXTERN
@@ -117,23 +127,22 @@ EXTERN int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf
 #	undef EXTERN
 #	define EXTERN extern
 #endif
-struct timer_struct {
-	struct evm_tab_struct *evm_tab;
+struct evm_timer {
+	evm_tab_struct *evm_tab;
 	int saved;
 	int stopped;
 	void *ctx_ptr;
-	struct evm_ids tmr_ids;
+	evm_ids_struct tmr_ids;
 	struct timespec tm_stamp;
-	struct timer_struct *next_tmr;
+	evm_timer_struct *next_tmr;
 };
 
-struct timers_struct {
-	struct timer_struct *first_tmr;
+struct evm_timers {
+	evm_timer_struct *first_tmr;
 };
 
-EXTERN struct timer_struct * evm_timer_start(struct evm_tab_struct *evm_tab, struct evm_ids tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr);
-EXTERN int evm_timer_stop(struct timer_struct *timer);
+EXTERN evm_timer_struct * evm_timer_start(evm_tab_struct *evm_tab, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr);
+EXTERN int evm_timer_stop(evm_timer_struct *timer);
 EXTERN int evm_timer_finalize(void *ptr);
-
 
 #endif /*libevm_h*/

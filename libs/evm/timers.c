@@ -30,8 +30,8 @@ static void timers_sighandler(int signum, siginfo_t *siginfo, void *context)
 	}
 }
 
-static struct timers_struct evm_timers;
-static struct timers_struct *evm_timers_ptr = &evm_timers;
+static evm_timers_struct evm_timers;
+static evm_timers_struct *evm_timers_ptr = &evm_timers;
 int evm_timers_init(void)
 {
 	struct sigaction sact;
@@ -73,11 +73,11 @@ int evm_timers_init(void)
 	return 0;
 }
 
-struct timer_struct * evm_timers_check(void)
+evm_timer_struct * evm_timers_check(void)
 {
 	int semVal;
-	struct timer_struct *tmr_return = NULL;
-	struct timer_struct *tmr;
+	evm_timer_struct *tmr_return = NULL;
+	evm_timer_struct *tmr;
 	struct timespec time_stamp;
 	struct itimerspec its;
 
@@ -161,14 +161,14 @@ struct timer_struct * evm_timers_check(void)
 	return tmr_return;
 }
 
-struct timer_struct * evm_timer_start(struct evm_tab_struct *evm_tab, struct evm_ids tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr)
+evm_timer_struct * evm_timer_start(evm_tab_struct *evm_tab, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr)
 {
 	struct itimerspec its;
-	struct timer_struct *new, *prev, *tmr;
+	evm_timer_struct *new, *prev, *tmr;
 
 	tmr = evm_timers_ptr->first_tmr;
 
-	new = (struct timer_struct *)calloc(1, sizeof(struct timer_struct));
+	new = (evm_timer_struct *)calloc(1, sizeof(evm_timer_struct));
 	if (new == NULL) {
 		errno = ENOMEM;
 		return NULL;
@@ -246,7 +246,7 @@ struct timer_struct * evm_timer_start(struct evm_tab_struct *evm_tab, struct evm
 	return new;
 }
 
-int evm_timer_stop(struct timer_struct *timer)
+int evm_timer_stop(evm_timer_struct *timer)
 {
 	if (timer == NULL)
 		return -1;
@@ -258,7 +258,7 @@ int evm_timer_stop(struct timer_struct *timer)
 
 int evm_timer_finalize(void *ptr)
 {
-	struct timer_struct *timer = (struct timer_struct *)ptr;
+	evm_timer_struct *timer = (evm_timer_struct *)ptr;
 
 	evm_log_info("(cb entry) ptr=%p\n", ptr);
 	if (timer == NULL)
