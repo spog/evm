@@ -19,6 +19,7 @@
 #include <sys/epoll.h>
 #include <time.h>
 
+/* Struct aliases */
 typedef struct evm_init evm_init_struct;
 typedef struct evm_sigpost evm_sigpost_struct;
 typedef struct evm_link evm_link_struct;
@@ -44,8 +45,10 @@ struct evm_init {
 	evm_link_struct *evm_link;
 	int evm_link_max;
 	evm_tab_struct *evm_tab;
-	int evm_epoll_max_events;
-	int evm_epollfd;
+	struct epoll_event *epoll_events;
+	int epoll_max_events;
+	int epoll_nfds;
+	int epollfd;
 };
 
 /*User provided signal post-handling EVM callbacks!*/
@@ -104,10 +107,9 @@ EXTERN void evm_message_pass(evm_message_struct *msg);
 struct evm_message {
 	evm_tab_struct *evm_tab;
 	int saved;
-	int fds_index;
 	void *ctx_ptr;
 	evm_ids_struct msg_ids;
-	evm_message_struct *next_msg;
+	evm_message_struct *next_msg; /*when linked in a chain - i.e.: in a message queue*/
 	int rval_decode;
 	void *msg_decode;
 #if 0

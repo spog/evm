@@ -318,13 +318,13 @@ static int hello_evm_init(void)
 	evs_init.evm_link = evs_linkage;
 	evs_init.evm_link_max = sizeof(evs_linkage) / sizeof(evm_link_struct) - 1;
 	evs_init.evm_tab = evm_tbl;
-	evs_init.evm_epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
+	evs_init.epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
 	evm_log_debug("evs_linkage index size = %d\n", evs_init.evm_link_max);
 	if ((status = evm_init(&evs_init)) < 0) {
 		evm_log_error("evm_init() failed!\n");
 		return status;
 	}
-	evm_log_debug("evm epoll FD is %d\n", evs_init.evm_epollfd);
+	evm_log_debug("evm epoll FD is %d\n", evs_init.epollfd);
 
 	/* Prepare dummy FD (used STDIN in this case) for EVM to operate over internal message queue only. */
 	evs_fd.fd = 0; /*STDIN*/

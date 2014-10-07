@@ -225,8 +225,8 @@ int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr)
 		evm_log_return_err("calloc(): 1 times %zd bytes\n", sizeof(evm_message_struct));
 	}
 	evm_log_debug("evm_fd_ptr: %p, &evm_fd_ptr->ev_epoll: %p\n", evm_fd_ptr, &evm_fd_ptr->ev_epoll);
-	evm_log_debug("evm_init_ptr->evm_epollfd: %d, evm_fd_ptr->fd: %d\n", evm_init_ptr->evm_epollfd, evm_fd_ptr->fd);
-	if (epoll_ctl(evm_init_ptr->evm_epollfd, EPOLL_CTL_ADD, evm_fd_ptr->fd, &evm_fd_ptr->ev_epoll) < 0) {
+	evm_log_debug("evm_init_ptr->epollfd: %d, evm_fd_ptr->fd: %d\n", evm_init_ptr->epollfd, evm_fd_ptr->fd);
+	if (epoll_ctl(evm_init_ptr->epollfd, EPOLL_CTL_ADD, evm_fd_ptr->fd, &evm_fd_ptr->ev_epoll) < 0) {
 		evm_log_return_system_err("epoll_ctl()\n");
 	}
 }
