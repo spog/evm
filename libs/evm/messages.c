@@ -13,30 +13,42 @@
 
 #include "messages.h"
 
-static sem_t semaphore;
-static unsigned int evm_signum = 0;
-static sigset_t evm_sigmask;
-
-static void sighandler(int signum, siginfo_t *siginfo, void *context)
-{
-	sigfillset(&evm_sigmask);
-	if (sigprocmask(SIG_BLOCK, &evm_sigmask, NULL) < 0) {
-		evm_signum = 0;
-	} else {
-		evm_signum = signum;
-	}
-	sem_post(&semaphore);
-}
-
 static struct message_queue_struct evm_msg_queue = {
 	.first_msg = NULL,
 	.last_msg = NULL,
 };
 
+static sigset_t messages_sigmask;
+static int thr_keys_not_created = 1;
+pthread_key_t thr_signum_key;
+
+static void messages_sighandler(int signum, siginfo_t *siginfo, void *context)
+{
+	int *thr_signum = (int *)pthread_getspecific(thr_signum_key);
+
+	*thr_signum = signum;
+}
+
+static int messages_sighandler_install(int signum)
+{
+	struct sigaction act;
+
+	memset (&act, '\0', sizeof(act));
+	/* Use the sa_sigaction field because the handles has two additional parameters */
+	act.sa_sigaction = &messages_sighandler;
+	/* The SA_SIGINFO flag tells sigaction() to use the sa_sigaction field, not sa_handler. */
+	act.sa_flags = SA_SIGINFO;
+ 
+	if (sigaction(signum, &act, NULL) < 0)
+		evm_log_return_system_err("sigaction() for signum %d\n", signum);
+
+	return 0;
+}
+
 int evm_messages_init(evm_init_struct *evm_init_ptr)
 {
 	int status = -1;
-	struct sigaction act;
+	sigset_t sigmask;
 	evm_link_struct *evm_linkage;
 	evm_sigpost_struct *evm_sigpost;
 
@@ -55,25 +67,37 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 	if (evm_sigpost == NULL)
 		evm_log_debug("Signal post-processing handler undefined!\n");
 
-	if (sem_init(&semaphore, 0, 0) == -1)
-		evm_log_return_system_err("sem_init()\n");
-
-	sigfillset(&evm_sigmask);
-	if (sigprocmask(SIG_UNBLOCK, &evm_sigmask, NULL) < 0) {
-		evm_log_return_system_err("sigprocmask() SIG_UNBLOCK\n");
+	
+	if (thr_keys_not_created) {
+		if ((errno = pthread_key_create(&thr_signum_key, NULL)) != 0) {
+			evm_log_return_system_err("pthread_key_create()\n");
+		}
+		thr_keys_not_created = 0;
+	}
+	if ((errno = pthread_setspecific(thr_signum_key, calloc(1, sizeof(int)))) != 0) {
+		evm_log_return_system_err("pthread_setspecific()\n");
 	}
 
-	memset (&act, '\0', sizeof(act));
-	/* Use the sa_sigaction field because the handles has two additional parameters */
-	act.sa_sigaction = &sighandler;
-	/* The SA_SIGINFO flag tells sigaction() to use the sa_sigaction field, not sa_handler. */
-	act.sa_flags = SA_SIGINFO;
- 
-	if (sigaction(SIGCHLD, &act, NULL) < 0)
-		evm_log_return_system_err("sigaction() SIGCHLD\n");
+	/* Prepare module-local empty signal mask, used in epoll_pwait() to allow catching all signals there!*/!
+	sigemptyset(&messages_sigmask);
 
-	if (sigaction(SIGHUP, &act, NULL) < 0)
-		evm_log_return_system_err("sigaction() SIGHUP\n");
+	/* Unblock all signals, except HUP and CHLD, which are allowed to get caught only in epoll_pwait()! */
+	sigemptyset(&sigmask);
+	sigaddset(&sigmask, SIGHUP);
+	sigaddset(&sigmask, SIGCHLD);
+	if (pthread_sigmask(SIG_SETMASK, &sigmask, NULL) < 0) {
+		evm_log_return_system_err("sigprocmask() SIG_SETMASK\n");
+	}
+
+	if (messages_sighandler_install(SIGHUP) < 0) {
+		evm_log_error("Failed to install SIGHUP signal handler!\n");
+		return status;
+	}
+
+	if (messages_sighandler_install(SIGCHLD) < 0) {
+		evm_log_error("Failed to install SIGCHLD signal handler!\n");
+		return status;
+	}
 
 	if ((evm_init_ptr->epollfd = epoll_create1(0)) < 0)
 		evm_log_return_system_err("epoll_create1()\n");
@@ -96,7 +120,7 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 
 static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr)
 {
-	int semVal;
+	int *thr_signum;
 	evm_fd_struct *evs_fd_ptr;
 
 	evm_log_info("(entry)\n");
@@ -104,30 +128,24 @@ static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr)
 //not sure, if necessary:		bzero((void *)evm_init_ptr->epoll_events, sizeof(struct epoll_event) * evm_init_ptr->epoll_max_events);
 		evm_log_debug("evm_init_ptr->epoll_max_events: %d, sizeof(struct epoll_event): %zu\n", evm_init_ptr->epoll_max_events, sizeof(struct epoll_event));
 		/* THE ACTUAL BLOCKING POINT! */
-		evm_init_ptr->epoll_nfds = epoll_wait(evm_init_ptr->epollfd, evm_init_ptr->epoll_events, evm_init_ptr->epoll_max_events, -1);
+		evm_init_ptr->epoll_nfds = epoll_pwait(evm_init_ptr->epollfd, evm_init_ptr->epoll_events, evm_init_ptr->epoll_max_events, -1, &messages_sigmask);
 		if (evm_init_ptr->epoll_nfds < 0) {
 			if (errno == EINTR) {
-				sem_getvalue(&semaphore, &semVal); /*after signal, check semaphore*/
-				if (semVal > 0) {
+				evm_log_debug("epoll_wait(): EINTR\n");
+				thr_signum = (int *)pthread_getspecific(thr_signum_key);
+				if (*thr_signum > 0) {
 					/* do something on SIGNALs here */
-					evm_log_debug("Signal num %d received\n", evm_signum);
+					evm_log_debug("Signal %d handled. Call signal post-handler, if provided!\n", *thr_signum);
 					if (evm_init_ptr->evm_sigpost != NULL) {
-						evm_init_ptr->evm_sigpost->sigpost_handle(evm_signum, NULL);
+						evm_init_ptr->evm_sigpost->sigpost_handle(*thr_signum, NULL);
 					}
-					evm_signum = 0;
-					sem_trywait(&semaphore); /*after signal, lock semaphore*/
-					sigfillset(&evm_sigmask);
-					if (sigprocmask(SIG_UNBLOCK, &evm_sigmask, NULL) < 0) {
-						evm_log_system_error("sigprocmask() SIG_UNBLOCK\n");
-						return NULL;
-					}
+					*thr_signum = 0;
 				}
 			} else {
 				evm_log_system_error("epoll()\n")
 				return NULL;
 			}
-			/* On EINTR do not report / return any error! */
-			evm_log_debug("epoll_wait(): EINTR\n");
+			/* On EINTR do not report error! */
 			return NULL;
 		}
 	}
