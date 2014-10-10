@@ -6,4 +6,6 @@
 
 - Define versions in CMake environment.
 
-- Add cross-compilation support and a bitbake recepie.
+- Add cross-compilation support and a bitbake recipe.
+
+- Add license
