@@ -271,7 +271,7 @@ static evm_timer_struct * hello_startIdle_timer(evm_timer_struct *tmr, time_t tv
 {
 	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
 	evm_timer_stop(tmr);
-	return evm_timer_start(evm_tbl, helloIdleTmr_evm_ids, tv_sec, tv_nsec, ctx_ptr);
+	return evm_timer_start(&evs_init, helloIdleTmr_evm_ids, tv_sec, tv_nsec, ctx_ptr);
 }
 
 /* HELLO event handlers */

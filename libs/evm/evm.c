@@ -75,7 +75,7 @@ int evm_init(evm_init_struct *evm_init_ptr)
 	evm_link_struct *evm_linkage;
 
 	/* Initialize timers infrastructure... */
-	if ((status = evm_timers_init()) < 0) {
+	if ((status = evm_timers_init(evm_init_ptr)) < 0) {
 		return status;
 	}
 
@@ -120,7 +120,7 @@ int evm_run(evm_init_struct *evm_init_ptr)
 	/* Main protocol loop! */
 	for (;;) {
 		/* Handle expired timer (NON-BLOCKING). */
-		if ((expdTmr = evm_timers_check()) != NULL) {
+		if ((expdTmr = evm_timers_check(evm_init_ptr)) != NULL) {
 			if ((status = evm_handle_timer(expdTmr)) < 0)
 				evm_log_debug("evm_handle_timer() returned %d\n", status);
 			continue;

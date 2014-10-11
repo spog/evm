@@ -31,8 +31,8 @@
 
 #include "evm/libevm.h"
 
-EXTERN int evm_timers_init(void);
-EXTERN evm_timer_struct * evm_timers_check(void);
+EXTERN int evm_timers_init(evm_init_struct *evm_init_ptr);
+EXTERN evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr);
 
 #ifdef evm_timers_c
 /*
@@ -45,6 +45,12 @@ EVMLOG_MODULE_INIT(EVM_TMRS, 1)
 
 #define CLOCKID CLOCK_REALTIME
 #define SIG SIGRTMIN
+
+typedef struct timer_queue timer_queue_struct;
+
+struct timer_queue {
+	evm_timer_struct *first_tmr;
+};
 
 #endif /*evm_timers_c*/
 /*

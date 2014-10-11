@@ -28,7 +28,6 @@ typedef struct evm_fd evm_fd_struct;
 typedef struct evm_ids evm_ids_struct;
 typedef struct evm_message evm_message_struct;
 typedef struct evm_timer evm_timer_struct;
-typedef struct evm_timers evm_timers_struct;
 
 #ifdef evm_c
 /* PRIVATE usage of the PUBLIC part. */
@@ -49,7 +48,8 @@ struct evm_init {
 	int epoll_max_events;
 	int epoll_nfds;
 	int epollfd;
-	void *msg_queue; /*hidden-internal structure*/
+	void *msg_queue; /*internal linked list*/
+	void *tmr_queue; /*internal linked list*/
 };
 
 /*User provided signal post-handling EVM callbacks!*/
@@ -140,11 +140,7 @@ struct evm_timer {
 	evm_timer_struct *next_tmr;
 };
 
-struct evm_timers {
-	evm_timer_struct *first_tmr;
-};
-
-EXTERN evm_timer_struct * evm_timer_start(evm_tab_struct *evm_tab, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr);
+EXTERN evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr);
 EXTERN int evm_timer_stop(evm_timer_struct *timer);
 EXTERN int evm_timer_finalize(void *ptr);
 

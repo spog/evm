@@ -16,7 +16,6 @@
 static sem_t semaphore;
 
 static timer_t timerid;
-static sigset_t mask;
 
 static void timers_sighandler(int signum, siginfo_t *siginfo, void *context)
 {
@@ -30,50 +29,69 @@ static void timers_sighandler(int signum, siginfo_t *siginfo, void *context)
 	}
 }
 
-static evm_timers_struct evm_timers;
-static evm_timers_struct *evm_timers_ptr = &evm_timers;
-int evm_timers_init(void)
+int evm_timers_init(evm_init_struct *evm_init_ptr)
 {
+	void *ptr;
+	int status = -1;
 	struct sigaction sact;
 	struct sigevent sev;
+	sigset_t sigmask;
 
-	evm_timers_ptr->first_tmr = NULL;
+	evm_log_info("(entry)\n");
+	if (evm_init_ptr == NULL) {
+		evm_log_error("Event machine init structure undefined!\n");
+		return status;
+	}
+
+	/* Setup internal message queue. */
+	if ((ptr = calloc(1, sizeof(timer_queue_struct))) == NULL) {
+		errno = ENOMEM;
+		evm_log_system_error("calloc(): internal timer queue\n");
+		return status;
+	}
+	evm_init_ptr->tmr_queue = (timer_queue_struct *)ptr;
+	((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr = NULL;
 
 	if (sem_init(&semaphore, 0, 0) == -1)
 		evm_log_return_system_err("sem_init()\n");
 
+	/* Block timer signal temporarily */
+	evm_log_debug("Blocking signal %d\n", SIG);
+	sigemptyset(&sigmask);
+	sigaddset(&sigmask, SIG);
+	if (pthread_sigmask(SIG_BLOCK, &sigmask, NULL) < 0) {
+		evm_log_return_system_err("pthread_sigmask() SIG_BLOCK\n");
+	}
+
 	/* Establish handler for timer signal */
-	evm_log_notice("Establishing handler for signal %d\n", SIG);
+	evm_log_debug("Establishing handler for signal %d\n", SIG);
 	sact.sa_flags = SA_SIGINFO;
 	sact.sa_sigaction = timers_sighandler;
 	sigemptyset(&sact.sa_mask);
 	if (sigaction(SIG, &sact, NULL) == -1)
 		evm_log_return_system_err("sigaction()\n");
 
-	/* Block timer signal temporarily */
-	evm_log_debug("Blocking signal %d\n", SIG);
-	sigemptyset(&mask);
-	sigaddset(&mask, SIG);
-	if (sigprocmask(SIG_SETMASK, &mask, NULL) == -1)
-		evm_log_return_system_err("sigprocmask()");
-
 	/* Create the timer */
-	sev.sigev_notify = SIGEV_SIGNAL;
+//	sev.sigev_notify = SIGEV_SIGNAL;
+	sev.sigev_notify = SIGEV_THREAD_ID;
+//	sev.sigev_notify_thread_id = syscall(SYS_gettid);
+	sev._sigev_un._tid = syscall(SYS_gettid);
 	sev.sigev_signo = SIG;
 	sev.sigev_value.sival_ptr = &timerid;
 	if (timer_create(CLOCKID, &sev, &timerid) == -1)
 		evm_log_return_system_err("timer_create() timerid=%lx\n", (unsigned long)timerid);
 
-	evm_log_info("timer ID is 0x%lx\n", (unsigned long) timerid);
+	evm_log_debug("Internal timers ID is 0x%lx\n", (unsigned long) timerid);
 
 	evm_log_debug("Unblocking signal %d\n", SIG);
-	if (sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1)
-		evm_log_return_system_err("sigprocmask()\n");
+	if (pthread_sigmask(SIG_UNBLOCK, &sigmask, NULL) < 0) {
+		evm_log_return_system_err("pthread_sigmask() SIG_UNBLOCK\n");
+	}
 
 	return 0;
 }
 
-evm_timer_struct * evm_timers_check(void)
+evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr)
 {
 	int semVal;
 	evm_timer_struct *tmr_return = NULL;
@@ -81,9 +99,9 @@ evm_timer_struct * evm_timers_check(void)
 	struct timespec time_stamp;
 	struct itimerspec its;
 
-	evm_log_info("(entry) first_tmr=%p\n", evm_timers_ptr->first_tmr);
+	evm_log_info("(entry) first_tmr=%p\n", ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr);
 
-	tmr = evm_timers_ptr->first_tmr;
+	tmr = ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr;
 	if (tmr == NULL)
 		return NULL; /*no timers set*/
 
@@ -116,11 +134,11 @@ evm_timer_struct * evm_timers_check(void)
 			(time_stamp.tv_nsec >= tmr->tm_stamp.tv_nsec)
 		)
 	) {
-		evm_timers_ptr->first_tmr = tmr->next_tmr;
+		((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr = tmr->next_tmr;
 //		evm_log_debug("timer expired: tmr=0x%x, stopped=%d\n", (unsigned int)tmr, tmr->stopped);
 
 		tmr_return = tmr;
-		tmr = evm_timers_ptr->first_tmr;
+		tmr = ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr;
 	}
 
 	if (tmr != NULL) {
@@ -161,12 +179,20 @@ evm_timer_struct * evm_timers_check(void)
 	return tmr_return;
 }
 
-evm_timer_struct * evm_timer_start(evm_tab_struct *evm_tab, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr)
+evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr)
 {
 	struct itimerspec its;
 	evm_timer_struct *new, *prev, *tmr;
+	evm_tab_struct *evm_tab;
 
-	tmr = evm_timers_ptr->first_tmr;
+	evm_log_info("(entry)\n");
+	if (evm_init_ptr == NULL) {
+		evm_log_error("Event machine init structure undefined!\n");
+		return NULL;
+	}
+
+	evm_tab = evm_init_ptr->evm_tab;
+	tmr = ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr;
 
 	new = (evm_timer_struct *)calloc(1, sizeof(evm_timer_struct));
 	if (new == NULL) {
@@ -207,7 +233,7 @@ evm_timer_struct * evm_timer_start(evm_tab_struct *evm_tab, evm_ids_struct tmr_e
 			return NULL;
 		}
 
-		evm_timers_ptr->first_tmr = new;
+		((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr = new;
 		return new;
 	}
 
@@ -222,14 +248,14 @@ evm_timer_struct * evm_timer_start(evm_tab_struct *evm_tab, evm_ids_struct tmr_e
 		) {
 			new->next_tmr = tmr;
 			/* If first in the list, we are the first to expire -> start it!*/
-			if (tmr == evm_timers_ptr->first_tmr) {
+			if (tmr == ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr) {
 				if (timer_settime(timerid, 0, &its, NULL) == -1) {
 					evm_log_system_error("timer_settime timerid=%lx\n", (unsigned long)timerid);
 					free(new);
 					new = NULL;
 					return NULL;
 				}
-				evm_timers_ptr->first_tmr = new;
+				((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr = new;
 			} else
 				prev->next_tmr = new;
 

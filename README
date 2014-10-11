@@ -3,6 +3,11 @@ EVM - EVent Machine
 
 This is a C programming framework consisting of libevm library as its core.
 
+Features:
+=========
+- Layering capability.
+- Usable in a sigle/multi-threaded application.
+
 Building:
 =========
 

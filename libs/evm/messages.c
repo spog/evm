@@ -49,6 +49,7 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 	evm_link_struct *evm_linkage;
 	evm_sigpost_struct *evm_sigpost;
 
+	evm_log_info("(entry)\n");
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
 		return status;
@@ -84,6 +85,7 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 	sigemptyset(&messages_sigmask);
 
 	/* Unblock all signals, except HUP and CHLD, which are allowed to get caught only in epoll_pwait()! */
+	evm_log_debug("Unblocking all signals, except SIGHUP and SIGCHLD\n");
 	sigemptyset(&sigmask);
 	sigaddset(&sigmask, SIGHUP);
 	sigaddset(&sigmask, SIGCHLD);
@@ -92,10 +94,12 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 	}
 
 	/* Install signal handler for SIGHUP and SIGCHLD. */
+	evm_log_debug("Establishing handler for signal SIGHUP\n");
 	if (messages_sighandler_install(SIGHUP) < 0) {
 		evm_log_error("Failed to install SIGHUP signal handler!\n");
 		return status;
 	}
+	evm_log_debug("Establishing handler for signal SIGCHLD\n");
 	if (messages_sighandler_install(SIGCHLD) < 0) {
 		evm_log_error("Failed to install SIGCHLD signal handler!\n");
 		return status;
