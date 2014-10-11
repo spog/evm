@@ -13,14 +13,15 @@
 
 #include "messages.h"
 
-static sigset_t messages_sigmask;
+static sigset_t messages_sigmask; /*actually a constant initialized via seigemptymask()*/
+/* Thread-specific data related. */
 static int thr_keys_not_created = 1;
-pthread_key_t thr_signum_key;
+static pthread_key_t thr_signum_key; /*initialized only once - not for each call to evm_init() within a process*/
 
 static void messages_sighandler(int signum, siginfo_t *siginfo, void *context)
 {
 	int *thr_signum = (int *)pthread_getspecific(thr_signum_key);
-
+	/* Save signum as thread-specific data. */
 	*thr_signum = signum;
 }
 
