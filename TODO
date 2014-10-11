@@ -1,6 +1,6 @@
 - Remove all unnecessary globals - prepare for threaded usage. Check timers as well.
 
-- Add support for savind events (messages, timers?).
+- Add support for saving events (messages, timers?).
 
 - Communication between levels of EVMs (threaded - asynchonous, singlethreaded - synchronous).
 
