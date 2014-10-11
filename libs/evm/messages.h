@@ -32,7 +32,7 @@
 EXTERN int evm_messages_init(evm_init_struct *evm_init_ptr);
 EXTERN evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr);
 
-EXTERN void evm_message_enqueue(evm_message_struct *msg);
+EXTERN void evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
 
 #ifdef evm_messages_c
 /*
@@ -42,7 +42,9 @@ EXTERN void evm_message_enqueue(evm_message_struct *msg);
 #include "evm/log_module.h"
 EVMLOG_MODULE_INIT(EVM_MSGS, 1)
 
-struct message_queue_struct {
+typedef struct message_queue message_queue_struct;
+
+struct message_queue {
 	evm_message_struct *first_msg;
 	evm_message_struct *last_msg;
 };
@@ -52,7 +54,7 @@ static int messages_sighandler_install(int signum);
 static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr);
 static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage);
 static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage);
-static evm_message_struct * message_dequeue(void);
+static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr);
 
 #endif /*evm_messages_c*/
 /*

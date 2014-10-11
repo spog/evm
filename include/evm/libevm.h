@@ -49,6 +49,7 @@ struct evm_init {
 	int epoll_max_events;
 	int epoll_nfds;
 	int epollfd;
+	void *msg_queue; /*hidden-internal structure*/
 };
 
 /*User provided signal post-handling EVM callbacks!*/
@@ -92,7 +93,7 @@ EXTERN int evm_init(evm_init_struct *evm_init_ptr);
 EXTERN int evm_run(evm_init_struct *evm_init_ptr);
 
 EXTERN int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr);
-EXTERN void evm_message_pass(evm_message_struct *msg);
+EXTERN void evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
 
 #ifdef evm_messages_c
 /* PRIVATE usage of the PUBLIC part. */

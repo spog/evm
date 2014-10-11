@@ -13,11 +13,6 @@
 
 #include "messages.h"
 
-static struct message_queue_struct evm_msg_queue = {
-	.first_msg = NULL,
-	.last_msg = NULL,
-};
-
 static sigset_t messages_sigmask;
 static int thr_keys_not_created = 1;
 pthread_key_t thr_signum_key;
@@ -48,6 +43,7 @@ static int messages_sighandler_install(int signum)
 int evm_messages_init(evm_init_struct *evm_init_ptr)
 {
 	int status = -1;
+	void *ptr;
 	sigset_t sigmask;
 	evm_link_struct *evm_linkage;
 	evm_sigpost_struct *evm_sigpost;
@@ -67,14 +63,19 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 	if (evm_sigpost == NULL)
 		evm_log_debug("Signal post-processing handler undefined!\n");
 
-	
+	/* Prepare thread-specific integer for thread related signal post-handling. */
 	if (thr_keys_not_created) {
 		if ((errno = pthread_key_create(&thr_signum_key, NULL)) != 0) {
 			evm_log_return_system_err("pthread_key_create()\n");
 		}
 		thr_keys_not_created = 0;
 	}
-	if ((errno = pthread_setspecific(thr_signum_key, calloc(1, sizeof(int)))) != 0) {
+	if ((ptr = calloc(1, sizeof(int))) == NULL) {
+		errno = ENOMEM;
+		evm_log_system_error("calloc(): thread-specific data\n");
+		return status;
+	}
+	if ((errno = pthread_setspecific(thr_signum_key, ptr)) != 0) {
 		evm_log_return_system_err("pthread_setspecific()\n");
 	}
 
@@ -89,16 +90,25 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 		evm_log_return_system_err("sigprocmask() SIG_SETMASK\n");
 	}
 
+	/* Install signal handler for SIGHUP and SIGCHLD. */
 	if (messages_sighandler_install(SIGHUP) < 0) {
 		evm_log_error("Failed to install SIGHUP signal handler!\n");
 		return status;
 	}
-
 	if (messages_sighandler_install(SIGCHLD) < 0) {
 		evm_log_error("Failed to install SIGCHLD signal handler!\n");
 		return status;
 	}
 
+	/* Setup internal message queue. */
+	if ((ptr = calloc(1, sizeof(message_queue_struct))) == NULL) {
+		errno = ENOMEM;
+		evm_log_system_error("calloc(): internal message queue\n");
+		return status;
+	}
+	evm_init_ptr->msg_queue = ptr;
+
+	/* Setup EPOLL infrastructure. */
 	if ((evm_init_ptr->epollfd = epoll_create1(0)) < 0)
 		evm_log_return_system_err("epoll_create1()\n");
 
@@ -106,15 +116,14 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 		evm_log_error("epoll_max_events = %d (need to be positive number) - event machine init failed!\n", evm_init_ptr->epoll_max_events);
 		return status;
 	}
-
 	evm_init_ptr->epoll_events = (struct epoll_event *)calloc(evm_init_ptr->epoll_max_events, sizeof(struct epoll_event));
 	if (evm_init_ptr->epoll_events == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): %d times %zd bytes\n", evm_init_ptr->epoll_max_events, sizeof(struct epoll_event));
 		return status;
 	}
-
 	evm_init_ptr->epoll_nfds = -1;
+
 	return 0;
 }
 
@@ -223,30 +232,33 @@ static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkag
 	return 0;
 }
 
-void evm_message_enqueue(evm_message_struct *msg)
+void evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 {
-	if (evm_msg_queue.last_msg == NULL)
-		evm_msg_queue.first_msg = msg;
-	else
-		evm_msg_queue.last_msg->next_msg = msg;
+	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
 
-	evm_msg_queue.last_msg = msg;
+	if (msg_queue->last_msg == NULL)
+		msg_queue->first_msg = msg;
+	else
+		msg_queue->last_msg->next_msg = msg;
+
+	msg_queue->last_msg = msg;
 	msg->next_msg = NULL;
 }
 
-static evm_message_struct * message_dequeue(void)
+static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr)
 {
 	evm_message_struct *msg;
+	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
 
-	msg = evm_msg_queue.first_msg;
+	msg = msg_queue->first_msg;
 	if (msg == NULL)
 		return NULL;
 
 	if (msg->next_msg == NULL) {
-		evm_msg_queue.first_msg = NULL;
-		evm_msg_queue.last_msg = NULL;
+		msg_queue->first_msg = NULL;
+		msg_queue->last_msg = NULL;
 	} else
-		evm_msg_queue.first_msg = msg->next_msg;
+		msg_queue->first_msg = msg->next_msg;
 
 	msg->next_msg = NULL;
 	return msg;
@@ -256,6 +268,7 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 {
 	int status = 0;
 	evm_fd_struct *evs_fd_ptr;
+	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
 
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
@@ -268,8 +281,8 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 	}
 
 	/* Poll the internal message queue first (NON-BLOCKING). */
-	if (evm_msg_queue.first_msg != NULL) {
-		return message_dequeue();
+	if (msg_queue->first_msg != NULL) {
+		return message_dequeue(evm_init_ptr);
 	}
 
 	/* EPOLL the input (WAIT - THE ONLY BLOCKING POINT). */

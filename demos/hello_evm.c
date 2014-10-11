@@ -285,7 +285,7 @@ static int evHelloMsg(void *ev_ptr)
 	helloIdleTmr = hello_startIdle_timer(helloIdleTmr, 10, 0, NULL);
 #else
 	/* liveloop - 100 %CPU usage */
-	evm_message_pass(&helloMsg);
+	evm_message_pass(&evs_init, &helloMsg);
 #endif
 
 	return 0;
@@ -301,7 +301,7 @@ static int evHelloTmrIdle(void *ev_ptr)
 
 	count++;
 	sprintf((char *)helloMsg.iov_buff.iov_base, "%s: %u", hello_str, count);
-	evm_message_pass(&helloMsg);
+	evm_message_pass(&evs_init, &helloMsg);
 
 	return status;
 }

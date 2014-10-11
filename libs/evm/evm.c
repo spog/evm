@@ -206,9 +206,10 @@ static int evm_handle_message(evm_message_struct *recvdMsg)
 	return (status0 | status1 | status2);
 }
 
-void evm_message_pass(evm_message_struct *msg)
+void evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 {
-	evm_message_enqueue(msg);
+	if (evm_init_ptr != NULL)
+		evm_message_enqueue(evm_init_ptr, msg);
 }
 
 int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr)
