@@ -266,13 +266,14 @@ static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr)
 		msg_queue->first_msg = msg->next_msg;
 
 	msg->next_msg = NULL;
+	msg->evm_ptr = evm_init_ptr;
 	return msg;
 }
 
 evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 {
 	int status = 0;
-	evm_fd_struct *evs_fd_ptr;
+	evm_fd_struct *evs_fd_ptr = NULL;
 	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
 
 	if (evm_init_ptr == NULL) {
@@ -306,6 +307,11 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 		evm_log_debug("evm_parse_message() returned %d\n", status);
 		return NULL;
 	}
+
+	if (evs_fd_ptr != NULL)
+		if (evs_fd_ptr->msg_ptr != NULL)
+			evs_fd_ptr->msg_ptr->evm_ptr = evm_init_ptr;
+
 	return evs_fd_ptr->msg_ptr;
 }
 

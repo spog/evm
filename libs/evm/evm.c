@@ -128,7 +128,6 @@ int evm_run(evm_init_struct *evm_init_ptr)
 
 		/* Handle handle received message (WAIT - THE ONLY BLOCKING POINT). */
 		if ((recvdMsg = evm_messages_check(evm_init_ptr)) != NULL) {
-			recvdMsg->evm_tab = evm_init_ptr->evm_tab;
 			if ((status = evm_handle_message(recvdMsg)) < 0)
 				evm_log_debug("evm_handle_message() returned %d\n", status);
 		}
@@ -173,12 +172,12 @@ static int evm_handle_timer(evm_timer_struct *expdTmr)
 		return -1;
 
 	if (expdTmr->stopped == 0) {
-		status1 = evm_handle_event(expdTmr->evm_tab, expdTmr->tmr_ids.evm_idx, expdTmr);
+		status1 = evm_handle_event(expdTmr->evm_ptr->evm_tab, expdTmr->tmr_ids.evm_idx, expdTmr);
 		if (status1 < 0)
 			evm_log_debug("evm_handle_event() returned %d\n", status1);
 	}
 
-	status2 = evm_finalize_event(expdTmr->evm_tab, expdTmr->tmr_ids.evm_idx, expdTmr);
+	status2 = evm_finalize_event(expdTmr->evm_ptr->evm_tab, expdTmr->tmr_ids.evm_idx, expdTmr);
 	if (status2 < 0)
 		evm_log_debug("evm_handle_event() returned %d\n", status2);
 
@@ -191,15 +190,15 @@ static int evm_handle_message(evm_message_struct *recvdMsg)
 	int status1 = 0;
 	int status2 = 0;
 
-	status0 = evm_prepare_event(recvdMsg->evm_tab, recvdMsg->msg_ids.evm_idx, recvdMsg);
+	status0 = evm_prepare_event(recvdMsg->evm_ptr->evm_tab, recvdMsg->msg_ids.evm_idx, recvdMsg);
 	if (status0 < 0)
 		evm_log_debug("evm_prepare_event() returned %d\n", status0);
 
-	status1 = evm_handle_event(recvdMsg->evm_tab, recvdMsg->msg_ids.evm_idx, recvdMsg);
+	status1 = evm_handle_event(recvdMsg->evm_ptr->evm_tab, recvdMsg->msg_ids.evm_idx, recvdMsg);
 	if (status1 < 0)
 		evm_log_debug("evm_handle_event() returned %d\n", status1);
 
-	status2 = evm_finalize_event(recvdMsg->evm_tab, recvdMsg->msg_ids.evm_idx, recvdMsg);
+	status2 = evm_finalize_event(recvdMsg->evm_ptr->evm_tab, recvdMsg->msg_ids.evm_idx, recvdMsg);
 	if (status2 < 0)
 		evm_log_debug("evm_finalize_event() returned %d\n", status2);
 

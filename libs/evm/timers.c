@@ -176,6 +176,9 @@ evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr)
 		}
 	}
 
+	if (tmr_return != NULL)
+		tmr_return->evm_ptr = evm_init_ptr;
+
 	return tmr_return;
 }
 
@@ -202,7 +205,7 @@ evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct
 
 	evm_log_debug("New timer tmr=0x%x\n", (unsigned int)new);
 
-	new->evm_tab = evm_tab;
+	new->evm_ptr = evm_init_ptr;
 	new->saved = 0;
 	new->stopped = 0;
 	new->ctx_ptr = ctx_ptr;

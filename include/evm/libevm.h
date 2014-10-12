@@ -106,7 +106,7 @@ EXTERN void evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *
 #endif
 
 struct evm_message {
-	evm_tab_struct *evm_tab;
+	evm_init_struct *evm_ptr;
 	int saved;
 	void *ctx_ptr;
 	evm_ids_struct msg_ids;
@@ -131,7 +131,7 @@ EXTERN int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf
 #	define EXTERN extern
 #endif
 struct evm_timer {
-	evm_tab_struct *evm_tab;
+	evm_init_struct *evm_ptr;
 	int saved;
 	int stopped;
 	void *ctx_ptr;

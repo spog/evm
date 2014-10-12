@@ -295,13 +295,14 @@ static int evHelloTmrIdle(void *ev_ptr)
 {
 	static unsigned int count;
 	int status = 0;
+	evm_timer_struct *tmr = (evm_timer_struct *)ev_ptr;
 
 	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
 	evm_log_notice("IDLE timer expired!\n");
 
 	count++;
 	sprintf((char *)helloMsg.iov_buff.iov_base, "%s: %u", hello_str, count);
-	evm_message_pass(&evs_init, &helloMsg);
+	evm_message_pass(tmr->evm_ptr, &helloMsg);
 
 	return status;
 }
