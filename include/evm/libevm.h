@@ -49,6 +49,7 @@ struct evm_init {
 	int epoll_nfds;
 	int epollfd;
 	void *msg_queue; /*internal linked list*/
+	timer_t *timerid;
 	void *tmr_queue; /*internal linked list*/
 };
 
