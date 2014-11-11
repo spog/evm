@@ -1,15 +1,22 @@
 /*
- *  Copyright (C) 2014  Samo Pogacnik
- */
+ * The hello_evm demo program
+ *
+ * Copyright (C) 2014 Samo Pogacnik <samo_pogacnik@t-2.net>
+ * All rights reserved.
+ *
+ * This file is part of the EVM software project.
+ * This file is provided under the terms of the BSD 3-Clause license,
+ * available in the LICENSE file of the EVM software project.
+*/
 
 /*
- * The hello_evm demo:
  * This demo shows minimal event machine usage within a single process. It sends
  * HELLO message to itself on every timeout expiration.
  * 1. The MAIN part shows standard C program initialization with options for
  *    different logging capabilities of EVM.
  * 2. The EVM part demonstrates EVM initialization. 
- */
+*/
+
 #ifndef hello_evm_c
 #define hello_evm_c
 #else

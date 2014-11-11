@@ -1,10 +1,13 @@
 /*
- *  Copyright (C) 2012  Samo Pogacnik
- */
-
-/*
- * The hello_evm demo
- */
+ * The hello_evm demo program
+ *
+ * Copyright (C) 2014 Samo Pogacnik <samo_pogacnik@t-2.net>
+ * All rights reserved.
+ *
+ * This file is part of the EVM software project.
+ * This file is provided under the terms of the BSD 3-Clause license,
+ * available in the LICENSE file of the EVM software project.
+*/
 
 #ifndef hello_evm_h
 #define hello_evm_h

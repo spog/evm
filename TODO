@@ -1,4 +1,4 @@
-- Remove all unnecessary globals - prepare for threaded usage. Check timers as well.
+- Pay constant attention upon unnecessary globals - threaded usage.
 
 - Add support for saving events (messages, timers?).
 
@@ -8,4 +8,4 @@
 
 - Add cross-compilation support and a bitbake recipe.
 
-- Add license
+- Add threaded/leveled example

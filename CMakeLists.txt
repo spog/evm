@@ -1,3 +1,14 @@
+#
+# The EVM project build rules
+#
+# Copyright (C) 2014 Samo Pogacnik <samo_pogacnik@t-2.net>
+# All rights reserved.
+#
+# This file is part of the EVM software project.
+# This file is provided under the terms of the BSD 3-Clause license,
+# available in the LICENSE file of the EVM software project.
+#
+
 # The name of this project is "EVM". CMakeLists files in this project can
 # refer to the root source directory of the project as ${EVM_SOURCE_DIR} and
 # to the root binary directory of the project as ${EVM_BINARY_DIR}.
