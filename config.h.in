@@ -1,0 +1,19 @@
+/*
+ * The build time configuration header of the EVM project.
+ *
+ * Copyright (C) 2014 Samo Pogacnik <samo_pogacnik@t-2.net>
+ * All rights reserved.
+ *
+ * This file is part of the EVM software project.
+ * This file is provided under the terms of the BSD 3-Clause license,
+ * available in the LICENSE file of the EVM software project.
+*/
+
+#ifndef config_h
+#define config_h
+
+#define EVM_VERSION_MAJOR @EVM_VERSION_MAJOR@
+#define EVM_VERSION_MINOR @EVM_VERSION_MINOR@
+#define EVM_VERSION_PATCH @EVM_VERSION_PATCH@
+
+#endif /*config_h*/

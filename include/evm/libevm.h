@@ -41,6 +41,11 @@ typedef struct evm_timer evm_timer_struct;
 #	undef EXTERN
 #	define EXTERN extern
 #endif
+
+EXTERN unsigned int evm_version_major;
+EXTERN unsigned int evm_version_minor;
+EXTERN unsigned int evm_version_patch;
+
 /*User provided initialization structure!*/
 struct evm_init {
 	struct evm_sigpost *evm_sigpost;

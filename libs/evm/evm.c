@@ -15,7 +15,13 @@
 #error Preprocesor macro evm_c conflict!
 #endif
 
+#include <config.h>
 #include "evm.h"
+
+/*current project version*/
+unsigned int evm_version_major = EVM_VERSION_MAJOR;
+unsigned int evm_version_minor = EVM_VERSION_MINOR;
+unsigned int evm_version_patch = EVM_VERSION_PATCH;
 
 /*
  * Event machine linkage initialization

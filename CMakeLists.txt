@@ -15,6 +15,22 @@
 cmake_minimum_required (VERSION 2.8)
 project (EVM)
 
+# The project version number.
+set (EVM_VERSION_MAJOR 0)
+set (EVM_VERSION_MINOR 1)
+set (EVM_VERSION_PATCH 1)
+set (EVM_VERSION_STRING ${EVM_VERSION_MAJOR}.${EVM_VERSION_MINOR}.${EVM_VERSION_PATCH})
+
+# The project configuration header file passes required CMake settings
+# to the source code.
+configure_file (
+  "${EVM_SOURCE_DIR}/config.h.in"
+  "${EVM_BINARY_DIR}/config.h"
+  )
+ 
+# The search path for generated configuration include files.
+include_directories("${EVM_BINARY_DIR}")
+
 # Make sure the compiler can find isolated public include files of our evm library.
 include_directories (${EVM_SOURCE_DIR}/include)
 
