@@ -4,8 +4,6 @@
 
 - Communication between levels of EVMs (threaded - asynchonous, singlethreaded - synchronous).
 
-- Define versions in CMake environment.
-
 - Add cross-compilation support and a bitbake recipe.
 
 - Add threaded/leveled example
