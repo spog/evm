@@ -105,7 +105,7 @@ int evm_timers_init(evm_init_struct *evm_init_ptr)
 	if (timer_create(CLOCKID, &sev, evm_init_ptr->timerid) == -1)
 		evm_log_return_system_err("timer_create() timer ID=%p\n", (void *)*evm_init_ptr->timerid);
 
-	evm_log_debug("Internal timers ID is 0x%p\n", (void *)*evm_init_ptr->timerid);
+	evm_log_debug("Internal timers ID is %p\n", (void *)*evm_init_ptr->timerid);
 
 	evm_log_debug("Unblocking signal %d\n", SIG);
 	if (pthread_sigmask(SIG_UNBLOCK, &sigmask, NULL) < 0) {
@@ -165,7 +165,7 @@ evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr)
 		)
 	) {
 		((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr = tmr->next_tmr;
-//		evm_log_debug("timer expired: tmr=0x%p, stopped=%d\n", (void *)tmr, tmr->stopped);
+//		evm_log_debug("timer expired: tmr=%p, stopped=%d\n", (void *)tmr, tmr->stopped);
 
 		tmr_return = tmr;
 		tmr = ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr;
@@ -233,7 +233,7 @@ evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct
 		return NULL;
 	}
 
-	evm_log_debug("New timer tmr=0x%p\n", (void *)new);
+	evm_log_debug("New timer tmr=%p\n", (void *)new);
 
 	new->evm_ptr = evm_init_ptr;
 	new->saved = 0;
