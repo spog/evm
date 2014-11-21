@@ -427,7 +427,7 @@ static int hello2_parse_message(void *ptr)
 	} else {
 		/* Decode the INPUT buffer. */ 
 		((char *)message->iov_buff.iov_base)[message->iov_buff.iov_len] = '\0';
-		if (strncmp((char *)message->iov_buff.iov_base, hello_str, sizeof(hello_str)) == 0) {
+		if (strncmp((char *)message->iov_buff.iov_base, hello_str, strlen(hello_str)) == 0) {
 			message->msg_ids.ev_id = helloMsg.msg_ids.ev_id;
 			message->msg_ids.evm_idx = helloMsg.msg_ids.evm_idx;
 			sscanf((char *)message->iov_buff.iov_base, "HELLO: %d", &hello_count);

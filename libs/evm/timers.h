@@ -31,6 +31,7 @@
 #include <string.h>
 #include <signal.h>
 #include <semaphore.h>
+#include <pthread.h>
 
 #include "evm/libevm.h"
 

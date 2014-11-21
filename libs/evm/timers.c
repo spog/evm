@@ -103,9 +103,9 @@ int evm_timers_init(evm_init_struct *evm_init_ptr)
 	sev.sigev_signo = SIG;
 	sev.sigev_value.sival_ptr = evm_init_ptr->timerid;
 	if (timer_create(CLOCKID, &sev, evm_init_ptr->timerid) == -1)
-		evm_log_return_system_err("timer_create() timer ID=%lx\n", (unsigned long)evm_init_ptr->timerid);
+		evm_log_return_system_err("timer_create() timer ID=%p\n", (void *)*evm_init_ptr->timerid);
 
-	evm_log_debug("Internal timers ID is 0x%lx\n", (unsigned long) evm_init_ptr->timerid);
+	evm_log_debug("Internal timers ID is 0x%p\n", (void *)*evm_init_ptr->timerid);
 
 	evm_log_debug("Unblocking signal %d\n", SIG);
 	if (pthread_sigmask(SIG_UNBLOCK, &sigmask, NULL) < 0) {
@@ -151,8 +151,8 @@ evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr)
 		evm_log_system_error("clock_gettime()\n");
 		/* on clock_gettime() failure reschedule timer_check() to next second */
 		its.it_value.tv_sec = 1;
-		if (timer_settime(evm_init_ptr->timerid, 0, &its, NULL) == -1) {
-			evm_log_system_error("timer_settime timer ID=%lx\n", (unsigned long)evm_init_ptr->timerid);
+		if (timer_settime(*evm_init_ptr->timerid, 0, &its, NULL) == -1) {
+			evm_log_system_error("timer_settime timer ID=%p\n", (void *)*evm_init_ptr->timerid);
 		}
 		return NULL;
 	}
@@ -165,7 +165,7 @@ evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr)
 		)
 	) {
 		((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr = tmr->next_tmr;
-//		evm_log_debug("timer expired: tmr=0x%x, stopped=%d\n", (unsigned int)tmr, tmr->stopped);
+//		evm_log_debug("timer expired: tmr=0x%p, stopped=%d\n", (void *)tmr, tmr->stopped);
 
 		tmr_return = tmr;
 		tmr = ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr;
@@ -197,8 +197,8 @@ evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr)
 
 //		evm_log_debug("its(sec)=%ld, its(nsec)=%ld\n", its.it_value.tv_sec, its.it_value.tv_nsec);
 		if ((its.it_value.tv_sec != 0) || (its.it_value.tv_nsec != 0)) {
-			if (timer_settime(evm_init_ptr->timerid, 0, &its, NULL) == -1) {
-				evm_log_system_error("timer_settime timer ID=%lx\n", (unsigned long)evm_init_ptr->timerid);
+			if (timer_settime(*evm_init_ptr->timerid, 0, &its, NULL) == -1) {
+				evm_log_system_error("timer_settime timer ID=%p\n", (void *)*evm_init_ptr->timerid);
 			}
 		} else {
 			evm_log_debug("its(sec)=%ld, its(nsec)=%ld, tmr_return=%p\n", its.it_value.tv_sec, its.it_value.tv_nsec, tmr_return);
@@ -233,7 +233,7 @@ evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct
 		return NULL;
 	}
 
-	evm_log_debug("New timer tmr=0x%x\n", (unsigned int)new);
+	evm_log_debug("New timer tmr=0x%p\n", (void *)new);
 
 	new->evm_ptr = evm_init_ptr;
 	new->saved = 0;
@@ -259,8 +259,8 @@ evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct
 
 	/* If no timers set, we are the first to expire -> start it!*/
 	if (tmr == NULL) {
-		if (timer_settime(evm_init_ptr->timerid, 0, &its, NULL) == -1) {
-			evm_log_system_error("timer_settime timer ID=%lx\n", (unsigned long)evm_init_ptr->timerid);
+		if (timer_settime(*evm_init_ptr->timerid, 0, &its, NULL) == -1) {
+			evm_log_system_error("timer_settime timer ID=%p\n", (void *)*evm_init_ptr->timerid);
 			free(new);
 			new = NULL;
 			return NULL;
@@ -282,8 +282,8 @@ evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct
 			new->next_tmr = tmr;
 			/* If first in the list, we are the first to expire -> start it!*/
 			if (tmr == ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr) {
-				if (timer_settime(evm_init_ptr->timerid, 0, &its, NULL) == -1) {
-					evm_log_system_error("timer_settime timer ID=%lx\n", (unsigned long)evm_init_ptr->timerid);
+				if (timer_settime(*evm_init_ptr->timerid, 0, &its, NULL) == -1) {
+					evm_log_system_error("timer_settime timer ID=%p\n", (void *)*evm_init_ptr->timerid);
 					free(new);
 					new = NULL;
 					return NULL;

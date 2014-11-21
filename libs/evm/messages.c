@@ -220,7 +220,7 @@ static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_link
 		} else if (status == 0) {
 			evm_log_debug("Receive call-back function - empty receive!\n");
 		} else {
-			evm_log_debug("Receive call-back function - buffered %d bytes!\n", evs_fd_ptr->msg_ptr->iov_buff.iov_len);
+			evm_log_debug("Receive call-back function - buffered %zd bytes!\n", evs_fd_ptr->msg_ptr->iov_buff.iov_len);
 		}
 	}
 
