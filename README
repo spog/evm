@@ -52,6 +52,10 @@ $ cmake ../ -DCMAKE_INSTALL_PREFIX=../install
 $ make
 $ make install
 
+And you need to cross-compile as well:
+--------------------------------------
+cmake ../ -DCMAKE_INSTALL_PREFIX=../install -DCMAKE_TOOLCHAIN_FILE=../toolchains/Yocto-arm-linux-gnu.cmake
+
 Cleaning:
 =========
 
