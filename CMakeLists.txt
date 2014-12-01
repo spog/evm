@@ -49,18 +49,66 @@ include (InstallRequiredSystemLibraries)
 set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "The EVM (EVent Machine) software is a C programming framework consisting of the libevm library at its core.")
 set (CPACK_PACKAGE_DESCRIPTION_FILE "${evm_SOURCE_DIR}/README")
 set (CPACK_RESOURCE_FILE_LICENSE "${evm_SOURCE_DIR}/LICENSE")
-set (CPACK_PACKAGE_VERSION_MAJOR "${evm_VERSION_MAJOR}")
-set (CPACK_PACKAGE_VERSION_MINOR "${evm_VERSION_MINOR}")
-set (CPACK_PACKAGE_VERSION_PATCH "${evm_VERSION_PATCH}")
-set (CPACK_GENERATOR "DEB" "RPM")
-set (CPACK_COMPONENTS_ALL libs headers demos)
-set (CPACK_COMPONENT_HEADERS_DEPENDS libs)
-set (CPACK_COMPONENT_DEMOS_DEPENDS libs)
-set (CPACK_COMPONENT_LIBS_GROUP "Core")
-set (CPACK_COMPONENT_HEADERS_GROUP "Devel")
-set (CPACK_COMPONENT_DEMOS_GROUP "Demos")
-set (CPACK_DEB_COMPONENT_INSTALL ON)
-set (CPACK_RPM_COMPONENT_INSTALL ON)
-set (CPACK_DEBIAN_PACKAGE_MAINTAINER "Samo Pogacnik")
-set (CPACK_RPM_PACKAGE_LICENSE "BSD 3-Clause license")
+if (NOT CPACK_GENERATOR)
+	message(STATUS "Detecting system NATIVE SW packaging (CPACK_GENERATOR not manually set)...")
+	find_program(DPKG_EXECUTABLE dpkg)
+	execute_process (COMMAND /bin/sh -o pipefail -c "${DPKG_EXECUTABLE} -l 2> /dev/null | wc -l" RESULT_VARIABLE RV OUTPUT_VARIABLE PACKAGE_COUNTER)
+	#message(STATUS "${DPKG_EXECUTABLE} RV=${RV}")
+	#message(STATUS "debs PACKAGE_COUNTER=${PACKAGE_COUNTER}")
+	if (RV EQUAL 0)
+		if (PACKAGE_COUNTER GREATER "0")
+			set (CPACK_GENERATOR "DEB")
+			message(STATUS "DEB based system: CPACK_GENERATOR set to DEB!")
+		endif ()
+	endif ()
+	find_program(RPM_EXECUTABLE rpm)
+	execute_process (COMMAND /bin/sh -o pipefail -c "${RPM_EXECUTABLE} -qa 2> /dev/null | wc -l" RESULT_VARIABLE RV OUTPUT_VARIABLE PACKAGE_COUNTER)
+	#message(STATUS "${RPM_EXECUTABLE} RV=${RV}")
+	#message(STATUS "rpms PACKAGE_COUNTER=${PACKAGE_COUNTER}")
+	if (RV EQUAL 0)
+		if (PACKAGE_COUNTER GREATER "0")
+			set (CPACK_GENERATOR "RPM")
+			message(STATUS "RPM based system: CPACK_GENERATOR set to RPM!")
+		endif ()
+	endif ()
+endif ()
+
+if (CMAKE_TOOLCHAIN_FILE)
+	set (CPACK_GENERATOR "TGZ")
+	set (CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
+endif ()
+#set (CPACK_COMPONENTS_ALL libs headers demos)
+#set (CPACK_COMPONENT_HEADERS_DEPENDS libs)
+#set (CPACK_COMPONENT_DEMOS_DEPENDS libs)
+#set (CPACK_COMPONENT_LIBS_GROUP "Core")
+#set (CPACK_COMPONENT_HEADERS_GROUP "Devel")
+#set (CPACK_COMPONENT_DEMOS_GROUP "Demos")
+#set (CPACK_DEB_COMPONENT_INSTALL ON)
+#set (CPACK_RPM_COMPONENT_INSTALL ON)
+set (CPACK_PACKAGE_CONTACT "Samo Pogacnik")
+set (CPACK_PACKAGE_VENDOR "http://www.u2up.net")
+#set (CPACK_DEBIAN_PACKAGE_MAINTAINER "Samo Pogacnik")
+#set (CPACK_RPM_PACKAGE_LICENSE "BSD 3-Clause license")
+
+# Generate cpackoptions.cmake at build time to set per generator package filename.
+add_custom_target(first ALL
+    COMMAND ${CMAKE_COMMAND}
+    -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
+    -DBINARY_DIR=${CMAKE_BINARY_DIR}
+    -Dproj_name=${CMAKE_PROJECT_NAME}
+    -Dproj_version=${evm_VERSION_STRING}
+    -Dtarget_arch=${CMAKE_SYSTEM_PROCESSOR}
+    -P ${CMAKE_SOURCE_DIR}/create-cpackoptions.cmake
+    )
+
+#add_dependencies(first)
+
+set(CPACK_PROJECT_CONFIG_FILE ${CMAKE_BINARY_DIR}/CPackOptions.cmake)
+
 include (CPack)
+
+#get_cmake_property(_variableNames VARIABLES)
+#foreach (_variableName ${_variableNames})
+#    message(STATUS "${_variableName}=${${_variableName}}")
+#endforeach()
+

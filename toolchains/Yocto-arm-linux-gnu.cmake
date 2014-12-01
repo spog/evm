@@ -1,5 +1,6 @@
 # The name of the target system
 SET(CMAKE_SYSTEM_NAME Linux)
+SET(CMAKE_SYSTEM_PROCESSOR arm)
 
 # The C&C++ cross compiler
 SET(CMAKE_C_COMPILER /home/samo/WANDBOARD-yocto/cross/arm-poky-linux-gnueabi-gcc)
