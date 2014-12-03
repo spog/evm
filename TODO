@@ -1,9 +1,5 @@
-- Pay constant attention upon unnecessary globals - threaded usage.
-
 - Add support for saving events (messages, timers?).
 
 - Communication between levels of EVMs (threaded - asynchonous, singlethreaded - synchronous).
-
-- Add cross-compilation support and a bitbake recipe.
 
 - Add threaded/leveled example
