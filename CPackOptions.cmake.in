@@ -1,3 +1,7 @@
+#
+# The EVM project build-time CPack options
+#
+
 if (CPACK_GENERATOR MATCHES "DEB")
 	find_program(DPKG_EXECUTABLE dpkg)
 	execute_process (
@@ -7,7 +11,7 @@ if (CPACK_GENERATOR MATCHES "DEB")
 	)
 	#message(STATUS "${DPKG_EXECUTABLE} RV=${RV}")
 	if (NOT RV EQUAL 0)
-		set (CPACK_DEBIAN_PACKAGE_ARCHITECTURE i486)
+		set (CPACK_DEBIAN_PACKAGE_ARCHITECTURE i386)
 	endif ()
 	#message(STATUS "debs CPACK_DEBIAN_PACKAGE_ARCHITECTURE=${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}")
 	set(CPACK_PACKAGE_FILE_NAME "@proj_name@-@proj_version@-0_${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}")
