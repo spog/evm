@@ -299,6 +299,7 @@ static int evHelloMsg(void *ev_ptr)
 	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)msg->iov_buff.iov_base);
 
 	helloIdleTmr = hello_startIdle_timer(helloIdleTmr, 10, 0, NULL);
+	evm_log_notice("IDLE timer set: 10 s\n");
 
 	return 0;
 }
@@ -365,6 +366,7 @@ static int hello2_send_hello(int sock)
 		}
 		return -err_save;
 	}
+	evm_log_notice("HELLO msg sent: \"%s\"\n", (char *)helloMsg.iov_buff.iov_base);
 
 	evm_log_debug("sent=%d\n", ret);
 	return ret;

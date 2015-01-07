@@ -57,6 +57,7 @@ struct evm_init {
 	int epoll_nfds;
 	int epollfd;
 	void *msg_queue; /*internal linked list*/
+	evm_fd_struct *msg_queue_evmfd; /*message queue FD binding - eventfd()*/
 	timer_t *timerid;
 	void *tmr_queue; /*internal linked list*/
 };
@@ -101,9 +102,6 @@ EXTERN int evm_link_init(evm_init_struct *evm_init_ptr);
 EXTERN int evm_init(evm_init_struct *evm_init_ptr);
 EXTERN int evm_run(evm_init_struct *evm_init_ptr);
 
-EXTERN int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr);
-EXTERN void evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
-
 #ifdef evm_messages_c
 /* PRIVATE usage of the PUBLIC part. */
 #	undef EXTERN
@@ -119,7 +117,6 @@ struct evm_message {
 	int saved;
 	void *ctx_ptr;
 	evm_ids_struct msg_ids;
-	evm_message_struct *next_msg; /*when linked in a chain - i.e.: in a message queue*/
 	int rval_decode;
 	void *msg_decode;
 #if 0
@@ -127,6 +124,10 @@ struct evm_message {
 #endif
 	struct iovec iov_buff;
 };
+
+EXTERN int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr);
+EXTERN int evm_message_call(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
+EXTERN int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
 
 EXTERN int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf);
 

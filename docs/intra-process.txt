@@ -1,0 +1,47 @@
+**********************
+* evm_message_pass() *
+**********************
+        VS
+**********************
+* evm_message_call() *
+**********************
+
+This test shows the difference in CPU usage distrubution when
+running a tight loop example whithin a single process/thread 
+using different methods to send/receive a message in a loop.
+
+The "evm_message_pass()" method involves queueing a message and
+writing into a "eventfd" FD, which unblocks the "epoll()" method
+to eventually receive the message.
+
+The "evm_message_call()" method only enqueues a message without
+notifying the "epoll()" mechanism. This method avoids the "epoll()" 
+mechanism (a few system calls), when used to send messages 
+within the same scheduling context (same thread).
+
+If "evm_message_call()" is used to send a message to a message
+queue of another thread, the message is going to stay in a
+queue until another thread's "epoll()" method is unblocked.
+
+Local message passing with FD triggering:
+=========================================
+samo@lapuh:~/EVM/evm/build/demos$ time ./hello_evm
+[97284.665649|4776|DEMO_EVM] IDLE timer expired!
+[97284.665771|4776|DEMO_EVM] HELLO msg sent: "HELLO: 1"
+^C
+
+real	1m0.020s
+user	0m16.964s
+sys	0m42.044s
+
+Local message passing without FD triggering:
+============================================
+samo@lapuh:~/EVM/evm/build/demos$ time ./hello_evm
+[97374.814487|4823|DEMO_EVM] IDLE timer expired!
+[97374.814610|4823|DEMO_EVM] HELLO msg sent: "HELLO: 1"
+^C
+
+real	1m0.159s
+user	0m19.832s
+sys	0m39.320s
+

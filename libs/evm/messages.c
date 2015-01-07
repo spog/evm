@@ -15,6 +15,7 @@
 #error Preprocesor macro evm_messages_c conflict!
 #endif
 
+#include <sys/eventfd.h>
 #include "messages.h"
 
 static sigset_t messages_sigmask; /*actually a constant initialized via seigemptymask()*/
@@ -133,6 +134,25 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 	}
 	evm_init_ptr->epoll_nfds = -1;
 
+	/* Prepare internal message queue FD for EPOLL to operate over internal message queue. */
+	if ((ptr = calloc(1, sizeof(evm_fd_struct))) == NULL) {
+		errno = ENOMEM;
+		evm_log_system_error("calloc(): internal message queue evm FD\n");
+		return status;
+	}
+	evm_init_ptr->msg_queue_evmfd = ptr;
+
+	if ((evm_init_ptr->msg_queue_evmfd->fd = eventfd(0, EFD_CLOEXEC)) < 0)
+		evm_log_return_system_err("eventfd()\n");
+
+	evm_init_ptr->msg_queue_evmfd->ev_epoll.events = EPOLLIN;
+	evm_init_ptr->msg_queue_evmfd->ev_epoll.data.ptr = (void *)evm_init_ptr->msg_queue_evmfd /*our own address*/;
+	evm_init_ptr->msg_queue_evmfd->msg_receive = message_queue_evmfd_read;
+//	evm_init_ptr->msg_queue_evmfd->msg_send = NULL;
+	if (evm_message_fd_add(evm_init_ptr, evm_init_ptr->msg_queue_evmfd) < 0) {
+		return status;
+	}
+
 	return 0;
 }
 
@@ -204,6 +224,7 @@ static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_link
 {
 	int status = -1;
 
+	evm_log_info("(entry) evs_fd_ptr=%p\n", evs_fd_ptr);
 	/* Find registered receive call-back function. */
 	if (evm_linkage == NULL)
 		return -1;
@@ -218,7 +239,7 @@ static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_link
 		if (status < 0) {
 			evm_log_error("Receive call-back function failed!\n");
 		} else if (status == 0) {
-			evm_log_debug("Receive call-back function - empty receive!\n");
+			evm_log_debug("Receive call-back function - empty receive or internal queue receive!\n");
 		} else {
 			evm_log_debug("Receive call-back function - buffered %zd bytes!\n", evs_fd_ptr->msg_ptr->iov_buff.iov_len);
 		}
@@ -241,35 +262,49 @@ static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkag
 	return 0;
 }
 
-void evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
+int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 {
+	int status = -1;
 	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
+	message_hanger_struct *msg_hanger;
 
-	if (msg_queue->last_msg == NULL)
-		msg_queue->first_msg = msg;
+	evm_log_info("(entry)\n");
+	if ((msg_hanger = (message_hanger_struct *)calloc(1, sizeof(message_hanger_struct))) == NULL) {
+		errno = ENOMEM;
+		evm_log_system_error("calloc(): message hanger\n");
+		return status;
+	}
+	msg_hanger->msg = msg;
+	if (msg_queue->last_hanger == NULL)
+		msg_queue->first_hanger = msg_hanger;
 	else
-		msg_queue->last_msg->next_msg = msg;
+		msg_queue->last_hanger->next = msg_hanger;
 
-	msg_queue->last_msg = msg;
-	msg->next_msg = NULL;
+	msg_queue->last_hanger = msg_hanger;
+	msg_hanger->next = NULL;
+	return 0;
 }
 
 static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr)
 {
 	evm_message_struct *msg;
 	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
+	message_hanger_struct *msg_hanger;
 
-	msg = msg_queue->first_msg;
-	if (msg == NULL)
+	evm_log_info("(entry)\n");
+	msg_hanger = msg_queue->first_hanger;
+	if (msg_hanger == NULL)
 		return NULL;
 
-	if (msg->next_msg == NULL) {
-		msg_queue->first_msg = NULL;
-		msg_queue->last_msg = NULL;
+	if (msg_hanger->next == NULL) {
+		msg_queue->first_hanger = NULL;
+		msg_queue->last_hanger = NULL;
 	} else
-		msg_queue->first_msg = msg->next_msg;
+		msg_queue->first_hanger = msg_hanger->next;
 
-	msg->next_msg = NULL;
+	msg = msg_hanger->msg;
+	free(msg_hanger);
+	msg_hanger = NULL;
 	msg->evm_ptr = evm_init_ptr;
 	return msg;
 }
@@ -280,6 +315,7 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 	evm_fd_struct *evs_fd_ptr = NULL;
 	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
 
+	evm_log_info("(entry) queue->first=%p\n", msg_queue->first_hanger);
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
 		abort();
@@ -291,9 +327,11 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 	}
 
 	/* Poll the internal message queue first (NON-BLOCKING). */
-	if (msg_queue->first_msg != NULL) {
+#if 1 /*orig*/
+	if (msg_queue->first_hanger != NULL) {
 		return message_dequeue(evm_init_ptr);
 	}
+#endif
 
 	/* EPOLL the input (WAIT - THE ONLY BLOCKING POINT). */
 	if ((evs_fd_ptr = messages_epoll(evm_init_ptr)) == NULL) {
@@ -306,6 +344,15 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 		return NULL;
 	}
 
+	if (evs_fd_ptr == evm_init_ptr->msg_queue_evmfd) {
+		evm_log_debug("Internal queue receive triggered!\n");
+#if 0 /*test*/
+		if (msg_queue->first_hanger != NULL) {
+			return message_dequeue(evm_init_ptr);
+		}
+#endif
+		return NULL;
+	}
 	/* Parse received data. */
 	if ((status = messages_parse(evs_fd_ptr, evm_init_ptr->evm_link)) < 0) {
 		evm_log_debug("evm_parse_message() returned %d\n", status);
@@ -313,10 +360,90 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 	}
 
 	if (evs_fd_ptr != NULL)
-		if (evs_fd_ptr->msg_ptr != NULL)
+		if (evs_fd_ptr->msg_ptr != NULL) {
+			/* A new message has been decoded! */
 			evs_fd_ptr->msg_ptr->evm_ptr = evm_init_ptr;
+			return evs_fd_ptr->msg_ptr;
+		}
 
-	return evs_fd_ptr->msg_ptr;
+	return NULL;
+}
+
+static int message_queue_evmfd_read(int efd, evm_message_struct *message)
+{
+	uint64_t u;
+	ssize_t s;
+
+	evm_log_info("(cb entry) eventfd=%d, message=%p\n", efd, message);
+	if ((s = read(efd, &u, sizeof(uint64_t))) != sizeof(uint64_t))
+		evm_log_system_error("read(): message_pass\n");
+
+	message->iov_buff.iov_len = 0;
+	message->iov_buff.iov_base = NULL;
+
+	evm_log_debug("buffered=%zd, received data ptr: %p\n", message->iov_buff.iov_len, message->iov_buff.iov_base);
+	return 0;
+}
+
+int evm_message_call(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
+{
+	uint64_t u;
+	ssize_t s;
+
+	evm_log_info("(entry) evm_init_ptr=%p, msg=%p\n", evm_init_ptr, msg);
+	if (evm_init_ptr != NULL) {
+		if (evm_message_enqueue(evm_init_ptr, msg) != 0) {
+			evm_log_error("Message enqueuing failed!\n");
+			return -1;
+		}
+		return 0;
+	}
+	return -1;
+}
+
+int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
+{
+	uint64_t u;
+	ssize_t s;
+
+	evm_log_info("(entry) evm_init_ptr=%p, msg=%p\n", evm_init_ptr, msg);
+	if (evm_init_ptr != NULL) {
+		if (evm_message_enqueue(evm_init_ptr, msg) != 0) {
+			evm_log_error("Message enqueuing failed!\n");
+			return -1;
+		}
+
+		u = 1;
+		if ((s = write(evm_init_ptr->msg_queue_evmfd->fd, &u, sizeof(uint64_t))) != sizeof(uint64_t)) {
+			evm_log_system_error("write(): message_trigg\n");
+			if (message_dequeue(evm_init_ptr) == NULL) {
+				evm_log_error("Message dequeuing failed!\n");
+			}
+			return -1;
+		}
+		return 0;
+	}
+	return -1;
+}
+
+int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr)
+{
+	if (evm_init_ptr == NULL)
+		return -1;
+
+	if (evm_fd_ptr == NULL)
+		return -1;
+
+	evm_fd_ptr->msg_ptr = (evm_message_struct *)calloc(1, sizeof(evm_message_struct));
+	if (evm_fd_ptr->msg_ptr == NULL) {
+		errno = ENOMEM;
+		evm_log_return_err("calloc(): 1 times %zd bytes\n", sizeof(evm_message_struct));
+	}
+	evm_log_debug("evm_fd_ptr: %p, &evm_fd_ptr->ev_epoll: %p\n", evm_fd_ptr, &evm_fd_ptr->ev_epoll);
+	evm_log_debug("evm_init_ptr->epollfd: %d, evm_fd_ptr->fd: %d\n", evm_init_ptr->epollfd, evm_fd_ptr->fd);
+	if (epoll_ctl(evm_init_ptr->epollfd, EPOLL_CTL_ADD, evm_fd_ptr->fd, &evm_fd_ptr->ev_epoll) < 0) {
+		evm_log_return_system_err("epoll_ctl()\n");
+	}
 }
 
 #if 1 /*orig*/

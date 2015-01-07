@@ -185,11 +185,6 @@ int main(int argc, char *argv[])
 static evm_init_struct evs_init;
 
 /*
- * File descriptors structure - required by evm_fd_add():
- */
-static evm_fd_struct evs_fd;
-
-/*
  * Signal post-processing callback - optional for evm_init():
  * Covers SIGHUP and SIGCHLD
  */
@@ -290,9 +285,14 @@ static int evHelloMsg(void *ev_ptr)
 	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)msg->iov_buff.iov_base);
 
 	helloIdleTmr = hello_startIdle_timer(helloIdleTmr, 10, 0, NULL);
+	evm_log_notice("IDLE timer set: 10 s\n");
 #else
 	/* liveloop - 100 %CPU usage */
+#if 1
+	evm_message_call(&evs_init, &helloMsg);
+#else
 	evm_message_pass(&evs_init, &helloMsg);
+#endif
 #endif
 
 	return 0;
@@ -309,7 +309,8 @@ static int evHelloTmrIdle(void *ev_ptr)
 
 	count++;
 	sprintf((char *)helloMsg.iov_buff.iov_base, "%s: %u", hello_str, count);
-	evm_message_pass(tmr->evm_ptr, &helloMsg);
+	evm_message_call(tmr->evm_ptr, &helloMsg);
+	evm_log_notice("HELLO msg sent: \"%s\"\n", (char *)helloMsg.iov_buff.iov_base);
 
 	return status;
 }
@@ -334,17 +335,6 @@ static int hello_evm_init(void)
 	}
 	evm_log_debug("evm epoll FD is %d\n", evs_init.epollfd);
 
-	/* Prepare dummy FD (used STDIN in this case) for EVM to operate over internal message queue only. */
-	evs_fd.fd = 0; /*STDIN*/
-	evs_fd.ev_type = EV_TYPE_HELLO_MSG;
-	evs_fd.ev_epoll.events = 0 /*EPOLLPRI*/ /*EPOLLIN*/;
-	evs_fd.ev_epoll.data.ptr = (void *)&evs_fd /*our own address*/;
-	evs_fd.msg_receive = NULL;
-//	evs_fd.msg_send = NULL;
-	if ((status = evm_message_fd_add(&evs_init, &evs_fd)) < 0) {
-		return status;
-	}
-
 	return 0;
 }
 
@@ -353,6 +343,7 @@ static int hello_evm_run(void)
 {
 	/* Set initial timer */
 	helloIdleTmr = hello_startIdle_timer(NULL, 1, 0, NULL);
+	evm_log_notice("IDLE timer set: 1 s\n");
 
 	/*
 	 * Main EVM processing (event loop)

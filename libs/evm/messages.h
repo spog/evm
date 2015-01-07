@@ -36,7 +36,7 @@
 EXTERN int evm_messages_init(evm_init_struct *evm_init_ptr);
 EXTERN evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr);
 
-EXTERN void evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
+EXTERN int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
 
 #ifdef evm_messages_c
 /*
@@ -47,10 +47,17 @@ EXTERN void evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struc
 EVMLOG_MODULE_INIT(EVM_MSGS, 1)
 
 typedef struct message_queue message_queue_struct;
+typedef struct message_hanger message_hanger_struct;
 
 struct message_queue {
-	evm_message_struct *first_msg;
-	evm_message_struct *last_msg;
+	message_hanger_struct *first_hanger;
+	message_hanger_struct *last_hanger;
+};
+
+struct message_hanger {
+	message_hanger_struct *next;
+	message_hanger_struct *prev;
+	evm_message_struct *msg; /*hangs of a hanger when linked in a chain - i.e.: in a message queue*/
 };
 
 static void messages_sighandler(int signum, siginfo_t *siginfo, void *context);
@@ -59,6 +66,7 @@ static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr);
 static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage);
 static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage);
 static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr);
+static int message_queue_evmfd_read(int efd, evm_message_struct *message);
 
 #endif /*evm_messages_c*/
 /*
