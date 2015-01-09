@@ -379,7 +379,7 @@ static int hello_evm_run(void)
 	evm_log_notice("IDLE timer set: 0 s\n");
 
 	/* Set initial QUIT timer */
-	helloIdleTmr = hello_startQuit_timer(NULL, 60, 0, NULL);
+	helloQuitTmr = hello_startQuit_timer(NULL, 60, 0, NULL);
 	evm_log_notice("QUIT timer set: 60 s\n");
 
 	/*
