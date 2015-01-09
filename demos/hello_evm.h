@@ -51,6 +51,7 @@ enum event_types {
 
 enum hello_tmr_ev_ids {
 	EV_ID_HELLO_TMR_IDLE = 0,
+	EV_ID_HELLO_TMR_QUIT
 };
 
 static int hello_messages_link(int ev_id, int evm_idx);
@@ -58,6 +59,7 @@ static int helloTmrs_link(int ev_id, int evm_idx);
 
 static int evHelloMsg(void *ev_ptr);
 static int evHelloTmrIdle(void *ev_ptr);
+static int evHelloTmrQuit(void *ev_ptr);
 
 static int hello_evm_init(void);
 static int hello_evm_run(void);

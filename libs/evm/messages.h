@@ -52,6 +52,7 @@ typedef struct message_hanger message_hanger_struct;
 struct message_queue {
 	message_hanger_struct *first_hanger;
 	message_hanger_struct *last_hanger;
+	pthread_mutex_t mutex;
 };
 
 struct message_hanger {

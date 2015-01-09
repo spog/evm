@@ -23,25 +23,29 @@ If "evm_message_call()" is used to send a message to a message
 queue of another thread, the message is going to stay in a
 queue until another thread's "epoll()" method is unblocked.
 
-Local message passing with FD triggering:
-=========================================
+Local messages (evm_message_pass() - with FD triggering):
+=========================================================
 samo@lapuh:~/EVM/evm/build/demos$ time ./hello_evm
-[97284.665649|4776|DEMO_EVM] IDLE timer expired!
-[97284.665771|4776|DEMO_EVM] HELLO msg sent: "HELLO: 1"
-^C
+[57760.372975|28283|DEMO_EVM] IDLE timer set: 0 s
+[57760.373044|28283|DEMO_EVM] QUIT timer set: 60 s
+[57760.373069|28283|DEMO_EVM] IDLE timer expired!
+[57760.373093|28283|DEMO_EVM] HELLO msg sent: "HELLO: 1"
+[57820.373058|28283|DEMO_EVM] QUIT timer expired (30403105 messages sent)!
 
-real	1m0.020s
-user	0m16.964s
-sys	0m42.044s
+real	1m0.002s
+user	0m19.444s
+sys	0m40.552s
 
-Local message passing without FD triggering:
-============================================
+Local messages (evm_message_call() - no FD triggering):
+=======================================================
 samo@lapuh:~/EVM/evm/build/demos$ time ./hello_evm
-[97374.814487|4823|DEMO_EVM] IDLE timer expired!
-[97374.814610|4823|DEMO_EVM] HELLO msg sent: "HELLO: 1"
-^C
+[60378.760735|28569|DEMO_EVM] IDLE timer set: 0 s
+[60378.760804|28569|DEMO_EVM] QUIT timer set: 60 s
+[60378.760829|28569|DEMO_EVM] IDLE timer expired!
+[60378.760851|28569|DEMO_EVM] HELLO msg sent: "HELLO: 1"
+[60438.760825|28569|DEMO_EVM] QUIT timer expired (36337635 messages sent)!
 
-real	1m0.159s
-user	0m19.832s
-sys	0m39.320s
+real	1m0.003s
+user	0m20.148s
+sys	0m39.844s
 

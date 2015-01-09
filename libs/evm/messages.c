@@ -117,6 +117,8 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 		return status;
 	}
 	evm_init_ptr->msg_queue = ptr;
+	pthread_mutex_init(&((message_queue_struct *)ptr)->mutex, NULL);
+	pthread_mutex_unlock(&((message_queue_struct *)ptr)->mutex);
 
 	/* Setup EPOLL infrastructure. */
 	if ((evm_init_ptr->epollfd = epoll_create1(0)) < 0)
@@ -266,12 +268,15 @@ int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 {
 	int status = -1;
 	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
+	pthread_mutex_t *mtx = &msg_queue->mutex;
 	message_hanger_struct *msg_hanger;
 
 	evm_log_info("(entry)\n");
+	pthread_mutex_lock(mtx);
 	if ((msg_hanger = (message_hanger_struct *)calloc(1, sizeof(message_hanger_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): message hanger\n");
+		pthread_mutex_unlock(mtx);
 		return status;
 	}
 	msg_hanger->msg = msg;
@@ -282,6 +287,7 @@ int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 
 	msg_queue->last_hanger = msg_hanger;
 	msg_hanger->next = NULL;
+	pthread_mutex_unlock(mtx);
 	return 0;
 }
 
@@ -289,12 +295,16 @@ static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr)
 {
 	evm_message_struct *msg;
 	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
+	pthread_mutex_t *mtx = &msg_queue->mutex;
 	message_hanger_struct *msg_hanger;
 
 	evm_log_info("(entry)\n");
+	pthread_mutex_lock(mtx);
 	msg_hanger = msg_queue->first_hanger;
-	if (msg_hanger == NULL)
+	if (msg_hanger == NULL) {
+		pthread_mutex_unlock(mtx);
 		return NULL;
+	}
 
 	if (msg_hanger->next == NULL) {
 		msg_queue->first_hanger = NULL;
@@ -306,6 +316,7 @@ static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr)
 	free(msg_hanger);
 	msg_hanger = NULL;
 	msg->evm_ptr = evm_init_ptr;
+	pthread_mutex_unlock(mtx);
 	return msg;
 }
 
