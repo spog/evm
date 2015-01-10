@@ -29,7 +29,7 @@
 #include <string.h>
 #include <getopt.h>
 
-#include "hello_evm.h"
+#include "hello1_evm.h"
 
 /*
  * The MAIN part.
