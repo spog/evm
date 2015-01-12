@@ -84,6 +84,7 @@ int evm_init(evm_init_struct *evm_init_ptr)
 	int status = -1;
 	evm_link_struct *evm_linkage;
 
+	evm_log_info("(entry) evm_init_ptr=%p\n", evm_init_ptr);
 	/* Initialize timers infrastructure... */
 	if ((status = evm_timers_init(evm_init_ptr)) < 0) {
 		return status;

@@ -124,23 +124,25 @@ evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr)
 	struct itimerspec its;
 	int *thr_overruns;
 
-	evm_log_info("(entry) first_tmr=%p\n", ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr);
+	evm_log_info("(entry) evm_init_ptr=%p,  first_tmr=%p\n", evm_init_ptr, ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr);
 
 	tmr = ((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr;
 	if (tmr == NULL)
 		return NULL; /*no timers set*/
 
 	thr_overruns = (int *)pthread_getspecific(thr_overruns_key);
-	if (*thr_overruns < 0) {
-		if (*thr_overruns == -1) {
-			evm_log_debug("Error getting timer thread overruns!\n");
+	if (thr_overruns != NULL) {
+		if (*thr_overruns < 0) {
+			if (*thr_overruns == -1) {
+				evm_log_debug("Error getting timer thread overruns!\n");
+			}
+		} else {
+			if (*thr_overruns > 0) {
+				evm_log_debug("timer thread overruns=%d\n", *thr_overruns);
+			}
 		}
-	} else {
-		if (*thr_overruns > 0) {
-			evm_log_debug("timer thread overruns=%d\n", *thr_overruns);
-		}
+		*thr_overruns = -2;
 	}
-	*thr_overruns = -2;
 
 	its.it_value.tv_sec = 0;
 	its.it_value.tv_nsec = 0;

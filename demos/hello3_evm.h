@@ -1,5 +1,5 @@
 /*
- * The hello1_evm demo program
+ * The hello3_evm demo program
  *
  * Copyright (C) 2014 Samo Pogacnik <samo_pogacnik@t-2.net>
  * All rights reserved.
@@ -9,10 +9,10 @@
  * available in the LICENSE file of the EVM software project.
 */
 
-#ifndef hello1_evm_h
-#define hello1_evm_h
+#ifndef hello3_evm_h
+#define hello3_evm_h
 
-#ifdef hello1_evm_c
+#ifdef hello3_evm_c
 /* PRIVATE usage of the PUBLIC part. */
 #	undef EXTERN
 #	define EXTERN
@@ -26,13 +26,13 @@
  *	Enter PUBLIC declarations using EXTERN!
  */
 
-#ifdef hello1_evm_c
+#ifdef hello3_evm_c
 /*
  * Here is the PRIVATE stuff (within above ifdef).
  * It is here so we make sure, that the following PRIVATE stuff get included into own source ONLY!
  */
 #include <evm/log_module.h>
-EVMLOG_MODULE_INIT(DEMO1EVM, 2);
+EVMLOG_MODULE_INIT(DEMO3EVM, 2);
 
 #define MAX_EPOLL_EVENTS_PER_RUN 10
 
@@ -51,24 +51,23 @@ enum event_types {
 
 enum hello_tmr_ev_ids {
 	EV_ID_HELLO_TMR_IDLE = 0,
-	EV_ID_HELLO_TMR_QUIT
 };
 
+static int hello3_send_hello(evm_init_struct *evm_ptr);
 static int hello_messages_link(int ev_id, int evm_idx);
 static int helloTmrs_link(int ev_id, int evm_idx);
 
 static int evHelloMsg(void *ev_ptr);
 static int evHelloTmrIdle(void *ev_ptr);
-static int evHelloTmrQuit(void *ev_ptr);
 
-static int hello_evm_init(void);
-static int hello_evm_run(void);
+static int hello3_evm_init(void);
+static int hello3_evm_run(void);
 
-#endif /*hello1_evm_c*/
+#endif /*hello3_evm_c*/
 /*
  * Here continues the PUBLIC stuff, if necessary.
  */
 
 #define MAX_BUFF_SIZE 1024
 
-#endif /*hello_evm_h*/
+#endif /*hello3_evm_h*/

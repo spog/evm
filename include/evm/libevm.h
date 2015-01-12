@@ -60,6 +60,7 @@ struct evm_init {
 	evm_fd_struct *msg_queue_evmfd; /*message queue FD binding - eventfd()*/
 	timer_t *timerid;
 	void *tmr_queue; /*internal linked list*/
+	void *priv; /*private - application specific data related to this machine*/
 };
 
 /*User provided signal post-handling EVM callbacks!*/

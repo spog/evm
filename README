@@ -69,7 +69,7 @@ Demos:
 ======
 Programs included under "demos" directory demonstrate usage of the framework.
 
-"hello_evm" - Minimal framework utilization by sending HELLO message to itself
+"hello1_evm" - Minimal framework utilization by sending HELLO message to itself
 on every IDLE timer expiration. Sending messages to ourself may be accomplished
 directly in framework without any system call (as in this demo).
 
@@ -77,4 +77,9 @@ directly in framework without any system call (as in this demo).
 process sends the first HELLO message to its child process. Every received
 message in a child or parent process sets new timeout and another HELLO
 message is sent back to the sender process after timeout expiration.
+
+"hello3_evm" - This a threaded version of the second demo. The first
+thread sends the first HELLO message to the second thread. Every received
+message in any thread sets new timeout and another HELLO message is sent back
+to the sender thread after timeout expiration.
 
