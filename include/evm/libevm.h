@@ -56,10 +56,8 @@ struct evm_init {
 	int epoll_max_events;
 	int epoll_nfds;
 	int epollfd;
-	void *msg_queue; /*internal linked list*/
-	evm_fd_struct *msg_queue_evmfd; /*message queue FD binding - eventfd()*/
-	timer_t *timerid;
-	void *tmr_queue; /*internal linked list*/
+	void *msg_queue; /*internal message queue*/
+	void *tmr_queue; /*internal timer queue*/
 	void *priv; /*private - application specific data related to this machine*/
 };
 
@@ -148,7 +146,7 @@ struct evm_timer {
 	void *ctx_ptr;
 	evm_ids_struct tmr_ids;
 	struct timespec tm_stamp;
-	evm_timer_struct *next_tmr;
+	evm_timer_struct *next;
 };
 
 EXTERN evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr);

@@ -34,6 +34,7 @@
 #include "evm/libevm.h"
 
 EXTERN int evm_messages_init(evm_init_struct *evm_init_ptr);
+EXTERN int evm_messages_queue_fd_init(evm_init_struct *evm_init_ptr);
 EXTERN evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr);
 
 EXTERN int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
@@ -52,6 +53,7 @@ typedef struct message_hanger message_hanger_struct;
 struct message_queue {
 	message_hanger_struct *first_hanger;
 	message_hanger_struct *last_hanger;
+	evm_fd_struct *evmfd; /*internal message queue FD binding - eventfd()*/
 	pthread_mutex_t mutex;
 };
 

@@ -106,6 +106,16 @@ int evm_init(evm_init_struct *evm_init_ptr)
 		return status;
 	}
 
+	/* Initialize internal timers queue FD... */
+	if ((status = evm_timers_queue_fd_init(evm_init_ptr)) < 0) {
+		return status;
+	}
+
+	/* Initialize internal messages queue FD... */
+	if ((status = evm_messages_queue_fd_init(evm_init_ptr)) < 0) {
+		return status;
+	}
+
 	return evm_link_init(evm_init_ptr);
 }
 
@@ -131,6 +141,7 @@ int evm_run(evm_init_struct *evm_init_ptr)
 
 	/* Main protocol loop! */
 	for (;;) {
+		evm_log_info("(main loop entry)\n");
 		/* Handle expired timer (NON-BLOCKING). */
 		if ((expdTmr = evm_timers_check(evm_init_ptr)) != NULL) {
 			if ((status = evm_handle_timer(expdTmr)) < 0)

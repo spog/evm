@@ -36,6 +36,7 @@
 #include "evm/libevm.h"
 
 EXTERN int evm_timers_init(evm_init_struct *evm_init_ptr);
+EXTERN int evm_timers_queue_fd_init(evm_init_struct *evm_init_ptr);
 EXTERN evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr);
 
 #ifdef evm_timers_c
@@ -54,7 +55,12 @@ typedef struct timer_queue timer_queue_struct;
 
 struct timer_queue {
 	evm_timer_struct *first_tmr;
+	evm_timer_struct *last_tmr;
+	evm_fd_struct *evmfd; /*internal timer queue FD binding - eventfd()*/
+	pthread_mutex_t mutex;
 };
+
+static int timer_queue_evmfd_read(int efd, evm_message_struct *ptr);
 
 #endif /*evm_timers_c*/
 /*

@@ -136,22 +136,31 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 	}
 	evm_init_ptr->epoll_nfds = -1;
 
-	/* Prepare internal message queue FD for EPOLL to operate over internal message queue. */
-	if ((ptr = calloc(1, sizeof(evm_fd_struct))) == NULL) {
+	return 0;
+}
+
+int evm_messages_queue_fd_init(evm_init_struct *evm_init_ptr)
+{
+	int status = -1;
+	evm_fd_struct *ptr;
+
+	evm_log_info("(entry) evm_init_ptr=%p\n", evm_init_ptr);
+	/* Prepare internal message queue FD for EPOLL to operate over internal linked list. */
+	if ((ptr = (evm_fd_struct *)calloc(1, sizeof(evm_fd_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): internal message queue evm FD\n");
 		return status;
 	}
-	evm_init_ptr->msg_queue_evmfd = ptr;
+	((message_queue_struct *)(evm_init_ptr->msg_queue))->evmfd = ptr;
 
-	if ((evm_init_ptr->msg_queue_evmfd->fd = eventfd(0, EFD_CLOEXEC)) < 0)
+	if ((ptr->fd = eventfd(0, EFD_CLOEXEC)) < 0)
 		evm_log_return_system_err("eventfd()\n");
 
-	evm_init_ptr->msg_queue_evmfd->ev_epoll.events = EPOLLIN;
-	evm_init_ptr->msg_queue_evmfd->ev_epoll.data.ptr = (void *)evm_init_ptr->msg_queue_evmfd /*our own address*/;
-	evm_init_ptr->msg_queue_evmfd->msg_receive = message_queue_evmfd_read;
-//	evm_init_ptr->msg_queue_evmfd->msg_send = NULL;
-	if (evm_message_fd_add(evm_init_ptr, evm_init_ptr->msg_queue_evmfd) < 0) {
+	ptr->ev_epoll.events = EPOLLIN;
+	ptr->ev_epoll.data.ptr = (void *)ptr /*our own address*/;
+	ptr->msg_receive = message_queue_evmfd_read;
+//	ptr->msg_send = NULL;
+	if (evm_message_fd_add(evm_init_ptr, ptr) < 0) {
 		return status;
 	}
 
@@ -355,7 +364,10 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 		return NULL;
 	}
 
-	if (evs_fd_ptr == evm_init_ptr->msg_queue_evmfd) {
+	if (
+		(evs_fd_ptr == ((message_queue_struct *)evm_init_ptr->msg_queue)->evmfd) ||
+		(evs_fd_ptr == ((message_queue_struct *)evm_init_ptr->tmr_queue)->evmfd)
+	) {
 		evm_log_debug("Internal queue receive triggered!\n");
 #if 0 /*test*/
 		if (msg_queue->first_hanger != NULL) {
@@ -387,7 +399,7 @@ static int message_queue_evmfd_read(int efd, evm_message_struct *message)
 
 	evm_log_info("(cb entry) eventfd=%d, message=%p\n", efd, message);
 	if ((s = read(efd, &u, sizeof(uint64_t))) != sizeof(uint64_t))
-		evm_log_system_error("read(): message_pass\n");
+		evm_log_system_error("read(): message_queue_evmfd_read\n");
 
 	message->iov_buff.iov_len = 0;
 	message->iov_buff.iov_base = NULL;
@@ -425,8 +437,8 @@ int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 		}
 
 		u = 1;
-		if ((s = write(evm_init_ptr->msg_queue_evmfd->fd, &u, sizeof(uint64_t))) != sizeof(uint64_t)) {
-			evm_log_system_error("write(): message_trigg\n");
+		if ((s = write(((message_queue_struct *)evm_init_ptr->msg_queue)->evmfd->fd, &u, sizeof(uint64_t))) != sizeof(uint64_t)) {
+			evm_log_system_error("write(): evm_message_pass\n");
 			if (message_dequeue(evm_init_ptr) == NULL) {
 				evm_log_error("Message dequeuing failed!\n");
 			}
@@ -455,6 +467,8 @@ int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr)
 	if (epoll_ctl(evm_init_ptr->epollfd, EPOLL_CTL_ADD, evm_fd_ptr->fd, &evm_fd_ptr->ev_epoll) < 0) {
 		evm_log_return_system_err("epoll_ctl()\n");
 	}
+
+	return 0;
 }
 
 #if 1 /*orig*/
