@@ -49,3 +49,14 @@ real	1m0.002s
 user	0m20.576s
 sys	0m39.412s
 
+Looping messages between two threads (evm_message_pass()):
+==========================================================
+samo@lapuh:~/EVM/evm/build/demos$ time ./hello3_evm 
+[54773.489503|26549|DEMO3EVM] QUIT timer set: 60 s
+[54773.489604|26549|DEMO3EVM] HELLO msg sent: "HELLO: 1"
+[54833.489514|26549|DEMO3EVM] QUIT timer expired (10875496 messages sent)!
+
+real	1m0.003s
+user	0m31.460s
+sys	0m59.416s
+

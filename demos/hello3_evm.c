@@ -231,6 +231,11 @@ static evm_tab_struct evm_tbl[] = {
 		.ev_id = EV_ID_HELLO_TMR_IDLE,
 		.ev_handle = evHelloTmrIdle,
 		.ev_finalize = evm_timer_finalize, /*internal freeing*/
+	}, {
+		.ev_type = EV_TYPE_HELLO_TMR,
+		.ev_id = EV_ID_HELLO_TMR_QUIT,
+		.ev_handle = evHelloTmrQuit,
+		.ev_finalize = evm_timer_finalize, /*internal freeing*/
 	}, { /*EOT - (End Of Table)*/
 		.ev_handle = NULL,
 	},
@@ -264,12 +269,20 @@ static evm_ids_struct helloIdleTmr_evm_ids = {
 	.ev_id = EV_ID_HELLO_TMR_IDLE
 };
 
+static evm_timer_struct *helloQuitTmr;
+static evm_ids_struct helloQuitTmr_evm_ids = {
+	.ev_id = EV_ID_HELLO_TMR_QUIT
+};
+
 static int helloTmrs_link(int ev_id, int evm_idx)
 {
 	evm_log_info("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
 	switch (ev_id) {
 	case EV_ID_HELLO_TMR_IDLE:
 		helloIdleTmr_evm_ids.evm_idx = evm_idx;
+		break;
+	case EV_ID_HELLO_TMR_QUIT:
+		helloQuitTmr_evm_ids.evm_idx = evm_idx;
 		break;
 	default:
 		return -1;
@@ -286,17 +299,34 @@ static evm_timer_struct * hello_startIdle_timer(evm_init_struct *evm_ptr, evm_ti
 	return evm_timer_start(&evs_init[evm_id], helloIdleTmr_evm_ids, tv_sec, tv_nsec, ctx_ptr);
 }
 
+static evm_timer_struct * hello_startQuit_timer(evm_init_struct *evm_ptr, evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr)
+{
+	int evm_id = *(int *)evm_ptr->priv;
+
+	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
+	evm_timer_stop(tmr);
+	return evm_timer_start(&evs_init[evm_id], helloQuitTmr_evm_ids, tv_sec, tv_nsec, ctx_ptr);
+}
+
 /* HELLO event handlers */
 static int evHelloMsg(void *ev_ptr)
 {
 	evm_message_struct *msg = (evm_message_struct *)ev_ptr;
 	evm_init_struct *evm_ptr = msg->evm_ptr;
+	int evm_id = *(int *)evm_ptr->priv;
 
 	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
+#if 1
 	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)msg->iov_buff.iov_base);
 
 	helloIdleTmr = hello_startIdle_timer(evm_ptr, helloIdleTmr, 10, 0, NULL);
 	evm_log_notice("IDLE timer set: 10 s\n");
+#else
+	/* liveloop - 100 %CPU usage */
+	/* Send HELLO message to another thread. */
+	count++;
+	evm_message_pass(&evs_init[(evm_id + 1) % 2], &helloMsg);
+#endif
 
 	return 0;
 }
@@ -313,6 +343,17 @@ static int evHelloTmrIdle(void *ev_ptr)
 	hello3_send_hello(evm_ptr);
 
 	return status;
+}
+
+static int evHelloTmrQuit(void *ev_ptr)
+{
+	int status = 0;
+	evm_timer_struct *tmr = (evm_timer_struct *)ev_ptr;
+
+	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
+	evm_log_notice("QUIT timer expired (%d messages sent)!\n", count);
+
+	exit(EXIT_SUCCESS);
 }
 
 static int hello3_send_hello(evm_init_struct *evm_ptr)
@@ -393,6 +434,10 @@ static int hello3_evm_run(void)
 
 	if ((status = pthread_create(&second_thread, &attr, &hello3_second_thread_start, NULL)) != 0)
 		evm_log_return_system_err("pthread_create()\n");
+
+	/* Set initial QUIT timer */
+	helloQuitTmr = hello_startQuit_timer(&evs_init[0], NULL, 60, 0, NULL);
+	evm_log_notice("QUIT timer set: 60 s\n");
 
 	/* Send first HELLO to the other thread! */
 	hello3_send_hello(&evs_init[0]);
