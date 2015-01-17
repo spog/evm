@@ -10,8 +10,9 @@
 */
 
 /*
- * This demo shows sending message between two threads. The initial thread 
- * sends the first HELLO message to the second thread. Every received
+ * This demo shows sending message between one and many threads. The initial
+ * thread spawns the second thread and sets QUIT timer. The second thread
+ * sends the first HELLO message to the first thread. Every received
  * message in any thread sets a new timeout and another HELLO message is
  * sent back to the sender thread after timeout expiration.
  * 1. The MAIN part shows standard C program initialization with options for
@@ -414,6 +415,10 @@ static int hello3_evm_init(void)
 static void * hello3_second_thread_start(void *arg)
 {
 	evm_log_info("(entry)\n");
+
+	/* Send first HELLO to the other thread! */
+	hello3_send_hello(&evs_init[1]);
+
 	/*
 	 * Main EVM processing (event loop)
 	 */
@@ -438,9 +443,6 @@ static int hello3_evm_run(void)
 	/* Set initial QUIT timer */
 	helloQuitTmr = hello_startQuit_timer(&evs_init[0], NULL, 60, 0, NULL);
 	evm_log_notice("QUIT timer set: 60 s\n");
-
-	/* Send first HELLO to the other thread! */
-	hello3_send_hello(&evs_init[0]);
 
 	/*
 	 * Main EVM processing (event loop)
