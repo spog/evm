@@ -33,6 +33,7 @@ int evm_link_init(evm_init_struct *evm_init_ptr)
 	evm_link_struct *evm_linkage;
 	evm_tab_struct *evm_table;
 
+	evm_log_info("(entry) evm_init_ptr=%p\n", evm_init_ptr);
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
 		return status;
@@ -56,6 +57,7 @@ int evm_link_init(evm_init_struct *evm_init_ptr)
 	}
 
 	while (evm_table[i].ev_handle != NULL) {
+		evm_log_debug("(while) i=%d\n", i);
 		if (evm_table[i].ev_type <= ev_type_max) {
 			if (evm_linkage[evm_table[i].ev_type].ev_type_link != NULL) {
 				if ((status = evm_linkage[evm_table[i].ev_type].ev_type_link(evm_table[i].ev_id, i)) < 0) {

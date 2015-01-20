@@ -14,6 +14,7 @@
 add_executable (hello1_evm hello1_evm.c hello1_evm.h)    
 add_executable (hello2_evm hello2_evm.c hello2_evm.h)    
 add_executable (hello3_evm hello3_evm.c hello3_evm.h)    
+add_executable (hello4_evm hello4_evm.c hello4_evm.h)    
         
 # Make sure the linker can find the Hello library once it is built.  
 link_directories (${evm_BINARY_DIR}/evm)
@@ -22,5 +23,7 @@ link_directories (${evm_BINARY_DIR}/evm)
 target_link_libraries (hello1_evm evm rt)
 target_link_libraries (hello2_evm evm rt)
 target_link_libraries (hello3_evm evm rt pthread)
+target_link_libraries (hello4_evm evm rt pthread)
 
-install(TARGETS hello1_evm hello2_evm hello3_evm RUNTIME DESTINATION bin COMPONENT demos)
+install(TARGETS hello1_evm hello2_evm hello3_evm hello4_evm RUNTIME DESTINATION bin COMPONENT demos)
+

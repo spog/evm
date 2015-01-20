@@ -1,40 +1,27 @@
 **********************
-* evm_message_pass() *
+* evm_message_call() *
 **********************
         VS
 **********************
-* evm_message_call() *
+* evm_message_pass() *
 **********************
 
 This test shows the difference in CPU usage distrubution when
 running a tight loop example whithin a single process/thread 
 using different methods to send/receive a message in a loop.
 
-The "evm_message_pass()" method involves queueing a message and
-writing into a "eventfd" FD, which unblocks the "epoll()" method
-to eventually receive the message.
-
 The "evm_message_call()" method only enqueues a message without
 notifying the "epoll()" mechanism. This method avoids the "epoll()" 
 mechanism (a few system calls), when used to send messages 
 within the same scheduling context (same thread).
 
-If "evm_message_call()" is used to send a message to a message
+The "evm_message_pass()" method involves queueing a message and
+writing into a "eventfd" FD, which unblocks the "epoll()" method
+to eventually receive the message.
+
+If the "evm_message_call()" is used to send a message to a message
 queue of another thread, the message is going to stay in a
 queue until another thread's "epoll()" method is unblocked.
-
-Local messages (evm_message_pass() - with FD triggering):
-=========================================================
-samo@lapuh:~/EVM/evm/build/demos$ time ./hello1_evm 
-[42818.432383|15329|DEMO1EVM] IDLE timer set: 0 s
-[42818.432453|15329|DEMO1EVM] QUIT timer set: 60 s
-[42818.432483|15329|DEMO1EVM] IDLE timer expired!
-[42818.432505|15329|DEMO1EVM] HELLO msg sent: "HELLO: 1"
-[42878.432469|15329|DEMO1EVM] QUIT timer expired (29234753 messages sent)!
-
-real	1m0.002s
-user	0m19.020s
-sys	0m40.964s
 
 Local messages (evm_message_call() - no FD triggering):
 =======================================================
@@ -49,6 +36,19 @@ real	1m0.002s
 user	0m20.576s
 sys	0m39.412s
 
+Local messages (evm_message_pass() - with FD triggering):
+=========================================================
+samo@lapuh:~/EVM/evm/build/demos$ time ./hello1_evm 
+[42818.432383|15329|DEMO1EVM] IDLE timer set: 0 s
+[42818.432453|15329|DEMO1EVM] QUIT timer set: 60 s
+[42818.432483|15329|DEMO1EVM] IDLE timer expired!
+[42818.432505|15329|DEMO1EVM] HELLO msg sent: "HELLO: 1"
+[42878.432469|15329|DEMO1EVM] QUIT timer expired (29234753 messages sent)!
+
+real	1m0.002s
+user	0m19.020s
+sys	0m40.964s
+
 Looping messages between two threads (evm_message_pass()):
 ==========================================================
 samo@lapuh:~/EVM/evm/build/demos$ time ./hello3_evm 
@@ -59,4 +59,59 @@ samo@lapuh:~/EVM/evm/build/demos$ time ./hello3_evm
 real	1m0.003s
 user	0m31.460s
 sys	0m59.416s
+
+Looping messages: one thread serving many threads (evm_message_pass()):
+=======================================================================
+samo@lapuh:~/EVM/evm/build/demos$ time ./hello4_evm 1
+[01354.286324|8923|DEMO3EVM] QUIT timer set: 60 s
+[01354.286503|8924|DEMO3EVM] HELLO msg sent: "HELLO1"
+[01414.286344|8923|DEMO3EVM] QUIT timer expired (4371414 messages sent)!
+
+real	1m0.017s
+user	0m29.928s
+sys	0m51.716s
+
+samo@lapuh:~/EVM/evm/build/demos$ time ./hello4_evm 10
+[12564.211322|23600|DEMO3EVM] HELLO msg sent: "HELLO1"
+[12564.212572|23605|DEMO3EVM] HELLO msg sent: "HELLO1"
+...
+[12564.214028|23608|DEMO3EVM] HELLO msg sent: "HELLO1"
+[12564.214035|23599|DEMO3EVM] QUIT timer set: 60 s
+[12564.214079|23609|DEMO3EVM] HELLO msg sent: "HELLO1"
+[12624.214055|23599|DEMO3EVM] QUIT timer expired (12039196 messages sent)!
+
+real	1m0.049s
+user	1m1.824s
+sys	2m1.804s
+
+amo@lapuh:~/EVM/evm/build/demos$ time ./hello4_evm 100
+[12706.534750|23624|DEMO3EVM] HELLO msg sent: "HELLO1"
+[12706.535500|23625|DEMO3EVM] HELLO msg sent: "HELLO1"
+...
+[12706.542183|23729|DEMO3EVM] HELLO msg sent: "HELLO1"
+[12706.542208|23623|DEMO3EVM] QUIT timer set: 60 s
+[12706.541863|23713|DEMO3EVM] HELLO msg sent: "HELLO1"
+...
+[12706.543922|23718|DEMO3EVM] HELLO msg sent: "HELLO1"
+[12766.542242|23623|DEMO3EVM] QUIT timer expired (11399242 messages sent)!
+
+real	1m0.053s
+user	1m0.152s
+sys	1m56.648s
+
+samo@lapuh:~/EVM/evm/build/demos$ ulimit -n4096
+samo@lapuh:~/EVM/evm/build/demos$ ulimit -s2048
+samo@lapuh:~/EVM/evm/build/demos$ time ./hello4_evm 1000
+[01151.823735|7923|DEMO3EVM] HELLO msg sent: "HELLO1"
+[01151.823235|7924|DEMO3EVM] HELLO msg sent: "HELLO1"
+...
+[01151.862194|8920|DEMO3EVM] HELLO msg sent: "HELLO1"
+[01151.862210|7921|DEMO3EVM] QUIT timer set: 60 s
+[01151.862213|8921|DEMO3EVM] HELLO msg sent: "HELLO1"
+[01151.860725|8849|DEMO3EVM] HELLO msg sent: "HELLO1"
+[01211.862231|7921|DEMO3EVM] QUIT timer expired (10482950 messages sent)!
+
+real	1m0.079s
+user	1m1.472s
+sys	1m48.644s
 
