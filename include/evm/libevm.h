@@ -25,7 +25,8 @@
 /* Struct aliases */
 typedef struct evm_init evm_init_struct;
 typedef struct evm_sigpost evm_sigpost_struct;
-typedef struct evm_link evm_link_struct;
+typedef struct evm_msgs_link evm_msgs_link_struct;
+typedef struct evm_tmrs_link evm_tmrs_link_struct;
 typedef struct evm_tab evm_tab_struct;
 typedef struct evm_fd evm_fd_struct;
 typedef struct evm_ids evm_ids_struct;
@@ -49,9 +50,13 @@ EXTERN unsigned int evm_version_patch;
 /*User provided initialization structure!*/
 struct evm_init {
 	struct evm_sigpost *evm_sigpost;
-	evm_link_struct *evm_link;
-	int evm_link_max;
-	evm_tab_struct *evm_tab;
+	int evm_relink;
+	evm_msgs_link_struct *evm_msgs_link;
+	evm_tmrs_link_struct *evm_tmrs_link;
+	int evm_msgs_link_max;
+	int evm_tmrs_link_max;
+	evm_tab_struct *evm_msgs_tab;
+	evm_tab_struct *evm_tmrs_tab;
 	struct epoll_event *epoll_events;
 	int epoll_max_events;
 	int epoll_nfds;
@@ -66,10 +71,21 @@ struct evm_sigpost {
 	int (*sigpost_handle)(int signum, void *ev_ptr);
 };
 
-/*Elements of the user provided event type linkage callbacks!*/
-struct evm_link {
+/*Elements of the user provided event type information and callbacks!*/
+struct evm_msgs_link {
+	int first_ev_id;
+	int last_ev_id;
+	int linked_msgs;
+	evm_message_struct *msgs_tab;
 	int (*ev_type_parse)(void *ev_ptr);
-	int (*ev_type_link)(int ev_id, int ev_idx);
+};
+
+struct evm_tmrs_link {
+	int first_ev_id;
+	int last_ev_id;
+	int linked_tmrs;
+	evm_timer_struct *tmrs_tab;
+	int (*ev_type_parse)(void *ev_ptr);
 };
 
 /*Elements of the user provided event machine table!*/
@@ -97,7 +113,6 @@ struct evm_ids {
 	unsigned int evm_idx;
 };
 
-EXTERN int evm_link_init(evm_init_struct *evm_init_ptr);
 EXTERN int evm_init(evm_init_struct *evm_init_ptr);
 EXTERN int evm_run(evm_init_struct *evm_init_ptr);
 

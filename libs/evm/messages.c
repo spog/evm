@@ -51,7 +51,7 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 	int status = -1;
 	void *ptr;
 	sigset_t sigmask;
-	evm_link_struct *evm_linkage;
+	evm_msgs_link_struct *evm_linkage;
 	evm_sigpost_struct *evm_sigpost;
 
 	evm_log_info("(entry)\n");
@@ -60,7 +60,7 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 		return status;
 	}
 
-	evm_linkage = evm_init_ptr->evm_link;
+	evm_linkage = evm_init_ptr->evm_msgs_link;
 	if (evm_linkage == NULL) {
 		evm_log_error("Event types linkage table empty - event machine init failed!\n");
 		return status;
@@ -231,7 +231,7 @@ static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr)
 	return evs_fd_ptr;
 }
 
-static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage)
+static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_msgs_link_struct *evm_linkage)
 {
 	int status = -1;
 
@@ -259,7 +259,7 @@ static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_link
 	return status;
 }
 
-static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage)
+static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_msgs_link_struct *evm_linkage)
 {
 	unsigned int ev_type = evs_fd_ptr->ev_type;
 
@@ -341,8 +341,8 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 		abort();
 	}
 
-	if (evm_init_ptr->evm_link == NULL) {
-		evm_log_error("Event types linkage table empty - event machine init failed!\n");
+	if (evm_init_ptr->evm_msgs_link == NULL) {
+		evm_log_error("Message event types linkage table empty - event machine init failed!\n");
 		abort();
 	}
 
@@ -359,7 +359,7 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 	}
 
 	/* Receive any data. */
-	if ((status = messages_receive(evs_fd_ptr, evm_init_ptr->evm_link)) < 0) {
+	if ((status = messages_receive(evs_fd_ptr, evm_init_ptr->evm_msgs_link)) < 0) {
 		evm_log_debug("messages_receive() returned %d\n", status);
 		return NULL;
 	}
@@ -377,7 +377,7 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 		return NULL;
 	}
 	/* Parse received data. */
-	if ((status = messages_parse(evs_fd_ptr, evm_init_ptr->evm_link)) < 0) {
+	if ((status = messages_parse(evs_fd_ptr, evm_init_ptr->evm_msgs_link)) < 0) {
 		evm_log_debug("evm_parse_message() returned %d\n", status);
 		return NULL;
 	}

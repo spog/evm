@@ -26,92 +26,95 @@ queue until another thread's "epoll()" method is unblocked.
 Local messages (evm_message_call() - no FD triggering):
 =======================================================
 samo@lapuh:~/EVM/evm/build/demos$ time ./hello1_evm 
-[42571.069981|15263|DEMO1EVM] IDLE timer set: 0 s
-[42571.070092|15263|DEMO1EVM] QUIT timer set: 60 s
-[42571.070137|15263|DEMO1EVM] IDLE timer expired!
-[42571.070169|15263|DEMO1EVM] HELLO msg sent: "HELLO: 1"
-[42631.070108|15263|DEMO1EVM] QUIT timer expired (33439156 messages sent)!
+[45094.050127|21685|DEMO1EVM] IDLE timer set: 0 s
+[45094.050221|21685|DEMO1EVM] QUIT timer set: 60 s
+[45094.050261|21685|DEMO1EVM] IDLE timer expired!
+[45094.050294|21685|DEMO1EVM] HELLO msg sent: "HELLO: 1"
+[45154.050233|21685|DEMO1EVM] QUIT timer expired (33765956 messages sent)!
 
 real	1m0.002s
-user	0m20.576s
-sys	0m39.412s
+user	0m19.864s
+sys	0m40.116s
 
 Local messages (evm_message_pass() - with FD triggering):
 =========================================================
 samo@lapuh:~/EVM/evm/build/demos$ time ./hello1_evm 
-[42818.432383|15329|DEMO1EVM] IDLE timer set: 0 s
-[42818.432453|15329|DEMO1EVM] QUIT timer set: 60 s
-[42818.432483|15329|DEMO1EVM] IDLE timer expired!
-[42818.432505|15329|DEMO1EVM] HELLO msg sent: "HELLO: 1"
-[42878.432469|15329|DEMO1EVM] QUIT timer expired (29234753 messages sent)!
+[45236.800345|21772|DEMO1EVM] IDLE timer set: 0 s
+[45236.800437|21772|DEMO1EVM] QUIT timer set: 60 s
+[45236.800488|21772|DEMO1EVM] IDLE timer expired!
+[45236.800539|21772|DEMO1EVM] HELLO msg sent: "HELLO: 1"
+[45296.800447|21772|DEMO1EVM] QUIT timer expired (29419422 messages sent)!
 
 real	1m0.002s
-user	0m19.020s
-sys	0m40.964s
+user	0m18.948s
+sys	0m41.044s
 
 Looping messages between two threads (evm_message_pass()):
 ==========================================================
 samo@lapuh:~/EVM/evm/build/demos$ time ./hello3_evm 
-[54773.489503|26549|DEMO3EVM] QUIT timer set: 60 s
-[54773.489604|26549|DEMO3EVM] HELLO msg sent: "HELLO: 1"
-[54833.489514|26549|DEMO3EVM] QUIT timer expired (10875496 messages sent)!
+[65824.725487|16129|DEMO3EVM] QUIT timer set: 60 s
+[65824.725674|16130|DEMO3EVM] HELLO msg sent: "HELLO: 1"
+[65884.725502|16129|DEMO3EVM] QUIT timer expired (15494667 messages sent)!
 
 real	1m0.003s
-user	0m31.460s
-sys	0m59.416s
+user	0m33.220s
+sys	1m1.624s
 
 Looping messages: one thread serving many threads (evm_message_pass()):
 =======================================================================
 samo@lapuh:~/EVM/evm/build/demos$ time ./hello4_evm 1
-[01354.286324|8923|DEMO3EVM] QUIT timer set: 60 s
-[01354.286503|8924|DEMO3EVM] HELLO msg sent: "HELLO1"
-[01414.286344|8923|DEMO3EVM] QUIT timer expired (4371414 messages sent)!
+[47678.882064|14192|DEMO3EVM] QUIT timer set: 60 s
+[47678.882187|14193|DEMO3EVM] HELLO msg sent: "HELLO1"
+[47738.882112|14192|DEMO3EVM] QUIT timer expired (4127784 messages sent)!
 
-real	1m0.017s
-user	0m29.928s
-sys	0m51.716s
+real	1m0.003s
+user	0m34.076s
+sys	0m46.948s
 
 samo@lapuh:~/EVM/evm/build/demos$ time ./hello4_evm 10
-[12564.211322|23600|DEMO3EVM] HELLO msg sent: "HELLO1"
-[12564.212572|23605|DEMO3EVM] HELLO msg sent: "HELLO1"
+[47828.279473|14204|DEMO3EVM] HELLO msg sent: "HELLO1"
+[47828.278769|14203|DEMO3EVM] HELLO msg sent: "HELLO1"
 ...
-[12564.214028|23608|DEMO3EVM] HELLO msg sent: "HELLO1"
-[12564.214035|23599|DEMO3EVM] QUIT timer set: 60 s
-[12564.214079|23609|DEMO3EVM] HELLO msg sent: "HELLO1"
-[12624.214055|23599|DEMO3EVM] QUIT timer expired (12039196 messages sent)!
+[47828.280121|14207|DEMO3EVM] HELLO msg sent: "HELLO1"
+[47828.280665|14202|DEMO3EVM] QUIT timer set: 60 s
+[47828.280687|14209|DEMO3EVM] HELLO msg sent: "HELLO1"
+[47828.280718|14211|DEMO3EVM] HELLO msg sent: "HELLO1"
+[47828.280767|14212|DEMO3EVM] HELLO msg sent: "HELLO1"
+[47888.280684|14202|DEMO3EVM] QUIT timer expired (11436436 messages sent)!
 
-real	1m0.049s
-user	1m1.824s
-sys	2m1.804s
+real	1m0.005s
+user	1m11.360s
+sys	1m53.596s
 
-amo@lapuh:~/EVM/evm/build/demos$ time ./hello4_evm 100
-[12706.534750|23624|DEMO3EVM] HELLO msg sent: "HELLO1"
-[12706.535500|23625|DEMO3EVM] HELLO msg sent: "HELLO1"
+samo@lapuh:~/EVM/evm/build/demos$ time ./hello4_evm 100
+[47969.123955|14224|DEMO3EVM] HELLO msg sent: "HELLO1"
+[47969.126266|14229|DEMO3EVM] HELLO msg sent: "HELLO1"
 ...
-[12706.542183|23729|DEMO3EVM] HELLO msg sent: "HELLO1"
-[12706.542208|23623|DEMO3EVM] QUIT timer set: 60 s
-[12706.541863|23713|DEMO3EVM] HELLO msg sent: "HELLO1"
+[47969.131518|14316|DEMO3EVM] HELLO msg sent: "HELLO1"
+[47969.131148|14222|DEMO3EVM] QUIT timer set: 60 s
+[47969.131690|14308|DEMO3EVM] HELLO msg sent: "HELLO1"
 ...
-[12706.543922|23718|DEMO3EVM] HELLO msg sent: "HELLO1"
-[12766.542242|23623|DEMO3EVM] QUIT timer expired (11399242 messages sent)!
+[47969.131841|14305|DEMO3EVM] HELLO msg sent: "HELLO1"
+[48029.131184|14222|DEMO3EVM] QUIT timer expired (10940030 messages sent)!
 
-real	1m0.053s
-user	1m0.152s
-sys	1m56.648s
+real	1m0.011s
+user	1m8.740s
+sys	1m51.032s
 
-samo@lapuh:~/EVM/evm/build/demos$ ulimit -n4096
-samo@lapuh:~/EVM/evm/build/demos$ ulimit -s2048
-samo@lapuh:~/EVM/evm/build/demos$ time ./hello4_evm 1000
-[01151.823735|7923|DEMO3EVM] HELLO msg sent: "HELLO1"
-[01151.823235|7924|DEMO3EVM] HELLO msg sent: "HELLO1"
+root@lapuh:/home/samo/EVM/evm/build/demos# ulimit -n4096
+root@lapuh:/home/samo/EVM/evm/build/demos# ulimit -s2048
+root@lapuh:/home/samo/EVM/evm/build/demos# time ./hello4_evm 1000
+[48242.072080|14444|DEMO3EVM] HELLO msg sent: "HELLO1"
+[48242.072307|14445|DEMO3EVM] HELLO msg sent: "HELLO1"
 ...
-[01151.862194|8920|DEMO3EVM] HELLO msg sent: "HELLO1"
-[01151.862210|7921|DEMO3EVM] QUIT timer set: 60 s
-[01151.862213|8921|DEMO3EVM] HELLO msg sent: "HELLO1"
-[01151.860725|8849|DEMO3EVM] HELLO msg sent: "HELLO1"
-[01211.862231|7921|DEMO3EVM] QUIT timer expired (10482950 messages sent)!
+[48242.109717|15366|DEMO3EVM] HELLO msg sent: "HELLO1"
+[48242.111376|14442|DEMO3EVM] QUIT timer set: 60 s
+[48242.109759|15368|DEMO3EVM] HELLO msg sent: "HELLO1"
+...
+[48242.113026|15372|DEMO3EVM] HELLO msg sent: "HELLO1"
+[48302.111398|14442|DEMO3EVM] QUIT timer expired (10869372 messages sent)!
 
-real	1m0.079s
-user	1m1.472s
-sys	1m48.644s
+real	1m0.056s
+user	1m8.856s
+sys	1m46.036s
 

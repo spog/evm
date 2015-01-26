@@ -38,24 +38,25 @@ EVMLOG_MODULE_INIT(DEMO1EVM, 2);
 
 static int signal_processing(int sig, void *ptr);
 
-#define EV_ID_FIRST 0
-enum hello_msg_ev_ids {
-	EV_ID_HELLO_MSG_HELLO = EV_ID_FIRST
+enum event_msg_types {
+	EV_TYPE_UNKNOWN_MSG = 0,
+	EV_TYPE_HELLO_MSG
 };
-enum event_types {
-	EV_TYPE_UNKNOWN = 0,
-	EV_TYPE_HELLO_MSG,
+
+enum event_tmr_types {
+	EV_TYPE_UNKNOWN_TMR = 0,
 	EV_TYPE_HELLO_TMR
 };
-#define EV_TYPE_MAX EV_TYPE_HELLO_TMR
 
+enum hello_msg_ev_ids {
+	EV_ID_HELLO_MSG_HELLO = 0
+};
 enum hello_tmr_ev_ids {
 	EV_ID_HELLO_TMR_IDLE = 0,
 	EV_ID_HELLO_TMR_QUIT
 };
 
-static int hello_messages_link(int ev_id, int evm_idx);
-static int helloTmrs_link(int ev_id, int evm_idx);
+static evm_timer_struct * hello_start_timer(evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, int tmr_type, int tmr_id);
 
 static int evHelloMsg(void *ev_ptr);
 static int evHelloTmrIdle(void *ev_ptr);

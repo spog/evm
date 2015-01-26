@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
 
 	setlogmask(log_mask);
 
-	if ((evm_init_ptr = hello4_evm_init()) == NULL)
+	if ((evm_init_ptr = hello4_evm_init(1)) == NULL)
 		exit(EXIT_FAILURE);
 
 	if (hello4_evm_run(evm_init_ptr) < 0)
@@ -210,27 +210,45 @@ static int signal_processing(int sig, void *ptr)
 }
 
 /*
- * Event types table - required by evm_init():
- * Per event type parser and linkage callbacks
+ * Message event types table - required by evm_init():
+ * Per type message id limits and parser callback
  */
-static evm_link_struct evs_linkage[] = {
-	[EV_TYPE_HELLO_MSG].ev_type_parse = NULL,
-	[EV_TYPE_HELLO_MSG].ev_type_link = hello_messages_link,
-	[EV_TYPE_HELLO_TMR].ev_type_link = helloTmrs_link,
+static evm_msgs_link_struct evs_msgs_linkage[] = {
+	[EV_TYPE_HELLO_MSG].first_ev_id = EV_ID_HELLO_MSG_HELLO,
+	[EV_TYPE_HELLO_MSG].last_ev_id = EV_ID_HELLO_MSG_HELLO,
+};
+
+/*
+ * Timer event types table - required by evm_init():
+ * Per type timer id limits and parser callback
+ */
+static evm_tmrs_link_struct evs_tmrs_linkage[] = {
+	[EV_TYPE_HELLO_TMR].first_ev_id = EV_ID_HELLO_TMR_IDLE,
+	[EV_TYPE_HELLO_TMR].last_ev_id = EV_ID_HELLO_TMR_QUIT,
 };
 
 /*
  * Events table - required by evm_init():
- * Messages and timers - their individual IDs and callbacks
+ * Messages - their individual IDs and callbacks
  */
-static evm_tab_struct evm_tbl[] = {
+static evm_tab_struct evm_msgs_tbl[] = {
 	{ /*HELLO messages*/
 		.ev_type = EV_TYPE_HELLO_MSG,
 		.ev_id = EV_ID_HELLO_MSG_HELLO,
 		.ev_prepare = NULL,
 		.ev_handle = evHelloMsg,
-		.ev_finalize = NULL, /*nothing to free*/
-	}, { /*HELLO timers*/
+		.ev_finalize = evHelloMsgFree, /*free handled message*/
+	}, { /*EOT - (End Of Table)*/
+		.ev_handle = NULL,
+	},
+};
+
+/*
+ * Events table - required by evm_init():
+ * Timers - their individual IDs and callbacks
+ */
+static evm_tab_struct evm_tmrs_tbl[] = {
+	{ /*HELLO timers*/
 		.ev_type = EV_TYPE_HELLO_TMR,
 		.ev_id = EV_ID_HELLO_TMR_IDLE,
 		.ev_handle = evHelloTmrIdle,
@@ -249,63 +267,18 @@ static evm_tab_struct evm_tbl[] = {
 static char send_buff[MAX_BUFF_SIZE] = "";
 static char recv_buff[MAX_BUFF_SIZE] = "";
 static char *hello_str = "HELLO";
-static evm_message_struct helloMsg = {
-	.msg_ids.ev_id = EV_ID_HELLO_MSG_HELLO,
-	.iov_buff.iov_base = (void *)send_buff,
-};
-
-static int hello_messages_link(int ev_id, int evm_idx)
-{
-	evm_log_info("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
-	switch (ev_id) {
-	case EV_ID_HELLO_MSG_HELLO:
-		helloMsg.msg_ids.evm_idx = evm_idx;
-		break;
-	default:
-		return -1;
-	}
-	return 0;
-}
 
 /* HELLO timers */
 static evm_timer_struct *helloIdleTmr;
-static evm_ids_struct helloIdleTmr_evm_ids = {
-	.ev_id = EV_ID_HELLO_TMR_IDLE
-};
-
 static evm_timer_struct *helloQuitTmr;
-static evm_ids_struct helloQuitTmr_evm_ids = {
-	.ev_id = EV_ID_HELLO_TMR_QUIT
-};
 
-static int helloTmrs_link(int ev_id, int evm_idx)
+static evm_timer_struct * hello_start_timer(evm_init_struct *evm_ptr, evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, int tmr_type, int tmr_id)
 {
-	evm_log_info("(cb entry) ev_id=%d, evm_idx=%d\n", ev_id, evm_idx);
-	switch (ev_id) {
-	case EV_ID_HELLO_TMR_IDLE:
-		helloIdleTmr_evm_ids.evm_idx = evm_idx;
-		break;
-	case EV_ID_HELLO_TMR_QUIT:
-		helloQuitTmr_evm_ids.evm_idx = evm_idx;
-		break;
-	default:
-		return -1;
-	}
-	return 0;
-}
+	evm_timer_struct *new = &evm_ptr->evm_tmrs_link[tmr_type].tmrs_tab[tmr_id];
 
-static evm_timer_struct * hello_startIdle_timer(evm_init_struct *evm_ptr, evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr)
-{
-	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
-//	evm_timer_stop(tmr);
-	return evm_timer_start(evm_ptr, helloIdleTmr_evm_ids, tv_sec, tv_nsec, ctx_ptr);
-}
-
-static evm_timer_struct * hello_startQuit_timer(evm_init_struct *evm_ptr, evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr)
-{
 	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
 	evm_timer_stop(tmr);
-	return evm_timer_start(evm_ptr, helloQuitTmr_evm_ids, tv_sec, tv_nsec, ctx_ptr);
+	return evm_timer_start(evm_ptr, new->tmr_ids, tv_sec, tv_nsec, ctx_ptr);
 }
 
 /* HELLO event handlers */
@@ -319,14 +292,28 @@ static int evHelloMsg(void *ev_ptr)
 #if 1
 	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)msg->iov_buff.iov_base);
 
-	evm_log_notice("IDLE timer set: 1 s\n");
-	helloIdleTmr = hello_startIdle_timer(loc_evm_ptr, helloIdleTmr, 1, 0, msg->ctx_ptr);
+	evm_log_notice("IDLE timer set: 10 s\n");
+	helloIdleTmr = hello_start_timer(loc_evm_ptr, NULL, 10, 0, msg->ctx_ptr, EV_TYPE_HELLO_TMR, EV_ID_HELLO_TMR_IDLE);
 #else
 	/* liveloop - 100 %CPU usage */
 	/* Send HELLO message to another thread. */
 //	evm_log_notice("HELLO msg sent: \"%s%d\"\n", "HELLO: ", *(int *)loc_evm_ptr->priv + 1);
 	hello4_send_hello(loc_evm_ptr, rem_evm_ptr);
 #endif
+
+	return 0;
+}
+
+static int evHelloMsgFree(void *ev_ptr)
+{
+	evm_message_struct *msg = (evm_message_struct *)ev_ptr;
+
+	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
+
+	free(msg->iov_buff.iov_base);
+	msg->iov_buff.iov_base = NULL;
+	free(msg);
+	msg = NULL;
 
 	return 0;
 }
@@ -368,7 +355,10 @@ static int hello4_send_hello(evm_init_struct *loc_evm_ptr, evm_init_struct *rem_
 	if ((msg = (evm_message_struct *)calloc(1, sizeof(evm_message_struct))) == NULL)
 		return -1;
 
-	memcpy((void *)msg, (void *)&helloMsg, sizeof(helloMsg));
+	memcpy((void *)msg, (void *)&loc_evm_ptr->evm_msgs_link[EV_TYPE_HELLO_MSG].msgs_tab[EV_ID_HELLO_MSG_HELLO], sizeof(evm_message_struct));
+
+	if ((msg->iov_buff.iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL)
+		return -1;
 
 	msg->ctx_ptr = (void *)loc_evm_ptr;
 	/* Send HELLO message to another thread. */
@@ -380,7 +370,7 @@ static int hello4_send_hello(evm_init_struct *loc_evm_ptr, evm_init_struct *rem_
 }
 
 /* EVM initialization */
-static evm_init_struct * hello4_evm_init(void)
+static evm_init_struct * hello4_evm_init(int relink)
 {
 	evm_init_struct *ptr;
 	int status = 0;
@@ -398,11 +388,16 @@ static evm_init_struct * hello4_evm_init(void)
 	/* Initialize event machine for each thread... */
 	ptr->priv = (void *)NULL;
 	ptr->evm_sigpost = &evs_sigpost;
-	ptr->evm_link = evs_linkage;
-	ptr->evm_link_max = sizeof(evs_linkage) / sizeof(evm_link_struct) - 1;
-	ptr->evm_tab = evm_tbl;
+	ptr->evm_relink = relink;
+	ptr->evm_msgs_link = evs_msgs_linkage;
+	ptr->evm_tmrs_link = evs_tmrs_linkage;
+	ptr->evm_msgs_link_max = sizeof(evs_msgs_linkage) / sizeof(evm_msgs_link_struct) - 1;
+	ptr->evm_tmrs_link_max = sizeof(evs_tmrs_linkage) / sizeof(evm_tmrs_link_struct) - 1;
+	ptr->evm_msgs_tab = evm_msgs_tbl;
+	ptr->evm_tmrs_tab = evm_tmrs_tbl;
 	ptr->epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
-	evm_log_debug("evs_linkage index size = %d\n", ptr->evm_link_max);
+	evm_log_debug("evs_msgs_linkage index size = %d\n", ptr->evm_msgs_link_max);
+	evm_log_debug("evs_tmrs_linkage index size = %d\n", ptr->evm_tmrs_link_max);
 	if ((status = evm_init(ptr)) < 0) {
 		return NULL;
 	}
@@ -420,7 +415,7 @@ static void * hello4_new_thread_start(void *arg)
 
 	evm_log_info("(entry)\n");
 
-	if ((evm_init_ptr = hello4_evm_init()) == NULL)
+	if ((evm_init_ptr = hello4_evm_init(0)) == NULL)
 		return NULL;
 
 	evm_init_ptr->priv = (void *)&count;
@@ -455,7 +450,7 @@ static int hello4_evm_run(evm_init_struct *ptr)
 
 	ptr->priv = (void *)&count;
 	/* Set initial QUIT timer */
-	helloQuitTmr = hello_startQuit_timer(ptr, NULL, 60, 0, NULL);
+	helloQuitTmr = hello_start_timer(ptr, NULL, 60, 0, NULL, EV_TYPE_HELLO_TMR, EV_ID_HELLO_TMR_QUIT);
 	evm_log_notice("QUIT timer set: 60 s\n");
 
 	/*

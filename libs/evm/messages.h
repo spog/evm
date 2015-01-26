@@ -66,8 +66,8 @@ struct message_hanger {
 static void messages_sighandler(int signum, siginfo_t *siginfo, void *context);
 static int messages_sighandler_install(int signum);
 static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr);
-static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage);
-static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_link_struct *evm_linkage);
+static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_msgs_link_struct *evm_linkage);
+static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_msgs_link_struct *evm_linkage);
 static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr);
 static int message_queue_evmfd_read(int efd, evm_message_struct *message);
 
