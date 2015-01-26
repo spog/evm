@@ -444,6 +444,7 @@ static int hello2_evm_init(void)
 
 	/* Initialize event machine... */
 	evs_init.evm_sigpost = &evs_sigpost;;
+	evs_init.evm_relink = 1;
 	evs_init.evm_msgs_link = evs_msgs_linkage;
 	evs_init.evm_tmrs_link = evs_tmrs_linkage;
 	evs_init.evm_msgs_link_max = sizeof(evs_msgs_linkage) / sizeof(evm_msgs_link_struct) - 1;

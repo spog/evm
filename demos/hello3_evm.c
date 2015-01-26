@@ -357,6 +357,7 @@ static int hello3_evm_init(void)
 	evs_init[0].priv = (void *)&evm_ids[0];
 	evm_log_debug("evm_ids[0] = %d\n", evm_ids[0]);
 	evs_init[0].evm_sigpost = &evs_sigpost;
+	evs_init[0].evm_relink = 1;
 	evs_init[0].evm_msgs_link = evs_msgs_linkage;
 	evs_init[0].evm_tmrs_link = evs_tmrs_linkage;
 	evs_init[0].evm_msgs_link_max = sizeof(evs_msgs_linkage) / sizeof(evm_msgs_link_struct) - 1;
@@ -375,6 +376,7 @@ static int hello3_evm_init(void)
 	evs_init[1].priv = (void *)&evm_ids[1];
 	evm_log_debug("evm_ids[1] = %d\n", evm_ids[1]);
 	evs_init[1].evm_sigpost = &evs_sigpost;;
+	evs_init[1].evm_relink = 1;
 	evs_init[1].evm_msgs_link = evs_msgs_linkage;
 	evs_init[1].evm_tmrs_link = evs_tmrs_linkage;
 	evs_init[1].evm_msgs_link_max = sizeof(evs_msgs_linkage) / sizeof(evm_msgs_link_struct) - 1;
