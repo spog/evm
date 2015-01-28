@@ -83,3 +83,9 @@ thread sends the first HELLO message to the second thread. Every received
 message in any thread sets new timeout and another HELLO message is sent back
 to the sender thread after timeout expiration.
 
+"hello4_evm" - This is the one to many threaded example. The initial thread
+spawns requested number of other threads and sets QUIT timer. Each other thread
+sends initial HELLO message to the first thread. Every received message in any
+thread sets a new IDLE timeout and another HELLO message is sent back to the
+sender thread after timeout expiration.
+
