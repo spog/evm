@@ -18,7 +18,7 @@ project (evm)
 # The project version number.
 set (evm_VERSION_MAJOR 0)
 set (evm_VERSION_MINOR 1)
-set (evm_VERSION_PATCH 1)
+set (evm_VERSION_PATCH 2)
 set (evm_VERSION_STRING ${evm_VERSION_MAJOR}.${evm_VERSION_MINOR}.${evm_VERSION_PATCH})
 
 # The project configuration header file passes required CMake settings
