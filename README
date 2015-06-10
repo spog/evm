@@ -89,3 +89,6 @@ sends initial HELLO message to the first thread. Every received message in any
 thread sets a new IDLE timeout and another HELLO message is sent back to the
 sender thread after timeout expiration.
 
+U2UP packaging:
+===============
+Requires build.u2up component framework to be installed.

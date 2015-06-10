@@ -13,7 +13,7 @@
 # The extension is already found. Any number of sources could be listed here.
 add_library (evm SHARED evm.c evm.h messages.c messages.h timers.c timers.h) 
 
-set_target_properties (evm PROPERTIES VERSION ${evm_VERSION_STRING} SOVERSION ${evm_VERSION_MAJOR})
+set_target_properties (evm PROPERTIES VERSION ${project_VERSION_STRING} SOVERSION ${project_VERSION_MAJOR})
 
 install(TARGETS evm DESTINATION lib COMPONENT libs)
-install(FILES ${evm_SOURCE_DIR}/include/evm/libevm.h ${evm_SOURCE_DIR}/include/evm/log_module.h DESTINATION include/evm COMPONENT headers)
+install(FILES ${evm_SOURCE_DIR}/include/evm/libevm.h DESTINATION include/evm COMPONENT headers)

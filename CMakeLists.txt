@@ -16,10 +16,10 @@ cmake_minimum_required (VERSION 2.8)
 project (evm)
 
 # The project version number.
-set (evm_VERSION_MAJOR 0)
-set (evm_VERSION_MINOR 1)
-set (evm_VERSION_PATCH 2)
-set (evm_VERSION_STRING ${evm_VERSION_MAJOR}.${evm_VERSION_MINOR}.${evm_VERSION_PATCH})
+#set (project_VERSION_MAJOR 0)
+#set (project_VERSION_MINOR 1)
+#set (project_VERSION_PATCH 2)
+set (project_VERSION_STRING ${project_VERSION_MAJOR}.${project_VERSION_MINOR}.${project_VERSION_PATCH})
 
 # The project configuration header file passes required CMake settings
 # to the source code.
@@ -30,6 +30,9 @@ configure_file (
  
 # The search path for generated configuration include files.
 include_directories("${evm_BINARY_DIR}")
+
+# The search path for required imported include files.
+include_directories("${evm_BINARY_DIR}/required/include")
 
 # Make sure the compiler can find isolated public include files of our evm library.
 include_directories (${evm_SOURCE_DIR}/include)
@@ -96,7 +99,7 @@ add_custom_target(first ALL
     -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
     -DBINARY_DIR=${CMAKE_BINARY_DIR}
     -Dproj_name=${CMAKE_PROJECT_NAME}
-    -Dproj_version=${evm_VERSION_STRING}
+    -Dproj_version=${project_VERSION_STRING}
     -Dtarget_arch=${CMAKE_SYSTEM_PROCESSOR}
     -P ${CMAKE_SOURCE_DIR}/create-cpackoptions.cmake
     )

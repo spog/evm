@@ -12,8 +12,8 @@
 #ifndef config_h
 #define config_h
 
-#define EVM_VERSION_MAJOR @evm_VERSION_MAJOR@
-#define EVM_VERSION_MINOR @evm_VERSION_MINOR@
-#define EVM_VERSION_PATCH @evm_VERSION_PATCH@
+#define EVM_VERSION_MAJOR @project_VERSION_MAJOR@
+#define EVM_VERSION_MINOR @project_VERSION_MINOR@
+#define EVM_VERSION_PATCH @project_VERSION_PATCH@
 
 #endif /*config_h*/

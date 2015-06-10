@@ -31,7 +31,7 @@
  * Here is the PRIVATE stuff (within above ifdef).
  * It is here so we make sure, that the following PRIVATE stuff get included into own source ONLY!
  */
-#include <evm/log_module.h>
+#include <userlog/log_module.h>
 EVMLOG_MODULE_INIT(DEMO1EVM, 2);
 
 #define MAX_EPOLL_EVENTS_PER_RUN 10
