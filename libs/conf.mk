@@ -10,16 +10,21 @@
 #
 
 include $(_SRCDIR_)/default.mk
-TOPDIR := .
 
-SUBDIRS := libs demos
+SUBDIRS := evm
 export SUBDIRS
 
-.PHONY: all
-all:
+##
+# Subdirs to handle:
+##
+SUBDIRS := lib1 lib2
+export SUBDIRS
+
+.PHONY: subdirs_all
+subdirs_all:
 	$(_SRCDIR_)/default.sh subdirs_make all
 
-.PHONY: install
-install:
+.PHONY: subdirs_install
+subdirs_install:
 	$(_SRCDIR_)/default.sh subdirs_make install
 
