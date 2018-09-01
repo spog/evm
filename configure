@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+# The "u2up-build" project build rules
+#
+# Copyright (C) 2017-2018 Samo Pogacnik <samo_pogacnik@t-2.net>
+# All rights reserved.
+#
+# This file is part of the "u2up-build" software project.
+# This file is provided under the terms of the BSD 3-Clause license,
+# available in the LICENSE file of the "u2up-build" software project.
+#
+#set -x
+set -e
+
+if [ "x"$SRCDIR != "x" ];
+then
+	cd $SRCDIR
+	_SRCDIR_=$(pwd)
+	cd - > /dev/null
+else
+	cd $(dirname $(which $0))
+	_SRCDIR_=$(pwd)
+	cd - > /dev/null
+fi
+export _SRCDIR_
+echo "Local source absolute path set: "$_SRCDIR_
+
+if [ "x"$BUILDIR != "x" ];
+then
+	mkdir -p $BUILDIR
+	cd $BUILDIR
+	_BUILDIR_=$(pwd)
+	cd - > /dev/null
+else
+	BUILDIR="."
+	_BUILDIR_=$(pwd)
+fi
+export _BUILDIR_
+echo "Local build absolute path set: "$_BUILDIR_
+
+if [ -f $_BUILDIR_/Makefile ];
+then
+	echo "ERROR: Local build path already configured!"
+	exit 1
+fi
+
+if [ "x"$PREFIX == "x" ]
+then
+	PREFIX="/"
+	echo "Target installation path absolute prefix set: "$PREFIX
+else
+	echo "Target installation path absolute prefix set: "$PREFIX
+	if [ "/" != $(echo $PREFIX | sed -e 's%^/.*%/%') ];
+	then
+		echo "ERROR: Target installation path PREFIX is not absolute!"
+		exit 1
+	fi
+fi
+export PREFIX
+
+make -C $_BUILDIR_ -f $_SRCDIR_/conf.mk conf
+

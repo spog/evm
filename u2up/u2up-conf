@@ -1,0 +1,5 @@
+# Predefined common U2UP build directory:
+u2up_build_dir=~/u2up.build
+
+# Predefined U2UP repository directory:
+u2up_repo_dir=~/u2up.repo
