@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #include <evm/libevm.h>
 #include "hello3_evm.h"

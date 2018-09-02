@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #include <evm/libevm.h>
 #include "hello4_evm.h"
@@ -340,7 +341,8 @@ static int evHelloTmrQuit(void *ev_ptr)
 	int *count = (int*)tmr->evm_ptr->priv;
 
 	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
-	evm_log_notice("QUIT timer expired (%d messages sent)!\n", (*count) * 2);
+	//evm_log_notice("QUIT timer expired (%d messages sent)!\n", (*count) * 2);
+	printf("QUIT timer expired (%d messages sent)!\n", (*count) * 2);
 
 	exit(EXIT_SUCCESS);
 }
@@ -451,7 +453,7 @@ static int hello4_evm_run(evm_init_struct *ptr)
 	ptr->priv = (void *)&count;
 	/* Set initial QUIT timer */
 	helloQuitTmr = hello_start_timer(ptr, NULL, 60, 0, NULL, EV_TYPE_HELLO_TMR, EV_ID_HELLO_TMR_QUIT);
-	evm_log_notice("QUIT timer set: 60 s\n");
+	printf("QUIT timer set: 60 s\n");
 
 	/*
 	 * Main EVM processing (event loop)

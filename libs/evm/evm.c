@@ -15,7 +15,7 @@
 #error Preprocesor macro evm_c conflict!
 #endif
 
-#include <config.h>
+//#include <config.h>
 #include "evm.h"
 
 /*current project version*/

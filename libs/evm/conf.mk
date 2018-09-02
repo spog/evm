@@ -11,32 +11,59 @@
 
 include $(_SRCDIR_)/default.mk
 
-TARGET := libevm
-TPATH := $(_BUILD_PREFIX_)/lib
+SUBDIRS :=
+export SUBDIRS
+
+TARGET := libevm.so
+TPATH := $(_BUILDIR_)/$(SUBPATH)
 IPATH := $(_INSTALL_PREFIX_)/lib
+HPATH := $(_INSTALL_PREFIX_)/include/evm
 
 .PHONY: all
 all: $(TPATH)/$(TARGET)
 
 $(TPATH)/$(TARGET):\
+ $(TPATH)/evm.o\
+ $(TPATH)/messages.o\
+ $(TPATH)/timers.o
+	$(CC) -shared $^ -o $@
+
+$(TPATH)/evm.o:\
  $(_SRCDIR_)/$(SUBPATH)/evm.c\
  $(_SRCDIR_)/$(SUBPATH)/evm.h\
+ $(_SRCDIR_)/$(SUBPATH)/messages.h\
+ $(_SRCDIR_)/$(SUBPATH)/timers.h\
+ $(TPATH)
+	$(CC) -c -fPIC $(CFLAGS) $< -o $@
+
+$(TPATH)/messages.o:\
  $(_SRCDIR_)/$(SUBPATH)/messages.c\
  $(_SRCDIR_)/$(SUBPATH)/messages.h\
+ $(TPATH)
+	$(CC) -c -fPIC $(CFLAGS) $< -o $@
+
+$(TPATH)/timers.o:\
  $(_SRCDIR_)/$(SUBPATH)/timers.c\
  $(_SRCDIR_)/$(SUBPATH)/timers.h\
  $(TPATH)
-	$(CC) -o $@ $<
+	$(CC) -c -fPIC $(CFLAGS) $< -o $@
 
 $(TPATH):
 	install -d $@
 
 .PHONY: install
-install: $(IPATH) $(IPATH)/$(TARGET)
+install: $(IPATH) $(IPATH)/$(TARGET) $(HPATH) $(HPATH)/libevm.h
 
 $(IPATH):
 	install -d $@
 
 $(IPATH)/$(TARGET):
 	install $(TPATH)/$(TARGET) $@
+
+$(HPATH):
+	install -d $@
+
+$(HPATH)/libevm.h:\
+ $(_SRCDIR_)/include/evm/libevm.h
+	install $< $@
 

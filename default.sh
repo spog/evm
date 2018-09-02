@@ -35,14 +35,20 @@ function generate_makefile()
 	if [ "x"$SUBDIR == "x" ]; then
 		SUBDIR=.
 	fi
-	echo "SUBPATH := "$TOPDIR > $MAKEFILE
+	source $_SRCDIR_/u2up/version
+	echo "comp_version_MAJOR := "$comp_version_MAJOR > $MAKEFILE
+	echo "comp_version_MINOR := "$comp_version_MINOR >> $MAKEFILE
+	echo "comp_version_PATCH := "$comp_version_PATCH >> $MAKEFILE
+	echo "SUBPATH := "$TOPDIR >> $MAKEFILE
 	echo "SUBDIR := "$SUBDIR >> $MAKEFILE
 	echo "PREFIX := "$PREFIX >> $MAKEFILE
-#	echo "SRCDIR := "$SRCDIR >> $MAKEFILE
+#	echo "DESTDIR := "$DESTDIR >> $MAKEFILE
 	echo "_SRCDIR_ := "$_SRCDIR_ >> $MAKEFILE
 #	echo "BUILDIR := "$BUILDIR >> $MAKEFILE
 	echo "_BUILDIR_ := "$_BUILDIR_ >> $MAKEFILE
+#	echo "export SUBPATH SUBDIR PREFIX DESTDIR _SRCDIR_ _BUILDIR_" >> $MAKEFILE
 	echo "export SUBPATH SUBDIR PREFIX _SRCDIR_ _BUILDIR_" >> $MAKEFILE
+	echo >> $MAKEFILE
 	cat $_SRCDIR_/$TOPDIR/$CONFFILE >> $MAKEFILE
 #	echo "Done generating ${TOPDIR}/${MAKEFILE}!"
 	echo "Done!"

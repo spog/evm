@@ -23,7 +23,7 @@ else
 	cd - > /dev/null
 fi
 export _SRCDIR_
-echo "Local source absolute path set: "$_SRCDIR_
+echo "Local source absolute path (SRCDIR): "$_SRCDIR_
 
 if [ "x"$BUILDIR != "x" ];
 then
@@ -36,7 +36,7 @@ else
 	_BUILDIR_=$(pwd)
 fi
 export _BUILDIR_
-echo "Local build absolute path set: "$_BUILDIR_
+echo "Local build absolute path (BUILDIR): "$_BUILDIR_
 
 if [ -f $_BUILDIR_/Makefile ];
 then
@@ -47,9 +47,9 @@ fi
 if [ "x"$PREFIX == "x" ]
 then
 	PREFIX="/"
-	echo "Target installation path absolute prefix set: "$PREFIX
+	echo "Target absolute installation prefix path (PREFIX): "$PREFIX
 else
-	echo "Target installation path absolute prefix set: "$PREFIX
+	echo "Target absolute installation prefix path (PREFIX): "$PREFIX
 	if [ "/" != $(echo $PREFIX | sed -e 's%^/.*%/%') ];
 	then
 		echo "ERROR: Target installation path PREFIX is not absolute!"
@@ -57,6 +57,22 @@ else
 	fi
 fi
 export PREFIX
+
+if [ "x"$DESTDIR == "x" ]
+then
+	echo "--"
+	echo "Later (in the installation command), you may provide additional absolute"
+	echo "target installation path prefix via the DESTDIR environment variable!"
+	echo "--"
+else
+	echo "Additional absolute target installation path prefix (DESTDIR): "$DESTDIR
+	if [ "/" != $(echo $DESTDIR | sed -e 's%^/.*%/%') ];
+	then
+		echo "ERROR: Additional target installation path DESTDIR is not absolute!"
+		exit 1
+	fi
+	export DESTDIR
+fi
 
 make -C $_BUILDIR_ -f $_SRCDIR_/conf.mk conf
 

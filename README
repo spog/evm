@@ -21,6 +21,105 @@ Features:
 Building:
 =========
 
+samo@hp450g3:~/Code/U2UP/evm-build$ 
+samo@hp450g3:~/Code/U2UP/evm-build$ env BUILDIR=./ PREFIX=/usr ../evm/configure
+Local source absolute path (SRCDIR): /home/samo/Code/U2UP/evm
+Local build absolute path (BUILDIR): /home/samo/Code/U2UP/evm-build
+Target absolute installation prefix path (PREFIX): /usr
+--
+Later (in the installation command), you may provide additional absolute
+target installation path prefix via the DESTDIR environment variable!
+--
+make: Entering directory '/home/samo/Code/U2UP/evm-build'
+Generating ./Makefile
+Done!
+make[1]: Entering directory '/home/samo/Code/U2UP/evm-build/libs'
+Generating ./libs/Makefile
+Done!
+make[2]: Entering directory '/home/samo/Code/U2UP/evm-build/libs/evm'
+Generating ./libs/evm/Makefile
+Done!
+make[2]: Leaving directory '/home/samo/Code/U2UP/evm-build/libs/evm'
+make[1]: Leaving directory '/home/samo/Code/U2UP/evm-build/libs'
+make[1]: Entering directory '/home/samo/Code/U2UP/evm-build/demos'
+Generating ./demos/Makefile
+Done!
+make[1]: Leaving directory '/home/samo/Code/U2UP/evm-build/demos'
+make: Leaving directory '/home/samo/Code/U2UP/evm-build'
+samo@hp450g3:~/Code/U2UP/evm-build$ 
+samo@hp450g3:~/Code/U2UP/evm-build$ 
+samo@hp450g3:~/Code/U2UP/evm-build$ 
+samo@hp450g3:~/Code/U2UP/evm-build$ make
+/home/samo/Code/U2UP/evm/default.sh subdirs_make all
+make[1]: Entering directory '/home/samo/Code/U2UP/evm-build/libs'
+/home/samo/Code/U2UP/evm/default.sh subdirs_make all
+make[2]: Entering directory '/home/samo/Code/U2UP/evm-build/libs/evm'
+cc -c -fPIC -I/home/samo/Code/U2UP/evm/include -DEVM_VERSION_MAJOR=0 -DEVM_VERSION_MINOR=1 -DEVM_VERSION_PATCH=2 -DEVMLOG_MODULE_DEBUG=1 -DEVMLOG_MODULE_TRACE=1 /home/samo/Code/U2UP/evm/./libs/evm/evm.c -o /home/samo/Code/U2UP/evm-build/./libs/evm/evm.o
+cc -c -fPIC -I/home/samo/Code/U2UP/evm/include -DEVM_VERSION_MAJOR=0 -DEVM_VERSION_MINOR=1 -DEVM_VERSION_PATCH=2 -DEVMLOG_MODULE_DEBUG=1 -DEVMLOG_MODULE_TRACE=1 /home/samo/Code/U2UP/evm/./libs/evm/messages.c -o /home/samo/Code/U2UP/evm-build/./libs/evm/messages.o
+cc -c -fPIC -I/home/samo/Code/U2UP/evm/include -DEVM_VERSION_MAJOR=0 -DEVM_VERSION_MINOR=1 -DEVM_VERSION_PATCH=2 -DEVMLOG_MODULE_DEBUG=1 -DEVMLOG_MODULE_TRACE=1 /home/samo/Code/U2UP/evm/./libs/evm/timers.c -o /home/samo/Code/U2UP/evm-build/./libs/evm/timers.o
+cc -shared /home/samo/Code/U2UP/evm-build/./libs/evm/evm.o /home/samo/Code/U2UP/evm-build/./libs/evm/messages.o /home/samo/Code/U2UP/evm-build/./libs/evm/timers.o -o /home/samo/Code/U2UP/evm-build/./libs/evm/libevm.so
+make[2]: Leaving directory '/home/samo/Code/U2UP/evm-build/libs/evm'
+make[1]: Leaving directory '/home/samo/Code/U2UP/evm-build/libs'
+make[1]: Entering directory '/home/samo/Code/U2UP/evm-build/demos'
+cc -I/home/samo/Code/U2UP/evm/include -DEVM_VERSION_MAJOR=0 -DEVM_VERSION_MINOR=1 -DEVM_VERSION_PATCH=2 -DEVMLOG_MODULE_DEBUG=1 -DEVMLOG_MODULE_TRACE=1 /home/samo/Code/U2UP/evm/./demos/hello1_evm.c ../libs/evm/libevm.so -lrt -o /home/samo/Code/U2UP/evm-build/./demos/hello1_evm
+cc -I/home/samo/Code/U2UP/evm/include -DEVM_VERSION_MAJOR=0 -DEVM_VERSION_MINOR=1 -DEVM_VERSION_PATCH=2 -DEVMLOG_MODULE_DEBUG=1 -DEVMLOG_MODULE_TRACE=1 /home/samo/Code/U2UP/evm/./demos/hello2_evm.c ../libs/evm/libevm.so -lrt -o /home/samo/Code/U2UP/evm-build/./demos/hello2_evm
+cc -I/home/samo/Code/U2UP/evm/include -DEVM_VERSION_MAJOR=0 -DEVM_VERSION_MINOR=1 -DEVM_VERSION_PATCH=2 -DEVMLOG_MODULE_DEBUG=1 -DEVMLOG_MODULE_TRACE=1 /home/samo/Code/U2UP/evm/./demos/hello3_evm.c ../libs/evm/libevm.so -lrt -lpthread -o /home/samo/Code/U2UP/evm-build/./demos/hello3_evm
+cc -I/home/samo/Code/U2UP/evm/include -DEVM_VERSION_MAJOR=0 -DEVM_VERSION_MINOR=1 -DEVM_VERSION_PATCH=2 -DEVMLOG_MODULE_DEBUG=1 -DEVMLOG_MODULE_TRACE=1 /home/samo/Code/U2UP/evm/./demos/hello4_evm.c ../libs/evm/libevm.so -lrt -lpthread -o /home/samo/Code/U2UP/evm-build/./demos/hello4_evm
+make[1]: Leaving directory '/home/samo/Code/U2UP/evm-build/demos'
+samo@hp450g3:~/Code/U2UP/evm-build$ 
+samo@hp450g3:~/Code/U2UP/evm-build$ 
+samo@hp450g3:~/Code/U2UP/evm-build$ 
+samo@hp450g3:~/Code/U2UP/evm-build$ env DESTDIR=$(pwd)/install make install
+/home/samo/Code/U2UP/evm/default.sh subdirs_make install
+make[1]: Entering directory '/home/samo/Code/U2UP/evm-build/libs'
+/home/samo/Code/U2UP/evm/default.sh subdirs_make install
+make[2]: Entering directory '/home/samo/Code/U2UP/evm-build/libs/evm'
+install -d /home/samo/Code/U2UP/evm-build/install/usr/lib
+install /home/samo/Code/U2UP/evm-build/./libs/evm/libevm.so /home/samo/Code/U2UP/evm-build/install/usr/lib/libevm.so
+install -d /home/samo/Code/U2UP/evm-build/install/usr/include/evm
+install /home/samo/Code/U2UP/evm/include/evm/libevm.h /home/samo/Code/U2UP/evm-build/install/usr/include/evm/libevm.h
+make[2]: Leaving directory '/home/samo/Code/U2UP/evm-build/libs/evm'
+make[1]: Leaving directory '/home/samo/Code/U2UP/evm-build/libs'
+make[1]: Entering directory '/home/samo/Code/U2UP/evm-build/demos'
+install -d /home/samo/Code/U2UP/evm-build/install/usr/bin
+install /home/samo/Code/U2UP/evm-build/./demos/hello1_evm /home/samo/Code/U2UP/evm-build/install/usr/bin/hello1_evm
+install /home/samo/Code/U2UP/evm-build/./demos/hello2_evm /home/samo/Code/U2UP/evm-build/install/usr/bin/hello2_evm
+install /home/samo/Code/U2UP/evm-build/./demos/hello3_evm /home/samo/Code/U2UP/evm-build/install/usr/bin/hello3_evm
+install /home/samo/Code/U2UP/evm-build/./demos/hello4_evm /home/samo/Code/U2UP/evm-build/install/usr/bin/hello4_evm
+make[1]: Leaving directory '/home/samo/Code/U2UP/evm-build/demos'
+samo@hp450g3:~/Code/U2UP/evm-build$ 
+samo@hp450g3:~/Code/U2UP/evm-build$ 
+samo@hp450g3:~/Code/U2UP/evm-build$ find ./
+./
+./install
+./install/usr
+./install/usr/lib
+./install/usr/lib/libevm.so
+./install/usr/bin
+./install/usr/bin/hello3_evm
+./install/usr/bin/hello1_evm
+./install/usr/bin/hello4_evm
+./install/usr/bin/hello2_evm
+./install/usr/include
+./install/usr/include/evm
+./install/usr/include/evm/libevm.h
+./demos
+./demos/hello3_evm
+./demos/hello1_evm
+./demos/Makefile
+./demos/hello4_evm
+./demos/hello2_evm
+./libs
+./libs/evm
+./libs/evm/timers.o
+./libs/evm/libevm.so
+./libs/evm/messages.o
+./libs/evm/evm.o
+./libs/evm/Makefile
+./libs/Makefile
+./Makefile
+samo@hp450g3:~/Code/U2UP/evm-build$ 
+
 Native build:
 -------------
 

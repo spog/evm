@@ -13,7 +13,11 @@ include $(_SRCDIR_)/default.mk
 TOPDIR := .
 
 SUBDIRS := libs demos
+#SUBDIRS := libs
 export SUBDIRS
+
+CFLAGS := -I$(_SRCDIR_)/include -DEVM_VERSION_MAJOR=$(comp_version_MAJOR) -DEVM_VERSION_MINOR=$(comp_version_MINOR) -DEVM_VERSION_PATCH=$(comp_version_PATCH) -DEVMLOG_MODULE_DEBUG=1 -DEVMLOG_MODULE_TRACE=1
+export CFLAGS
 
 .PHONY: all
 all:
