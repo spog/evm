@@ -9,8 +9,6 @@
 # available in the LICENSE file of the "u2up-build" software project.
 #
 
-include $(_SRCDIR_)/default.mk
-
 ##
 # Subdirs to handle:
 ##
@@ -18,10 +16,10 @@ SUBDIRS := evm
 export SUBDIRS
 
 .PHONY: all
-all:
-	$(_SRCDIR_)/default.sh subdirs_make all
+all: subdirs_all
+
+.PHONY: clean
+clean: subdirs_clean
 
 .PHONY: install
-install:
-	$(_SRCDIR_)/default.sh subdirs_make install
-
+install: subdirs_install

@@ -9,21 +9,21 @@
 # available in the LICENSE file of the "u2up-build" software project.
 #
 
-include $(_SRCDIR_)/default.mk
-TOPDIR := .
-
 SUBDIRS := libs demos
 #SUBDIRS := libs
 export SUBDIRS
 
+CC := gcc
 CFLAGS := -I$(_SRCDIR_)/include -DEVM_VERSION_MAJOR=$(comp_version_MAJOR) -DEVM_VERSION_MINOR=$(comp_version_MINOR) -DEVM_VERSION_PATCH=$(comp_version_PATCH) -DEVMLOG_MODULE_DEBUG=1 -DEVMLOG_MODULE_TRACE=1
-export CFLAGS
+LDFLAGS := -L$(_BUILDIR_)/libs/evm
+export CC CFLAGS LDFLAGS
 
 .PHONY: all
-all:
-	$(_SRCDIR_)/default.sh subdirs_make all
+all: subdirs_all
+
+.PHONY: clean
+clean: subdirs_clean
 
 .PHONY: install
-install:
-	$(_SRCDIR_)/default.sh subdirs_make install
+install: subdirs_install
 
