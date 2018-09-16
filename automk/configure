@@ -1,13 +1,13 @@
 #!/bin/bash
 #
-# The "u2up-build" project build rules
+# The "automk" project build rules
 #
 # Copyright (C) 2017-2018 Samo Pogacnik <samo_pogacnik@t-2.net>
 # All rights reserved.
 #
-# This file is part of the "u2up-build" software project.
+# This file is part of the "automk" software project.
 # This file is provided under the terms of the BSD 3-Clause license,
-# available in the LICENSE file of the "u2up-build" software project.
+# available in the LICENSE file of the "automk" software project.
 #
 #set -x
 set -e
@@ -81,27 +81,30 @@ else
 	export DESTDIR
 fi
 
-if [ -f $_BUILDIR_/Makefile ];
+RECONFIG=n
+if [ -f $_BUILDIR_/auto.mk ];
 then
 	echo "WARNING: Build path already configured!"
-#	echo
-#	echo "The build directory is going to be removed!"
-	echo -n " Continue (y/n)? "
+#	echo -n " Continue (y/n)? "
+	echo -n " Re-configure (y/n)? "
 	read answer
 	case $answer in
 	y|Y)
+		RECONFIG=y
+		echo
+		echo "RE-configure..."
 		echo
 		;;
 	*)
 		echo
-		echo "ABORTING configure..."
+		echo "FRESH configure..."
 		echo
-		exit 1
+#		exit 1
 		;;
 	esac
 fi
 
-if [ -d "${_BUILDIR_}" ]; then
+if [ -d "${_BUILDIR_}" ] && [ "x${RECONFIG}" != "xy" ]; then
 	if [ "x${_SRCDIR_#$_BUILDIR_}" != "x${_SRCDIR_}" ]; then
 		if [ "x${_BUILDIR_}" != "x${_SRCDIR_}" ]; then
 			echo "Build directory is a subdirectory of sources directory!"
@@ -141,8 +144,9 @@ fi
 cd $_SRCDIR_
 rm -f .build
 ln -s $_BUILDIR_ .build
+rm -f $_BUILDIR_/.sources
 ln -s $_SRCDIR_ $_BUILDIR_/.sources
 
 #exit 0
-make -C $_SRCDIR_ -f $_SRCDIR_/defaults/configure.mk configure
+make -C $_SRCDIR_ -f $_SRCDIR_/automk/configure.mk configure
 
