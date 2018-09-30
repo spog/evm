@@ -9,7 +9,7 @@
 # available in the LICENSE file of the "evm" software project.
 #
 
-SUBMAKES := libs demos
+SUBMAKES := libs | demos
 export SUBMAKES
 
 comp_version_MAJOR := 0
