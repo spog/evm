@@ -15,8 +15,7 @@ the libevm library at its core.
 
 Features:
 =========
-- Layering capability.
-- Usable in a sigle/multi-threaded application.
+- To be written...
 
 Building:
 =========
@@ -120,46 +119,6 @@ samo@hp450g3:~/Code/U2UP/evm-build$ find ./
 ./Makefile
 samo@hp450g3:~/Code/U2UP/evm-build$ 
 
-Native build:
--------------
-
-Out-of-source-build (preferred):
---------------------------------
-$ cd evm
-$ mkdir build
-$ cd build
-$ cmake ../
-$ make
-
-In-source-build:
-----------------
-$ cd evm
-$ cmake ./
-$ make
-
-Installation:
-=============
-
-$ make install
-
-If you need to specify installation path:
------------------------------------------
-cmake <src_dir> -DCMAKE_INSTALL_PREFIX=<install_dir>
-
-For example:
-$ cmake ../ -DCMAKE_INSTALL_PREFIX=../install
-$ make
-$ make install
-
-And you need to cross-compile as well:
---------------------------------------
-cmake ../ -DCMAKE_INSTALL_PREFIX=../install -DCMAKE_TOOLCHAIN_FILE=../toolchains/Yocto-arm-linux-gnu.cmake
-
-Cleaning:
-=========
-
-$ make clean
-
 If you want to remove all files not under version control and you are using git:
 --------------------------------------------------------------------------------
 $ git clean -d -f -x
@@ -188,6 +147,3 @@ sends initial HELLO message to the first thread. Every received message in any
 thread sets a new IDLE timeout and another HELLO message is sent back to the
 sender thread after timeout expiration.
 
-U2UP packaging:
-===============
-Requires build.u2up component framework to be installed.

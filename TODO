@@ -1,5 +1,3 @@
-- Add support for saving events (messages, timers?).
+- Add non-blocking support.
 
-- Communication between levels of EVMs (threaded - asynchonous, singlethreaded - synchronous).
-
-- Add threaded/leveled example
+- Add dynamic events and handlers registration.
