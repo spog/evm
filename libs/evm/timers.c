@@ -19,10 +19,10 @@
  *  limitations under the License.
 */
 
-#ifndef evm_timers_c
-#define evm_timers_c
+#ifndef EVM_FILE_timers_c
+#define EVM_FILE_timers_c
 #else
-#error Preprocesor macro evm_timers_c conflict!
+#error Preprocesor macro EVM_FILE_timers_c conflict!
 #endif
 
 #include <errno.h>

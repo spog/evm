@@ -19,10 +19,10 @@
  *  limitations under the License.
 */
 
-#ifndef evm_h
-#define evm_h
+#ifndef EVM_FILE_evm_h
+#define EVM_FILE_evm_h
 
-#ifdef evm_c
+#ifdef EVM_FILE_evm_c
 /* PRIVATE usage of the PUBLIC part. */
 #	undef EXTERN
 #	define EXTERN
@@ -32,4 +32,4 @@
 #	define EXTERN extern
 #endif
 
-#endif /*evm_h*/
+#endif /*EVM_FILE_evm_h*/

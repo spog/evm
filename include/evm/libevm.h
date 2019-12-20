@@ -19,19 +19,17 @@
  *  limitations under the License.
 */
 
-#ifndef libevm_h
-#define libevm_h
+#ifndef EVM_FILE_libevm_h
+#define EVM_FILE_libevm_h
 
 #include <errno.h>
-#if 0
-#include <arpa/inet.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#endif
 #include <sys/uio.h>
 #include <sys/epoll.h>
 #include <time.h>
 
+/*
+ * Common
+ */
 /* Struct aliases */
 typedef struct evm_init evm_init_struct;
 typedef struct evm_sigpost evm_sigpost_struct;
@@ -43,19 +41,9 @@ typedef struct evm_ids evm_ids_struct;
 typedef struct evm_message evm_message_struct;
 typedef struct evm_timer evm_timer_struct;
 
-#ifdef evm_c
-/* PRIVATE usage of the PUBLIC part. */
-#	undef EXTERN
-#	define EXTERN
-#else
-/* PUBLIC usage of the PUBLIC part. */
-#	undef EXTERN
-#	define EXTERN extern
-#endif
-
-EXTERN unsigned int evm_version_major;
-EXTERN unsigned int evm_version_minor;
-EXTERN unsigned int evm_version_patch;
+extern unsigned int evm_version_major;
+extern unsigned int evm_version_minor;
+extern unsigned int evm_version_patch;
 
 /*User provided initialization structure!*/
 struct evm_init {
@@ -123,19 +111,12 @@ struct evm_ids {
 	unsigned int evm_idx;
 };
 
-EXTERN int evm_init(evm_init_struct *evm_init_ptr);
-EXTERN int evm_run(evm_init_struct *evm_init_ptr);
+extern int evm_init(evm_init_struct *evm_init_ptr);
+extern int evm_run(evm_init_struct *evm_init_ptr);
 
-#ifdef evm_messages_c
-/* PRIVATE usage of the PUBLIC part. */
-#	undef EXTERN
-#	define EXTERN
-#else
-/* PUBLIC usage of the PUBLIC part. */
-#	undef EXTERN
-#	define EXTERN extern
-#endif
-
+/*
+ * Messages
+ */
 struct evm_message {
 	evm_init_struct *evm_ptr;
 	int saved;
@@ -149,21 +130,14 @@ struct evm_message {
 	struct iovec iov_buff;
 };
 
-EXTERN int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr);
-EXTERN int evm_message_call(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
-EXTERN int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
+extern int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr);
+extern int evm_message_call(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
+extern int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
+extern int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf);
 
-EXTERN int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf);
-
-#ifdef evm_timers_c
-/* PRIVATE usage of the PUBLIC part. */
-#	undef EXTERN
-#	define EXTERN
-#else
-/* PUBLIC usage of the PUBLIC part. */
-#	undef EXTERN
-#	define EXTERN extern
-#endif
+/*
+ * Timers
+ */
 struct evm_timer {
 	evm_init_struct *evm_ptr;
 	int saved;
@@ -174,8 +148,8 @@ struct evm_timer {
 	evm_timer_struct *next;
 };
 
-EXTERN evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr);
-EXTERN int evm_timer_stop(evm_timer_struct *timer);
-EXTERN int evm_timer_finalize(void *ptr);
+extern evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr);
+extern int evm_timer_stop(evm_timer_struct *timer);
+extern int evm_timer_finalize(void *ptr);
 
-#endif /*libevm_h*/
+#endif /*EVM_FILE_libevm_h*/

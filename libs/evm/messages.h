@@ -19,10 +19,10 @@
  *  limitations under the License.
 */
 
-#ifndef evm_messages_h
-#define evm_messages_h
+#ifndef EVM_FILE_messages_h
+#define EVM_FILE_messages_h
 
-#ifdef evm_messages_c
+#ifdef EVM_FILE_messages_c
 /* PRIVATE usage of the PUBLIC part. */
 #	undef EXTERN
 #	define EXTERN
@@ -38,4 +38,4 @@ EXTERN evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr);
 
 EXTERN int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
 
-#endif /*evm_messages_h*/
+#endif /*EVM_FILE_messages_h*/

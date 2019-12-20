@@ -19,10 +19,10 @@
  *  limitations under the License.
 */
 
-#ifndef evm_timers_h
-#define evm_timers_h
+#ifndef EVM_FILE_timers_h
+#define EVM_FILE_timers_h
 
-#ifdef evm_timers_c
+#ifdef EVM_FILE_timers_c
 /* PRIVATE usage of the PUBLIC part. */
 #	undef EXTERN
 #	define EXTERN
@@ -36,4 +36,4 @@ EXTERN int evm_timers_init(evm_init_struct *evm_init_ptr);
 EXTERN int evm_timers_queue_fd_init(evm_init_struct *evm_init_ptr);
 EXTERN evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr);
 
-#endif /*evm_timers_h*/
+#endif /*EVM_FILE_timers_h*/

@@ -19,10 +19,10 @@
  *  limitations under the License.
 */
 
-#ifndef evm_c
-#define evm_c
+#ifndef EVM_FILE_evm_c
+#define EVM_FILE_evm_c
 #else
-#error Preprocesor macro evm_c conflict!
+#error Preprocesor macro EVM_FILE_evm_c conflict!
 #endif
 
 #include <errno.h>

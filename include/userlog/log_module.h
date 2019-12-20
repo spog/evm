@@ -23,8 +23,8 @@
  * This EVMLOG module provides various output definitions in a single header file.
  */
 
-#ifndef evm_log_module_h
-#define evm_log_module_h
+#ifndef EVM_FILE_log_module_h
+#define EVM_FILE_log_module_h
 
 /*
  * Here starts the PUBLIC stuff.
@@ -348,4 +348,4 @@ static const unsigned int evmlog_module_value = value;\
 	return -errsv;\
 }
 
-#endif /*evm_log_module_h*/
+#endif /*EVM_FILE_log_module_h*/

@@ -30,10 +30,10 @@
  * 2. The EVM part demonstrates EVM initialization. 
 */
 
-#ifndef hello3_evm_c
-#define hello3_evm_c
+#ifndef EVM_FILE_hello3_evm_c
+#define EVM_FILE_hello3_evm_c
 #else
-#error Preprocesor macro hello3_evm_c conflict!
+#error Preprocesor macro EVM_FILE_hello3_evm_c conflict!
 #endif
 
 #include <errno.h>
@@ -48,6 +48,40 @@
 
 #include <evm/libevm.h>
 #include "hello3_evm.h"
+
+#include <userlog/log_module.h>
+EVMLOG_MODULE_INIT(DEMO3EVM, 2);
+
+#define MAX_EPOLL_EVENTS_PER_RUN 10
+
+static int signal_processing(int sig, void *ptr);
+
+enum event_msg_types {
+	EV_TYPE_UNKNOWN_MSG = 0,
+	EV_TYPE_HELLO_MSG
+};
+enum event_tmr_types {
+	EV_TYPE_UNKNOWN_TMR = 0,
+	EV_TYPE_HELLO_TMR
+};
+
+enum hello_msg_ev_ids {
+	EV_ID_HELLO_MSG_HELLO = 0
+};
+enum hello_tmr_ev_ids {
+	EV_ID_HELLO_TMR_IDLE = 0,
+	EV_ID_HELLO_TMR_QUIT
+};
+
+static evm_timer_struct * hello_start_timer(int evm_id, evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, int tmr_type, int tmr_id);
+static int hello3_send_hello(evm_init_struct *evm_ptr);
+
+static int evHelloMsg(void *ev_ptr);
+static int evHelloTmrIdle(void *ev_ptr);
+static int evHelloTmrQuit(void *ev_ptr);
+
+static int hello3_evm_init(void);
+static int hello3_evm_run(void);
 
 /*
  * The MAIN part.
