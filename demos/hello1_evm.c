@@ -380,6 +380,7 @@ static int hello_evm_init(void)
 	evs_init.evm_msgs_tab = evm_msgs_tbl;
 	evs_init.evm_tmrs_tab = evm_tmrs_tbl;
 	evs_init.epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
+	evs_init.epoll_timeout = -1; /* -1: wait indefinitely | 0: do not wait (asynchronous operation) */
 	evm_log_debug("evs_msgs_linkage index size = %d\n", evs_init.evm_msgs_link_max);
 	evm_log_debug("evs_tmrs_linkage index size = %d\n", evs_init.evm_tmrs_link_max);
 	if ((status = evm_init(&evs_init)) < 0) {
@@ -408,6 +409,14 @@ static int hello_evm_run(void)
 	/*
 	 * Main EVM processing (event loop)
 	 */
+#if 1 /*orig*/
 	return evm_run(&evs_init);
+#else
+	while (1) {
+		evm_run_async(&evs_init);
+//		sleep(1);
+	}
+	return 1;
+#endif
 }
 

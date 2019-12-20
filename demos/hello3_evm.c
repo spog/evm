@@ -410,6 +410,7 @@ static int hello3_evm_init(void)
 	evs_init[0].evm_msgs_tab = evm_msgs_tbl;
 	evs_init[0].evm_tmrs_tab = evm_tmrs_tbl;
 	evs_init[0].epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
+	evs_init[0].epoll_timeout = -1; /* -1: wait indefinitely | 0: do not wait (asynchronous operation) */
 	evm_log_debug("evs_msgs_linkage index size = %d\n", evs_init[0].evm_msgs_link_max);
 	evm_log_debug("evs_tmrs_linkage index size = %d\n", evs_init[0].evm_tmrs_link_max);
 	if ((status = evm_init(&evs_init[0])) < 0) {
@@ -420,7 +421,7 @@ static int hello3_evm_init(void)
 	/* Initialize event machine for the second thread... */
 	evs_init[1].priv = (void *)&evm_ids[1];
 	evm_log_debug("evm_ids[1] = %d\n", evm_ids[1]);
-	evs_init[1].evm_sigpost = &evs_sigpost;;
+	evs_init[1].evm_sigpost = &evs_sigpost;
 	evs_init[1].evm_relink = 1;
 	evs_init[1].evm_msgs_link = evs_msgs_linkage;
 	evs_init[1].evm_tmrs_link = evs_tmrs_linkage;
@@ -429,6 +430,7 @@ static int hello3_evm_init(void)
 	evs_init[1].evm_msgs_tab = evm_msgs_tbl;
 	evs_init[1].evm_tmrs_tab = evm_tmrs_tbl;
 	evs_init[1].epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
+	evs_init[1].epoll_timeout = -1; /* -1: wait indefinitely | 0: do not wait (asynchronous operation) */
 	evm_log_debug("evs_msgs_linkage index size = %d\n", evs_init[1].evm_msgs_link_max);
 	evm_log_debug("evs_tmrs_linkage index size = %d\n", evs_init[1].evm_tmrs_link_max);
 	if ((status = evm_init(&evs_init[1])) < 0) {

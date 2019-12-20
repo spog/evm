@@ -442,6 +442,7 @@ static evm_init_struct * hello4_evm_init(int relink)
 	ptr->evm_msgs_tab = evm_msgs_tbl;
 	ptr->evm_tmrs_tab = evm_tmrs_tbl;
 	ptr->epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
+	ptr->epoll_timeout = -1; /* -1: wait indefinitely | 0: do not wait (asynchronous operation) */
 	evm_log_debug("evs_msgs_linkage index size = %d\n", ptr->evm_msgs_link_max);
 	evm_log_debug("evs_tmrs_linkage index size = %d\n", ptr->evm_tmrs_link_max);
 	if ((status = evm_init(ptr)) < 0) {

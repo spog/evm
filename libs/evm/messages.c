@@ -222,7 +222,7 @@ static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr)
 //not sure, if necessary:		bzero((void *)evm_init_ptr->epoll_events, sizeof(struct epoll_event) * evm_init_ptr->epoll_max_events);
 		evm_log_debug("evm_init_ptr->epoll_max_events: %d, sizeof(struct epoll_event): %zu\n", evm_init_ptr->epoll_max_events, sizeof(struct epoll_event));
 		/* THE ACTUAL BLOCKING POINT! */
-		evm_init_ptr->epoll_nfds = epoll_pwait(evm_init_ptr->epollfd, evm_init_ptr->epoll_events, evm_init_ptr->epoll_max_events, -1, &messages_sigmask);
+		evm_init_ptr->epoll_nfds = epoll_pwait(evm_init_ptr->epollfd, evm_init_ptr->epoll_events, evm_init_ptr->epoll_max_events, evm_init_ptr->epoll_timeout, &messages_sigmask);
 		if (evm_init_ptr->epoll_nfds < 0) {
 			if (errno == EINTR) {
 				evm_log_debug("epoll_wait(): EINTR\n");

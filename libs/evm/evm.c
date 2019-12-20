@@ -225,6 +225,71 @@ int evm_init(evm_init_struct *evm_init_ptr)
 }
 
 /*
+ * Main event machine single pass-through (asynchronous, if epoll_pwait timeout = 0)
+ */
+int evm_run_once(evm_init_struct *evm_init_ptr)
+{
+	int status = 0;
+	evm_timer_struct *expdTmr;
+	evm_message_struct *recvdMsg;
+
+	evm_log_info("(entry)\n");
+	if (evm_init_ptr == NULL) {
+		evm_log_error("Event machine init structure undefined!\n");
+		abort();
+	}
+
+	if (evm_init_ptr->evm_msgs_tab == NULL) {
+		evm_log_error("Messages event table NOT specified - Starting event machine failed!\n");
+		abort();
+	}
+
+	if (evm_init_ptr->evm_tmrs_tab == NULL) {
+		evm_log_error("Timers event table NOT specified - Starting event machine failed!\n");
+		abort();
+	}
+
+	/* Loop exclusively over expired timers (non-blocking already)! */
+	for (;;) {
+		evm_log_info("(main loop entry)\n");
+		/* Handle expired timer (NON-BLOCKING). */
+		if ((expdTmr = evm_timers_check(evm_init_ptr)) != NULL) {
+			if ((status = evm_handle_timer(expdTmr)) < 0)
+				evm_log_debug("evm_handle_timer() returned %d\n", status);
+		} else
+			break;
+	}
+
+	/* Handle handle received message (WAIT - THE ONLY BLOCKING POINT, if epoll_pwait timeout != 0). */
+	if ((recvdMsg = evm_messages_check(evm_init_ptr)) != NULL) {
+		if ((status = evm_handle_message(recvdMsg)) < 0)
+			evm_log_debug("evm_handle_message() returned %d\n", status);
+	}
+
+	return 0;
+}
+
+/*
+ * Main event machine asynchronous call
+ */
+int evm_run_async(evm_init_struct *evm_init_ptr)
+{
+	int status = 0;
+	evm_timer_struct *expdTmr;
+	evm_message_struct *recvdMsg;
+
+	evm_log_info("(entry)\n");
+	if (evm_init_ptr == NULL) {
+		evm_log_error("Event machine init structure undefined!\n");
+		abort();
+	}
+
+	evm_init_ptr->epoll_timeout = 0;
+
+	return evm_run_once(evm_init_ptr);
+}
+
+/*
  * Main event machine loop
  */
 int evm_run(evm_init_struct *evm_init_ptr)

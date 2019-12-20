@@ -57,6 +57,7 @@ struct evm_init {
 	evm_tab_struct *evm_tmrs_tab;
 	struct epoll_event *epoll_events;
 	int epoll_max_events;
+	int epoll_timeout;
 	int epoll_nfds;
 	int epollfd;
 	void *msg_queue; /*internal message queue*/
@@ -112,6 +113,8 @@ struct evm_ids {
 };
 
 extern int evm_init(evm_init_struct *evm_init_ptr);
+extern int evm_run_once(evm_init_struct *evm_init_ptr);
+extern int evm_run_async(evm_init_struct *evm_init_ptr);
 extern int evm_run(evm_init_struct *evm_init_ptr);
 
 /*
