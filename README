@@ -20,7 +20,7 @@ Building:
 =========
 
 samo@hp450g3:~/Code/U2UP/evm-build$ 
-samo@hp450g3:~/Code/U2UP/evm-build$ env BUILDIR=./ PREFIX=/usr ../evm/configure
+samo@hp450g3:~/Code/U2UP/evm-build$ env BUILDIR=./build PREFIX=/usr ../evm/configure
 Local source absolute path (SRCDIR): /home/samo/Code/U2UP/evm
 Local build absolute path (BUILDIR): /home/samo/Code/U2UP/evm-build
 Target absolute installation prefix path (PREFIX): /usr
