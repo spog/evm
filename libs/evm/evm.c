@@ -37,12 +37,12 @@
 
 #include "evm/libevm.h"
 
-#include "userlog/log_module.h"
-EVMLOG_MODULE_INIT(EVM_CORE, 1)
-
 #include "evm.h"
 #include "timers.h"
 #include "messages.h"
+
+#include "userlog/log_module.h"
+EVMLOG_MODULE_INIT(EVM_CORE, 1)
 
 static int evm_prepare_event(evm_tab_struct *evm_tab, int idx, void *ev_ptr);
 static int evm_handle_event(evm_tab_struct *evm_tab, int idx, void *ev_ptr);
