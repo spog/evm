@@ -31,50 +31,9 @@
 #	undef EXTERN
 #	define EXTERN extern
 #endif
-/*
- * Here starts the PUBLIC stuff:
- *	Enter PUBLIC declarations using EXTERN!
- */
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <semaphore.h>
-#include <pthread.h>
-
-#include "evm/libevm.h"
 
 EXTERN int evm_timers_init(evm_init_struct *evm_init_ptr);
 EXTERN int evm_timers_queue_fd_init(evm_init_struct *evm_init_ptr);
 EXTERN evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr);
-
-#ifdef evm_timers_c
-/*
- * Here is the PRIVATE stuff (within above ifdef).
- * It is here so we make sure, that the following PRIVATE stuff get included into own source ONLY!
- */
-#include "userlog/log_module.h"
-EVMLOG_MODULE_INIT(EVM_TMRS, 1)
-
-
-#define CLOCKID CLOCK_REALTIME
-#define SIG SIGRTMIN
-
-typedef struct timer_queue timer_queue_struct;
-
-struct timer_queue {
-	evm_timer_struct *first_tmr;
-	evm_timer_struct *last_tmr;
-	evm_fd_struct *evmfd; /*internal timer queue FD binding - eventfd()*/
-	pthread_mutex_t mutex;
-};
-
-static int timer_queue_evmfd_read(int efd, evm_message_struct *ptr);
-
-#endif /*evm_timers_c*/
-/*
- * Here continues the PUBLIC stuff, if necessary.
- */
 
 #endif /*evm_timers_h*/
