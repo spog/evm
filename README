@@ -2,12 +2,11 @@ EVM (EVENT MACHINE) SOFTWARE PROJECT
 ====================================
 
 --------------------------------------------------------------------
-Copyright (C) 2014 Samo Pogacnik <samo_pogacnik@t-2.net>
-All rights reserved.
+   Copyright 2019 Samo Pogacnik <samo_pogacnik@t-2.net>
 
 The EVM software project is provided under the terms of the
-BSD 3-Clause license, which is available in the LICENSE file of this
-project.
+Apache License, Version 2.0, which is available in the LICENSE file
+of this project.
 --------------------------------------------------------------------
 
 The EVM (EVent Machine) software is a C programming framework consisting of
