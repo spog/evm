@@ -409,12 +409,13 @@ static int hello_evm_run(void)
 	/*
 	 * Main EVM processing (event loop)
 	 */
-#if 1 /*orig*/
+#if 0 /*orig*/
 	return evm_run(&evs_init);
 #else
 	while (1) {
 		evm_run_async(&evs_init);
-//		sleep(1);
+		evm_log_notice("Returned from evm_run_async()\n");
+/**/		sleep(1);
 	}
 	return 1;
 #endif
