@@ -240,12 +240,12 @@ int evm_run_once(evm_init_struct *evm_init_ptr)
 	}
 
 	if (evm_init_ptr->evm_msgs_tab == NULL) {
-		evm_log_error("Messages event table NOT specified - Starting event machine failed!\n");
+		evm_log_error("Messages event table NOT specified - Running event machine failed!\n");
 		abort();
 	}
 
 	if (evm_init_ptr->evm_tmrs_tab == NULL) {
-		evm_log_error("Timers event table NOT specified - Starting event machine failed!\n");
+		evm_log_error("Timers event table NOT specified - Running event machine failed!\n");
 		abort();
 	}
 
@@ -305,12 +305,12 @@ int evm_run(evm_init_struct *evm_init_ptr)
 	}
 
 	if (evm_init_ptr->evm_msgs_tab == NULL) {
-		evm_log_error("Messages event table NOT specified - Starting event machine failed!\n");
+		evm_log_error("Messages event table NOT specified - Running event machine failed!\n");
 		abort();
 	}
 
 	if (evm_init_ptr->evm_tmrs_tab == NULL) {
-		evm_log_error("Timers event table NOT specified - Starting event machine failed!\n");
+		evm_log_error("Timers event table NOT specified - Running event machine failed!\n");
 		abort();
 	}
 
