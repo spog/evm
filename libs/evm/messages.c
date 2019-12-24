@@ -58,8 +58,8 @@ struct message_hanger {
 static void messages_sighandler(int signum, siginfo_t *siginfo, void *context);
 static int messages_sighandler_install(int signum);
 static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr);
-static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_msgs_link_struct *evm_linkage);
-static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_msgs_link_struct *evm_linkage);
+static int messages_receive(evm_fd_struct *evs_fd_ptr);
+static int messages_parse(evm_fd_struct *evs_fd_ptr);
 static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr);
 static int message_queue_evmfd_read(int efd, evm_message_struct *message);
 
@@ -96,18 +96,11 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 	int status = -1;
 	void *ptr;
 	sigset_t sigmask;
-	evm_msgs_link_struct *evm_linkage;
 	evm_sigpost_struct *evm_sigpost;
 
 	evm_log_info("(entry)\n");
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
-		return status;
-	}
-
-	evm_linkage = evm_init_ptr->evm_msgs_link;
-	if (evm_linkage == NULL) {
-		evm_log_error("Event types linkage table empty - event machine init failed!\n");
 		return status;
 	}
 
@@ -276,13 +269,13 @@ static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr)
 	return evs_fd_ptr;
 }
 
-static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_msgs_link_struct *evm_linkage)
+static int messages_receive(evm_fd_struct *evs_fd_ptr)
 {
 	int status = -1;
 
 	evm_log_info("(entry) evs_fd_ptr=%p\n", evs_fd_ptr);
 	/* Find registered receive call-back function. */
-	if (evm_linkage == NULL)
+	if (evs_fd_ptr == NULL)
 		return -1;
 
 	if (evs_fd_ptr->msg_receive == NULL) {
@@ -304,15 +297,21 @@ static int messages_receive(evm_fd_struct *evs_fd_ptr, evm_msgs_link_struct *evm
 	return status;
 }
 
-static int messages_parse(evm_fd_struct *evs_fd_ptr, evm_msgs_link_struct *evm_linkage)
+static int messages_parse(evm_fd_struct *evs_fd_ptr)
 {
-	unsigned int ev_type = evs_fd_ptr->ev_type;
+	evm_evtypes_list_struct *evtype_ptr;
 
-	if (evm_linkage != NULL) {
-		/* Add to parser all received data */
-		if (evm_linkage[ev_type].ev_type_parse != NULL)
-			return evm_linkage[ev_type].ev_type_parse((void *)evs_fd_ptr->msg_ptr);
-	}
+	if (evs_fd_ptr == NULL)
+		return -1;
+
+	if (evs_fd_ptr->evtype_ptr == NULL)
+		return -1;
+
+	evtype_ptr = evs_fd_ptr->evtype_ptr;
+
+	/* Parse all received data */
+	if (evtype_ptr->ev_parse != NULL)
+		return evtype_ptr->ev_parse((void *)evs_fd_ptr->msg_ptr);
 
 	/*no extra parser function - expected to be parsed already*/
 	return 0;
@@ -369,7 +368,6 @@ static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr)
 	msg = msg_hanger->msg;
 	free(msg_hanger);
 	msg_hanger = NULL;
-	msg->evm_ptr = evm_init_ptr;
 	pthread_mutex_unlock(mtx);
 	return msg;
 }
@@ -386,25 +384,18 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 		abort();
 	}
 
-	if (evm_init_ptr->evm_msgs_link == NULL) {
-		evm_log_error("Message event types linkage table empty - event machine init failed!\n");
-		abort();
-	}
-
 	/* Poll the internal message queue first (NON-BLOCKING). */
-#if 1 /*orig*/
 	if (msg_queue->first_hanger != NULL) {
 		return message_dequeue(evm_init_ptr);
 	}
-#endif
 
-	/* EPOLL the input (WAIT - THE ONLY BLOCKING POINT). */
+	/* EPOLL the input (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
 	if ((evs_fd_ptr = messages_epoll(evm_init_ptr)) == NULL) {
 		return NULL;
 	}
 
 	/* Receive any data. */
-	if ((status = messages_receive(evs_fd_ptr, evm_init_ptr->evm_msgs_link)) < 0) {
+	if ((status = messages_receive(evs_fd_ptr)) < 0) {
 		evm_log_debug("messages_receive() returned %d\n", status);
 		return NULL;
 	}
@@ -422,7 +413,7 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 		return NULL;
 	}
 	/* Parse received data. */
-	if ((status = messages_parse(evs_fd_ptr, evm_init_ptr->evm_msgs_link)) < 0) {
+	if ((status = messages_parse(evs_fd_ptr)) < 0) {
 		evm_log_debug("evm_parse_message() returned %d\n", status);
 		return NULL;
 	}
@@ -430,7 +421,6 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 	if (evs_fd_ptr != NULL)
 		if (evs_fd_ptr->msg_ptr != NULL) {
 			/* A new message has been decoded! */
-			evs_fd_ptr->msg_ptr->evm_ptr = evm_init_ptr;
 			return evs_fd_ptr->msg_ptr;
 		}
 
@@ -496,6 +486,8 @@ int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 
 int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr)
 {
+	evm_log_info("(entry)\n");
+
 	if (evm_init_ptr == NULL)
 		return -1;
 
@@ -519,6 +511,8 @@ int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr)
 #if 1 /*orig*/
 int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf)
 {
+	evm_log_info("(entry)\n");
+
 	if ((buffer == NULL) || (msgBuf == NULL))
 		return -1;
 
@@ -527,4 +521,231 @@ int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf)
 	return 0;
 }
 #endif
+
+evm_evtypes_list_struct * evm_msgtype_add(evm_init_struct *evm_init_ptr, int msg_type)
+{
+	evm_evtypes_list_struct *new, *tmp;
+	evm_log_info("(entry)\n");
+
+	if (evm_init_ptr == NULL)
+		return NULL;
+
+	tmp = evm_init_ptr->msgtypes_first;
+	while (tmp != NULL) {
+		if (msg_type == tmp->ev_type)
+			return tmp; /* returns the same as evm_msgtype_get() */
+		if (tmp->next == NULL)
+			break;
+		tmp = tmp->next;
+	}
+
+	if ((new = calloc(1, sizeof(evm_evtypes_list_struct))) == NULL) {
+		errno = ENOMEM;
+		evm_log_system_error("calloc(): evm event types list\n");
+		return NULL;
+	}
+	new->evm_ptr = evm_init_ptr;
+	new->ev_type = msg_type;
+	new->ev_parse = NULL;
+	new->evids_first = NULL;
+	new->prev = tmp;
+	new->next = NULL;
+	if (tmp != NULL)
+		tmp->next = new;
+	else
+		evm_init_ptr->msgtypes_first = new;
+	return new;
+}
+
+evm_evtypes_list_struct * evm_msgtype_get(evm_init_struct *evm_init_ptr, int msg_type)
+{
+	evm_evtypes_list_struct *tmp = NULL;
+	evm_log_info("(entry)\n");
+
+	if (evm_init_ptr == NULL)
+		return NULL;
+
+	tmp = evm_init_ptr->msgtypes_first;
+	while (tmp != NULL) {
+		evm_log_debug("evm_msgtype_get() tmp=%p,tmp->ev_type=%d, msg_type=%d\n", (void *)tmp, tmp->ev_type, msg_type);
+		if (msg_type == tmp->ev_type)
+			return tmp;
+		tmp = tmp->next;
+	}
+
+	return NULL;
+}
+
+evm_evtypes_list_struct * evm_msgtype_del(evm_init_struct *evm_init_ptr, int msg_type)
+{
+	evm_evtypes_list_struct *tmp = NULL;
+	evm_log_info("(entry)\n");
+
+	if (evm_init_ptr == NULL)
+		return NULL;
+
+	tmp = evm_init_ptr->msgtypes_first;
+	while (tmp != NULL) {
+		if (msg_type == tmp->ev_type)
+			break;
+		tmp = tmp->next;
+	}
+
+	if (tmp != NULL) {
+		tmp->prev->next = tmp->next;
+		if (tmp->next != NULL)
+			tmp->next->prev = tmp->prev;
+		free(tmp);
+	}
+	return tmp;
+}
+
+int evm_msgtype_parse_cb_set(evm_evtypes_list_struct *msgtype_ptr, int (*ev_parse)(void *ev_ptr))
+{
+	int rv = 0;
+	evm_log_info("(entry)\n");
+
+	if (msgtype_ptr == NULL)
+		return -1;
+
+	if (ev_parse == NULL)
+		return -1;
+
+	if (rv == 0) {
+		msgtype_ptr->ev_parse = ev_parse;
+	}
+	return rv;
+
+}
+
+evm_evids_list_struct * evm_msgid_add(evm_evtypes_list_struct *msgtype_ptr, int msg_id)
+{
+	evm_evids_list_struct *new, *tmp;
+	evm_log_info("(entry)\n");
+
+	if (msgtype_ptr == NULL)
+		return NULL;
+
+	tmp = msgtype_ptr->evids_first;
+	while (tmp != NULL) {
+		if (msg_id == tmp->ev_id)
+			return tmp; /* returns the same as evm_msgid_get() */
+		if (tmp->next == NULL)
+			break;
+		tmp = tmp->next;
+	}
+
+	if ((new = calloc(1, sizeof(evm_evids_list_struct))) == NULL) {
+		errno = ENOMEM;
+		evm_log_system_error("calloc(): evm event ids list\n");
+		return NULL;
+	}
+	new->evm_ptr = NULL;
+	new->evtype_ptr = msgtype_ptr;
+	new->ev_id = msg_id;
+	new->ev_prepare = NULL;
+	new->ev_handle = NULL;
+	new->ev_finalize = NULL;
+	new->prev = tmp;
+	new->next = NULL;
+	if (tmp != NULL)
+		tmp->next = new;
+	else
+		msgtype_ptr->evids_first = new;
+	return new;
+}
+
+evm_evids_list_struct * evm_msgid_get(evm_evtypes_list_struct *msgtype_ptr, int msg_id)
+{
+	evm_evids_list_struct *tmp = NULL;
+	evm_log_info("(entry)\n");
+
+	if (msgtype_ptr == NULL)
+		return NULL;
+
+	tmp = msgtype_ptr->evids_first;
+	while (tmp != NULL) {
+		evm_log_debug("evm_msgid_get() tmp=%p,tmp->ev_id=%d, msg_id=%d\n", (void *)tmp, tmp->ev_id, msg_id);
+		if (msg_id == tmp->ev_id)
+			return tmp;
+		tmp = tmp->next;
+	}
+
+	return NULL;
+}
+
+evm_evids_list_struct * evm_msgid_del(evm_evtypes_list_struct *msgtype_ptr, int msg_id)
+{
+	evm_evids_list_struct *tmp = NULL;
+	evm_log_info("(entry)\n");
+
+	if (msgtype_ptr == NULL)
+		return NULL;
+
+	tmp = msgtype_ptr->evids_first;
+	while (tmp != NULL) {
+		if (msg_id == tmp->ev_id)
+			break;
+		tmp = tmp->next;
+	}
+
+	if (tmp != NULL) {
+		tmp->prev->next = tmp->next;
+		if (tmp->next != NULL)
+			tmp->next->prev = tmp->prev;
+		free(tmp);
+	}
+	return tmp;
+}
+
+int evm_msgid_prepare_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_prepare)(void *ev_ptr))
+{
+	int rv = 0;
+	evm_log_info("(entry)\n");
+
+	if (msgid_ptr == NULL)
+		return -1;
+
+	if (ev_prepare == NULL)
+		return -1;
+
+	if (rv == 0) {
+		msgid_ptr->ev_prepare = ev_prepare;
+	}
+	return rv;
+}
+
+int evm_msgid_handle_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_handle)(void *ev_ptr))
+{
+	int rv = 0;
+	evm_log_info("(entry)\n");
+
+	if (msgid_ptr == NULL)
+		return -1;
+
+	if (ev_handle == NULL)
+		return -1;
+
+	if (rv == 0) {
+		msgid_ptr->ev_handle = ev_handle;
+	}
+	return rv;
+}
+
+int evm_msgid_finalize_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_finalize)(void *ev_ptr))
+{
+	int rv = 0;
+	evm_log_info("(entry)\n");
+
+	if (msgid_ptr == NULL)
+		return -1;
+
+	if (ev_finalize == NULL)
+		return -1;
+
+	if (rv == 0) {
+		msgid_ptr->ev_finalize = ev_finalize;
+	}
+	return rv;
+}
 

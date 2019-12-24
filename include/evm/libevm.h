@@ -33,13 +33,11 @@
 /* Struct aliases */
 typedef struct evm_init evm_init_struct;
 typedef struct evm_sigpost evm_sigpost_struct;
-typedef struct evm_msgs_link evm_msgs_link_struct;
-typedef struct evm_tmrs_link evm_tmrs_link_struct;
-typedef struct evm_tab evm_tab_struct;
-typedef struct evm_fd evm_fd_struct;
-typedef struct evm_ids evm_ids_struct;
+typedef struct evm_evtypes_list evm_evtypes_list_struct;
+typedef struct evm_evids_list evm_evids_list_struct;
 typedef struct evm_message evm_message_struct;
 typedef struct evm_timer evm_timer_struct;
+typedef struct evm_fd evm_fd_struct;
 
 extern unsigned int evm_version_major;
 extern unsigned int evm_version_minor;
@@ -48,13 +46,8 @@ extern unsigned int evm_version_patch;
 /*User provided initialization structure!*/
 struct evm_init {
 	struct evm_sigpost *evm_sigpost;
-	int evm_relink;
-	evm_msgs_link_struct *evm_msgs_link;
-	evm_tmrs_link_struct *evm_tmrs_link;
-	int evm_msgs_link_max;
-	int evm_tmrs_link_max;
-	evm_tab_struct *evm_msgs_tab;
-	evm_tab_struct *evm_tmrs_tab;
+	evm_evtypes_list_struct *msgtypes_first;
+	evm_evids_list_struct *tmrids_first;
 	struct epoll_event *epoll_events;
 	int epoll_max_events;
 	int epoll_timeout;
@@ -62,55 +55,44 @@ struct evm_init {
 	int epollfd;
 	void *msg_queue; /*internal message queue*/
 	void *tmr_queue; /*internal timer queue*/
-	void *priv; /*private - application specific data related to this machine*/
-};
+	void *priv; /*private - application specific data*/
+}; /*evm_init_struct*/
 
 /*User provided signal post-handling EVM callbacks!*/
 struct evm_sigpost {
 	int (*sigpost_handle)(int signum, void *ev_ptr);
-};
+}; /*evm_sigpost_struct*/
 
-/*Elements of the user provided event type information and callbacks!*/
-struct evm_msgs_link {
-	int first_ev_id;
-	int last_ev_id;
-	int linked_msgs;
-	evm_message_struct *msgs_tab;
-	int (*ev_type_parse)(void *ev_ptr);
-};
+struct evm_evtypes_list {
+	evm_init_struct *evm_ptr;
+	int ev_type; /* 0, 1, 2, 3,... */
+	int (*ev_parse)(void *ev_ptr);
+	evm_evids_list_struct *evids_first;
+	evm_evtypes_list_struct *prev;
+	evm_evtypes_list_struct *next;
+}; /*evm_evtypes_list_struct*/
 
-struct evm_tmrs_link {
-	int first_ev_id;
-	int last_ev_id;
-	int linked_tmrs;
-	evm_timer_struct *tmrs_tab;
-	int (*ev_type_parse)(void *ev_ptr);
-};
-
-/*Elements of the user provided event machine table!*/
-struct evm_tab {
-	unsigned int ev_type;
+struct evm_evids_list {
+	evm_init_struct *evm_ptr;
+	evm_evtypes_list_struct *evtype_ptr;
 	int ev_id;
 	int (*ev_prepare)(void *ev_ptr);
 	int (*ev_handle)(void *ev_ptr);
 	int (*ev_finalize)(void *ev_ptr);
-};
+	evm_evids_list_struct *prev;
+	evm_evids_list_struct *next;
+}; /*evm_evids_list_struct*/
 
 struct evm_fd {
 	int fd;
-	unsigned int ev_type;
+	evm_evtypes_list_struct *evtype_ptr;
 	struct epoll_event ev_epoll;
 	evm_message_struct *msg_ptr;
 	int (*msg_receive)(int fd, evm_message_struct *msg_ptr);
 #if 0
 	int (*msg_send)(int sock, struct sockaddr_in *sockAddr, const char *buffer);
 #endif
-};
-
-struct evm_ids {
-	unsigned int ev_id;
-	unsigned int evm_idx;
-};
+}; /*evm_fd_struct*/
 
 extern int evm_init(evm_init_struct *evm_init_ptr);
 extern int evm_run_once(evm_init_struct *evm_init_ptr);
@@ -121,17 +103,29 @@ extern int evm_run(evm_init_struct *evm_init_ptr);
  * Messages
  */
 struct evm_message {
-	evm_init_struct *evm_ptr;
+	evm_evtypes_list_struct *msgtype_ptr;
+	evm_evids_list_struct *msgid_ptr;
 	int saved;
 	void *ctx_ptr;
-	evm_ids_struct msg_ids;
 	int rval_decode;
 	void *msg_decode;
 #if 0
 	struct sockaddr_in msg_addr;
 #endif
 	struct iovec iov_buff;
-};
+}; /*evm_message_struct*/
+
+extern evm_evtypes_list_struct * evm_msgtype_add(evm_init_struct *evm_init_ptr, int msg_type);
+extern evm_evtypes_list_struct * evm_msgtype_get(evm_init_struct *evm_init_ptr, int msg_type);
+extern evm_evtypes_list_struct * evm_msgtype_del(evm_init_struct *evm_init_ptr, int msg_type);
+extern int evm_msgtype_parse_cb_set(evm_evtypes_list_struct *msgtype_ptr, int (*ev_parse)(void *ev_ptr));
+
+extern evm_evids_list_struct * evm_msgid_add(evm_evtypes_list_struct *msgtype_ptr, int msg_id);
+extern evm_evids_list_struct * evm_msgid_get(evm_evtypes_list_struct *msgtype_ptr, int msg_id);
+extern evm_evids_list_struct * evm_msgid_del(evm_evtypes_list_struct *msgtype_ptr, int msg_id);
+extern int evm_msgid_prepare_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_prepare)(void *ev_ptr));
+extern int evm_msgid_handle_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_handle)(void *ev_ptr));
+extern int evm_msgid_finalize_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_finalize)(void *ev_ptr));
 
 extern int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr);
 extern int evm_message_call(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
@@ -143,15 +137,21 @@ extern int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf
  */
 struct evm_timer {
 	evm_init_struct *evm_ptr;
+	evm_evids_list_struct *tmrid_ptr;
 	int saved;
 	int stopped;
 	void *ctx_ptr;
-	evm_ids_struct tmr_ids;
 	struct timespec tm_stamp;
 	evm_timer_struct *next;
-};
+}; /*evm_timer_struct*/
 
-extern evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr);
+extern evm_evids_list_struct * evm_tmrid_add(evm_init_struct *evm_init_ptr, int tmr_id);
+extern evm_evids_list_struct * evm_tmrid_get(evm_init_struct *evm_init_ptr, int tmr_id);
+extern evm_evids_list_struct * evm_tmrid_del(evm_init_struct *evm_init_ptr, int tmr_id);
+extern int evm_tmrid_handle_cb_set(evm_evids_list_struct *tmrid_ptr, int (*ev_handle)(void *ev_ptr));
+extern int evm_tmrid_finalize_cb_set(evm_evids_list_struct *tmrid_ptr, int (*ev_finalize)(void *ev_ptr));
+
+extern evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_evids_list_struct *tmrid_ptr, time_t tv_sec, long tv_nsec, void *ctx_ptr);
 extern int evm_timer_stop(evm_timer_struct *timer);
 extern int evm_timer_finalize(void *ptr);
 

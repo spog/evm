@@ -403,7 +403,7 @@ evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr)
 	return NULL;
 }
 
-evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct tmr_evm_ids, time_t tv_sec, long tv_nsec, void *ctx_ptr)
+evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_evids_list_struct *tmrid_ptr, time_t tv_sec, long tv_nsec, void *ctx_ptr)
 {
 	struct itimerspec its;
 	evm_timer_struct *new, *prev, *tmr;
@@ -411,6 +411,11 @@ evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct
 	evm_log_info("(entry)\n");
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
+		return NULL;
+	}
+
+	if (tmrid_ptr == NULL) {
+		evm_log_error("Event machine timer undefined!\n");
 		return NULL;
 	}
 
@@ -423,11 +428,10 @@ evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct
 	evm_log_debug("New timer ptr=%p\n", (void *)new);
 
 	new->evm_ptr = evm_init_ptr;
+	new->tmrid_ptr = tmrid_ptr;
 	new->saved = 0;
 	new->stopped = 0;
 	new->ctx_ptr = ctx_ptr;
-	new->tmr_ids.ev_id = tmr_evm_ids.ev_id;
-	new->tmr_ids.evm_idx = tmr_evm_ids.evm_idx;
 
 	if (clock_gettime(CLOCK_MONOTONIC, &new->tm_stamp) == -1) {
 		evm_log_system_error("clock_gettime()\n");
@@ -501,6 +505,7 @@ evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_ids_struct
 
 int evm_timer_stop(evm_timer_struct *timer)
 {
+	evm_log_info("(entry)\n");
 	if (timer == NULL)
 		return -1;
 
@@ -522,5 +527,119 @@ int evm_timer_finalize(void *ptr)
 	}
 
 	return 0;
+}
+
+evm_evids_list_struct * evm_tmrid_add(evm_init_struct *evm_init_ptr, int tmr_id)
+{
+	evm_evids_list_struct *new, *tmp;
+	evm_log_info("(entry)\n");
+
+	if (evm_init_ptr == NULL)
+		return NULL;
+
+	tmp = evm_init_ptr->tmrids_first;
+	while (tmp != NULL) {
+		if (tmr_id == tmp->ev_id)
+			return tmp; /* returns the same as evm_msgid_get() */
+		if (tmp->next == NULL)
+			break;
+		tmp = tmp->next;
+	}
+
+	if ((new = calloc(1, sizeof(evm_evids_list_struct))) == NULL) {
+		errno = ENOMEM;
+		evm_log_system_error("calloc(): evm event ids list\n");
+		return NULL;
+	}
+	new->evm_ptr = evm_init_ptr;
+	new->evtype_ptr = NULL;
+	new->ev_id = tmr_id;
+	new->ev_prepare = NULL;
+	new->ev_handle = NULL;
+	new->ev_finalize = evm_timer_finalize;
+	new->prev = tmp;
+	new->next = NULL;
+	if (tmp != NULL)
+		tmp->next = new;
+	else
+		evm_init_ptr->tmrids_first = new;
+	return new;
+}
+
+evm_evids_list_struct * evm_tmrid_get(evm_init_struct *evm_init_ptr, int tmr_id)
+{
+	evm_evids_list_struct *tmp = NULL;
+	evm_log_info("(entry)\n");
+
+	if (evm_init_ptr == NULL)
+		return NULL;
+
+	tmp = evm_init_ptr->tmrids_first;
+	while (tmp != NULL) {
+		evm_log_debug("evm_tmrid_get() tmp=%p,tmp->ev_id=%d, tmr_id=%d\n", (void *)tmp, tmp->ev_id, tmr_id);
+		if (tmr_id == tmp->ev_id)
+			return tmp;
+		tmp = tmp->next;
+	}
+
+	return NULL;
+}
+
+evm_evids_list_struct * evm_tmrid_del(evm_init_struct *evm_init_ptr, int tmr_id)
+{
+	evm_evids_list_struct *tmp = NULL;
+	evm_log_info("(entry)\n");
+
+	if (evm_init_ptr == NULL)
+		return NULL;
+
+	tmp = evm_init_ptr->tmrids_first;
+	while (tmp != NULL) {
+		if (tmr_id == tmp->ev_id)
+			break;
+		tmp = tmp->next;
+	}
+
+	if (tmp != NULL) {
+		tmp->prev->next = tmp->next;
+		if (tmp->next != NULL)
+			tmp->next->prev = tmp->prev;
+		free(tmp);
+	}
+	return tmp;
+}
+
+int evm_tmrid_handle_cb_set(evm_evids_list_struct *tmrid_ptr, int (*ev_handle)(void *ev_ptr))
+{
+	int rv = 0;
+	evm_log_info("(entry)\n");
+
+	if (tmrid_ptr == NULL)
+		return -1;
+
+	if (ev_handle == NULL)
+		return -1;
+
+	if (rv == 0) {
+		tmrid_ptr->ev_handle = ev_handle;
+	}
+	return rv;
+}
+
+int evm_tmrid_finalize_cb_set(evm_evids_list_struct *tmrid_ptr, int (*ev_finalize)(void *ev_ptr))
+{
+	int rv = 0;
+	evm_log_info("(entry)\n");
+
+	if (tmrid_ptr == NULL)
+		return -1;
+
+	if (ev_finalize == NULL)
+		return -1;
+
+	if (rv == 0) {
+		tmrid_ptr->ev_finalize = ev_finalize;
+	}
+	return rv;
 }
 
