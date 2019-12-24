@@ -263,15 +263,15 @@ static unsigned int count;
 /* HELLO event handlers */
 static int evHelloMsg(void *ev_ptr)
 {
-	evm_evids_list_struct *tmrid;
+	evm_evids_list_struct *tmrid_ptr;
 	evm_message_struct *msg = (evm_message_struct *)ev_ptr;
 #if 1
 	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
 	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)msg->iov_buff.iov_base);
 
-	if ((tmrid = evm_tmrid_get(&evs_init, EV_ID_HELLO_TMR_IDLE)) == NULL)
+	if ((tmrid_ptr = evm_tmrid_get(&evs_init, EV_ID_HELLO_TMR_IDLE)) == NULL)
 		return -1;
-	helloIdleTmr = hello_start_timer(helloIdleTmr, 10, 0, NULL, tmrid);
+	helloIdleTmr = hello_start_timer(helloIdleTmr, 10, 0, NULL, tmrid_ptr);
 	evm_log_notice("IDLE timer set: 10 s\n");
 #else
 	count++;
@@ -348,22 +348,22 @@ static int hello_evm_init(void)
 /* Main core processing (event loop) */
 static int hello_evm_run(void)
 {
-	evm_evids_list_struct *tmrid;
+	evm_evids_list_struct *tmrid_ptr;
 
 	/* Set initial IDLE timer */
-	if ((tmrid = evm_tmrid_add(&evs_init, EV_ID_HELLO_TMR_IDLE)) == NULL)
+	if ((tmrid_ptr = evm_tmrid_add(&evs_init, EV_ID_HELLO_TMR_IDLE)) == NULL)
 		return -1;
-	if (evm_tmrid_handle_cb_set(tmrid, evHelloTmrIdle) < 0)
+	if (evm_tmrid_handle_cb_set(tmrid_ptr, evHelloTmrIdle) < 0)
 		return -1;
-	helloIdleTmr = hello_start_timer(NULL, 0, 0, NULL, tmrid);
+	helloIdleTmr = hello_start_timer(NULL, 0, 0, NULL, tmrid_ptr);
 	evm_log_notice("IDLE timer set: 0 s\n");
 
 	/* Set initial QUIT timer */
-	if ((tmrid = evm_tmrid_add(&evs_init, EV_ID_HELLO_TMR_QUIT)) == NULL)
+	if ((tmrid_ptr = evm_tmrid_add(&evs_init, EV_ID_HELLO_TMR_QUIT)) == NULL)
 		return -1;
-	if (evm_tmrid_handle_cb_set(tmrid, evHelloTmrQuit) < 0)
+	if (evm_tmrid_handle_cb_set(tmrid_ptr, evHelloTmrQuit) < 0)
 		return -1;
-	helloQuitTmr = hello_start_timer(NULL, 60, 0, NULL, tmrid);
+	helloQuitTmr = hello_start_timer(NULL, 60, 0, NULL, tmrid_ptr);
 	evm_log_notice("QUIT timer set: 60 s\n");
 
 	/*
