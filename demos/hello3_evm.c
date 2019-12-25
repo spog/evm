@@ -66,12 +66,35 @@ enum event_tmr_types {
 };
 
 enum hello_msg_ev_ids {
-	EV_ID_HELLO_MSG_HELLO = 0
+	EV_ID_HELLO_MSG_UNKNOWN0 = 0,
+	EV_ID_HELLO_MSG_UNKNOWN1,
+	EV_ID_HELLO_MSG_UNKNOWN2,
+	EV_ID_HELLO_MSG_UNKNOWN3,
+	EV_ID_HELLO_MSG_UNKNOWN4,
+	EV_ID_HELLO_MSG_UNKNOWN5,
+	EV_ID_HELLO_MSG_UNKNOWN6,
+	EV_ID_HELLO_MSG_UNKNOWN7,
+	EV_ID_HELLO_MSG_UNKNOWN8,
+	EV_ID_HELLO_MSG_UNKNOWN9,
+	EV_ID_HELLO_MSG_UNKNOWN10,
+	EV_ID_HELLO_MSG_UNKNOWN11,
+	EV_ID_HELLO_MSG_UNKNOWN12,
+	EV_ID_HELLO_MSG_UNKNOWN13,
+	EV_ID_HELLO_MSG_UNKNOWN14,
+	EV_ID_HELLO_MSG_UNKNOWN15,
+	EV_ID_HELLO_MSG_UNKNOWN16,
+	EV_ID_HELLO_MSG_UNKNOWN17,
+	EV_ID_HELLO_MSG_UNKNOWN18,
+	EV_ID_HELLO_MSG_HELLO,
+	EV_NUM_IDS
 };
 enum hello_tmr_ev_ids {
 	EV_ID_HELLO_TMR_IDLE = 0,
 	EV_ID_HELLO_TMR_QUIT
 };
+
+/* Quick link between ids and ptrs */
+evm_evids_list_struct *msgids_tab[2][EV_NUM_IDS];
 
 static evm_timer_struct * hello_start_timer(int evm_id, evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evm_evids_list_struct *tmrid_ptr);
 static int hello3_send_hello(int evm_id);
@@ -292,12 +315,17 @@ static int evHelloMsg(void *ev_ptr)
 	helloMsg.iov_buff.iov_base = (void *)send_buff;
 	sprintf((char *)helloMsg.iov_buff.iov_base, "%s: %u", hello_str, count);
 	evm_id = (evm_id + 1) % 2;
+#if 0 /*generic search for msg_id and msg_type pointers*/
 	if ((msgtype_ptr = evm_msgtype_get(&evs_init[evm_id], EV_TYPE_HELLO_MSG)) == NULL)
 		return -1;
 	if ((msgid_ptr = evm_msgid_get(msgtype_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)
 		return -1;
 	helloMsg.msgid_ptr = msgid_ptr;
 	helloMsg.msgtype_ptr = msgtype_ptr;
+#else /*prepared msg_id and msg_type pointers in a table*/
+	helloMsg.msgid_ptr = msgids_tab[evm_id][EV_ID_HELLO_MSG_HELLO];
+	helloMsg.msgtype_ptr = msgids_tab[evm_id][EV_ID_HELLO_MSG_HELLO]->evtype_ptr;
+#endif
 	evm_message_pass(&evs_init[evm_id], &helloMsg);
 #endif
 
@@ -342,12 +370,17 @@ static int hello3_send_hello(int evm_id)
 	helloMsg.iov_buff.iov_base = (void *)send_buff;
 	sprintf((char *)helloMsg.iov_buff.iov_base, "%s: %u", hello_str, count);
 	evm_id = (evm_id + 1) % 2;
+#if 1 /*generic search for msg_id and msg_type pointers*/
 	if ((msgtype_ptr = evm_msgtype_get(&evs_init[evm_id], EV_TYPE_HELLO_MSG)) == NULL)
 		return -1;
 	if ((msgid_ptr = evm_msgid_get(msgtype_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)
 		return -1;
 	helloMsg.msgid_ptr = msgid_ptr;
 	helloMsg.msgtype_ptr = msgtype_ptr;
+#else /*prepared msg_id and msg_type pointers in a table*/
+	helloMsg.msgid_ptr = msgids_tab[evm_id][EV_ID_HELLO_MSG_HELLO];
+	helloMsg.msgtype_ptr = msgids_tab[evm_id][EV_ID_HELLO_MSG_HELLO]->evtype_ptr;
+#endif
 	evm_message_pass(&evs_init[evm_id], &helloMsg);
 	evm_log_notice("HELLO msg sent to evm_id=%d: \"%s\"\n", evm_id, (char *)helloMsg.iov_buff.iov_base);
 
@@ -366,10 +399,49 @@ static int hello3_evm_init(void)
 	/* Initialize event machine for the first thread... */
 	if ((msgtype_ptr = evm_msgtype_add(&evs_init[0], EV_TYPE_HELLO_MSG)) == NULL)
 		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN0)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN1)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN2)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN3)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN4)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN5)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN6)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN7)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN8)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN9)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN10)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN11)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN12)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN13)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN14)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN15)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN16)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN17)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN18)) == NULL)
+		return -1;
 	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)
 		return -1;
 	if (evm_msgid_handle_cb_set(msgid_ptr, evHelloMsg) < 0)
 		return -1;
+	msgids_tab[0][EV_ID_HELLO_MSG_HELLO] = msgid_ptr;
 
 	evs_init[0].priv = (void *)0;
 	evs_init[0].evm_sigpost = &evs_sigpost;
@@ -387,6 +459,7 @@ static int hello3_evm_init(void)
 		return -1;
 	if (evm_msgid_handle_cb_set(msgid_ptr, evHelloMsg) < 0)
 		return -1;
+	msgids_tab[1][EV_ID_HELLO_MSG_HELLO] = msgid_ptr;
 
 	evs_init[1].priv = (void *)1;
 	evs_init[1].evm_sigpost = &evs_sigpost;

@@ -67,6 +67,65 @@ real	1m0.003s
 user	0m33.220s
 sys	1m1.624s
 
+
+New version with linear search for the only msg_id:
+---------------------------------------------------
+samo@hp450g3:~/Code/U2UP/evm/install/usr/bin$ time ./hello3_evm
+[44038.547724|11052|DEMO3EVM] QUIT timer set: 60 s
+[44038.547890|11053|DEMO3EVM] HELLO msg sent to evm_id=0: "HELLO: 1"
+[44098.547723|11052|DEMO3EVM] QUIT timer expired (16279651 messages sent)!
+
+real	1m0,005s
+user	0m55,992s
+sys	0m41,930s
+
+New version with linear search for 10th msg_id:
+-----------------------------------------------
+samo@hp450g3:~/Code/U2UP/evm/install/usr/bin$ time ./hello3_evm
+[64474.888821|24673|DEMO3EVM] QUIT timer set: 60 s
+[64474.889037|24674|DEMO3EVM] HELLO msg sent to evm_id=0: "HELLO: 1"
+[64534.888840|24673|DEMO3EVM] QUIT timer expired (12484064 messages sent)!
+
+real	1m0,005s
+user	0m53,311s
+sys	0m40,453s
+
+New version with linear search for 20th msg_id:
+-----------------------------------------------
+samo@hp450g3:~/Code/U2UP/evm/install/usr/bin$ time ./hello3_evm
+[65067.197325|25114|DEMO3EVM] QUIT timer set: 60 s
+[65067.197506|25115|DEMO3EVM] HELLO msg sent to evm_id=0: "HELLO: 1"
+[65127.197333|25114|DEMO3EVM] QUIT timer expired (7572091 messages sent)!
+
+real	1m0,005s
+user	0m46,639s
+sys	0m39,452s
+
+New version with direst mapping for msg_ids (1 id):
+---------------------------------------------------
+samo@hp450g3:~/Code/U2UP/evm/install/usr/bin$ time ./hello3_evm
+[45104.115803|11843|DEMO3EVM] QUIT timer set: 60 s
+[45104.116000|11844|DEMO3EVM] HELLO msg sent to evm_id=0: "HELLO: 1"
+[45164.115803|11843|DEMO3EVM] QUIT timer expired (13227661 messages sent)!
+
+real	1m0,005s
+user	0m49,376s
+sys	0m46,519s
+
+New version with direst mapping for msg_ids (20 ids):
+-----------------------------------------------------
+samo@hp450g3:~/Code/U2UP/evm/install/usr/bin$ time ./hello3_evm
+[65531.688761|25273|DEMO3EVM] QUIT timer set: 60 s
+[65531.688955|25274|DEMO3EVM] HELLO msg sent to evm_id=0: "HELLO: 1"
+[65591.688776|25273|DEMO3EVM] QUIT timer expired (13108988 messages sent)!
+
+real	1m0,004s
+user	0m49,677s
+sys	0m45,818s
+
+
+
+
 Looping messages: one thread serving many threads (evm_message_pass()):
 =======================================================================
 samo@lapuh:~/EVM/evm/build/demos$ time ./hello4_evm 1
