@@ -109,7 +109,7 @@ int evm_run_once(evm_init_struct *evm_init_ptr)
 			break;
 	}
 
-	/* Handle handle received message (WAIT - THE ONLY BLOCKING POINT, if epoll_pwait timeout != 0). */
+	/* Handle handle received message (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
 	if ((recvdMsg = evm_messages_check(evm_init_ptr)) != NULL) {
 		if ((status = evm_handle_message(recvdMsg)) < 0)
 			evm_log_debug("evm_handle_message() returned %d\n", status);
@@ -123,16 +123,17 @@ int evm_run_once(evm_init_struct *evm_init_ptr)
  */
 int evm_run_async(evm_init_struct *evm_init_ptr)
 {
-	int status = 0;
-	evm_timer_struct *expdTmr;
-	evm_message_struct *recvdMsg;
-
+	sem_t *bsem;
 	evm_log_info("(entry)\n");
+
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
 		abort();
 	}
 
+	bsem = &evm_init_ptr->blocking_sem;
+	evm_log_info("Post blocking semaphore (UNBLOCK - prevent blocking)\n");
+	sem_post(bsem);
 	return evm_run_once(evm_init_ptr);
 }
 

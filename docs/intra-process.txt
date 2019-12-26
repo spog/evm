@@ -56,8 +56,8 @@ real	1m0.002s
 user	0m18.948s
 sys	0m41.044s
 
-New version with direct mapping for msg_ids and no FD-triggering (with blocking semaphore):
--------------------------------------------------------------------------------------------
+New version - single msg_id and no FD-triggering (with blocking semaphore):
+---------------------------------------------------------------------------
 samo@hp450g3:~/Code/U2UP/evm/install/usr/bin$ time ./hello1_evm 
 [04003.526405|27684|DEMO1EVM] IDLE timer set: 0 s
 [04003.526514|27684|DEMO1EVM] QUIT timer set: 60 s
@@ -68,6 +68,19 @@ samo@hp450g3:~/Code/U2UP/evm/install/usr/bin$ time ./hello1_evm
 real	1m0,004s
 user	0m39,270s
 sys	0m20,731s
+
+New version - single msg_id and no FD-triggering (running evm async non-blocking in a loop):
+--------------------------------------------------------------------------------------------
+samo@hp450g3:~/Code/U2UP/evm/install/usr/bin$ time ./hello1_evm 
+[08759.095212|14116|DEMO1EVM] IDLE timer set: 0 s
+[08759.095295|14116|DEMO1EVM] QUIT timer set: 60 s
+[08759.095351|14116|DEMO1EVM] IDLE timer expired!
+[08759.095383|14116|DEMO1EVM] HELLO msg sent: "HELLO: 1"
+[08819.095307|14116|DEMO1EVM] QUIT timer expired (38050704 messages sent)!
+
+real	1m0,004s
+user	0m40,443s
+sys	0m19,559s
 
 
 Looping messages between two threads (evm_message_pass()):
