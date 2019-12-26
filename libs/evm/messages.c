@@ -46,7 +46,7 @@ struct message_queue {
 	message_hanger_struct *first_hanger;
 	message_hanger_struct *last_hanger;
 	evm_fd_struct *evmfd; /*internal message queue FD binding - eventfd()*/
-	pthread_mutex_t mutex;
+	pthread_mutex_t access_mutex;
 };
 
 struct message_hanger {
@@ -155,118 +155,10 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 		return status;
 	}
 	evm_init_ptr->msg_queue = ptr;
-	pthread_mutex_init(&((message_queue_struct *)ptr)->mutex, NULL);
-	pthread_mutex_unlock(&((message_queue_struct *)ptr)->mutex);
-
-	/* Setup EPOLL infrastructure. */
-	if ((evm_init_ptr->epollfd = epoll_create1(0)) < 0)
-		evm_log_return_system_err("epoll_create1()\n");
-
-	if (evm_init_ptr->epoll_max_events <= 0) {
-		evm_log_error("epoll_max_events = %d (need to be positive number) - event machine init failed!\n", evm_init_ptr->epoll_max_events);
-		return status;
-	}
-	evm_init_ptr->epoll_events = (struct epoll_event *)calloc(evm_init_ptr->epoll_max_events, sizeof(struct epoll_event));
-	if (evm_init_ptr->epoll_events == NULL) {
-		errno = ENOMEM;
-		evm_log_system_error("calloc(): %d times %zd bytes\n", evm_init_ptr->epoll_max_events, sizeof(struct epoll_event));
-		return status;
-	}
-	evm_init_ptr->epoll_nfds = -1;
+	pthread_mutex_init(&((message_queue_struct *)ptr)->access_mutex, NULL);
+	pthread_mutex_unlock(&((message_queue_struct *)ptr)->access_mutex);
 
 	return 0;
-}
-
-int evm_messages_queue_fd_init(evm_init_struct *evm_init_ptr)
-{
-	int status = -1;
-	evm_fd_struct *ptr;
-
-	evm_log_info("(entry) evm_init_ptr=%p\n", evm_init_ptr);
-	/* Prepare internal message queue FD for EPOLL to operate over internal linked list. */
-	if ((ptr = (evm_fd_struct *)calloc(1, sizeof(evm_fd_struct))) == NULL) {
-		errno = ENOMEM;
-		evm_log_system_error("calloc(): internal message queue evm FD\n");
-		return status;
-	}
-	((message_queue_struct *)(evm_init_ptr->msg_queue))->evmfd = ptr;
-
-	if ((ptr->fd = eventfd(0, EFD_CLOEXEC)) < 0)
-		evm_log_return_system_err("eventfd()\n");
-
-	ptr->ev_epoll.events = EPOLLIN;
-	ptr->ev_epoll.data.ptr = (void *)ptr /*our own address*/;
-	ptr->msg_receive = message_queue_evmfd_read;
-//	ptr->msg_send = NULL;
-	if (evm_message_fd_add(evm_init_ptr, ptr) < 0) {
-		return status;
-	}
-
-	return 0;
-}
-
-static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr)
-{
-	int *thr_signum;
-	evm_fd_struct *evs_fd_ptr;
-
-	evm_log_info("(entry)\n");
-	if (evm_init_ptr->epoll_nfds <= 0) {
-//not sure, if necessary:		bzero((void *)evm_init_ptr->epoll_events, sizeof(struct epoll_event) * evm_init_ptr->epoll_max_events);
-		evm_log_debug("evm_init_ptr->epoll_max_events: %d, sizeof(struct epoll_event): %zu\n", evm_init_ptr->epoll_max_events, sizeof(struct epoll_event));
-		/* THE ACTUAL BLOCKING POINT! */
-		evm_init_ptr->epoll_nfds = epoll_pwait(evm_init_ptr->epollfd, evm_init_ptr->epoll_events, evm_init_ptr->epoll_max_events, evm_init_ptr->epoll_timeout, &messages_sigmask);
-		if (evm_init_ptr->epoll_nfds < 0) {
-			if (errno == EINTR) {
-				evm_log_debug("epoll_wait(): EINTR\n");
-				thr_signum = (int *)pthread_getspecific(thr_signum_key);
-				if (*thr_signum > 0) {
-					/* do something on SIGNALs here */
-					evm_log_debug("Signal %d handled. Call signal post-handler, if provided!\n", *thr_signum);
-					if (evm_init_ptr->evm_sigpost != NULL) {
-						evm_init_ptr->evm_sigpost->sigpost_handle(*thr_signum, NULL);
-					}
-					*thr_signum = 0;
-				}
-			} else {
-				evm_log_system_error("epoll()\n")
-				return NULL;
-			}
-			/* On EINTR do not report error! */
-			return NULL;
-		}
-	}
-
-	evm_log_debug("Epoll returned %d FDs ready!\n", evm_init_ptr->epoll_nfds);
-	if (evm_init_ptr->epoll_nfds == 0) {
-		return NULL;
-	}
-
-	/* Pick the last events element with returned event. */
-	evm_init_ptr->epoll_nfds--;
-	evs_fd_ptr = (evm_fd_struct *)evm_init_ptr->epoll_events[evm_init_ptr->epoll_nfds].data.ptr;
-	evm_log_debug("evs_fd_ptr: %p\n", evs_fd_ptr);
-	if (
-		(evm_init_ptr->epoll_events[evm_init_ptr->epoll_nfds].events != 0) &&
-		((evm_init_ptr->epoll_events[evm_init_ptr->epoll_nfds].events & EPOLLERR) == 0) &&
-		((evm_init_ptr->epoll_events[evm_init_ptr->epoll_nfds].events & EPOLLHUP) == 0)
-	) {
-		if (evs_fd_ptr->msg_ptr == NULL) {
-			evm_log_debug("Polled FD without allocated message buffers - Allocate now!\n");
-			evs_fd_ptr->msg_ptr = (evm_message_struct *)calloc(1, sizeof(evm_message_struct));
-			if (evs_fd_ptr->msg_ptr == NULL) {
-				errno = ENOMEM;
-				evm_log_system_error("calloc(): 1 times %zd bytes\n", sizeof(evm_message_struct));
-				return NULL;
-			}
-		}
-		evm_log_debug("Polled FD (%d) (events mask 0x%x)!\n", evs_fd_ptr->fd, evm_init_ptr->epoll_events[evm_init_ptr->epoll_nfds].events);
-	} else {
-		evm_log_debug("Polled FD (%d) with ERROR (events mask 0x%x)!\n", evs_fd_ptr->fd, evm_init_ptr->epoll_events[evm_init_ptr->epoll_nfds].events);
-	}
-
-	evm_log_info("(exit)\n");
-	return evs_fd_ptr;
 }
 
 static int messages_receive(evm_fd_struct *evs_fd_ptr)
@@ -321,15 +213,16 @@ int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 {
 	int status = -1;
 	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
-	pthread_mutex_t *mtx = &msg_queue->mutex;
+	sem_t *bsem = &evm_init_ptr->blocking_sem;
+	pthread_mutex_t *amtx = &msg_queue->access_mutex;
 	message_hanger_struct *msg_hanger;
 
 	evm_log_info("(entry)\n");
-	pthread_mutex_lock(mtx);
+	pthread_mutex_lock(amtx);
 	if ((msg_hanger = (message_hanger_struct *)calloc(1, sizeof(message_hanger_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): message hanger\n");
-		pthread_mutex_unlock(mtx);
+		pthread_mutex_unlock(amtx);
 		return status;
 	}
 	msg_hanger->msg = msg;
@@ -340,22 +233,29 @@ int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 
 	msg_queue->last_hanger = msg_hanger;
 	msg_hanger->next = NULL;
-	pthread_mutex_unlock(mtx);
+	pthread_mutex_unlock(amtx);
+	evm_log_info("Post blocking semaphore (UNBLOCK)\n");
+	sem_post(bsem);
 	return 0;
 }
 
 static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr)
 {
+	int rv = 0;
 	evm_message_struct *msg;
 	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
-	pthread_mutex_t *mtx = &msg_queue->mutex;
+	sem_t *bsem = &evm_init_ptr->blocking_sem;
+	pthread_mutex_t *amtx = &msg_queue->access_mutex;
 	message_hanger_struct *msg_hanger;
 
 	evm_log_info("(entry)\n");
-	pthread_mutex_lock(mtx);
+
+	evm_log_info("Wait blocking semaphore (BLOCK, IF LOCKED)\n");
+	sem_wait(bsem);
+	pthread_mutex_lock(amtx);
 	msg_hanger = msg_queue->first_hanger;
 	if (msg_hanger == NULL) {
-		pthread_mutex_unlock(mtx);
+		pthread_mutex_unlock(amtx);
 		return NULL;
 	}
 
@@ -368,7 +268,7 @@ static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr)
 	msg = msg_hanger->msg;
 	free(msg_hanger);
 	msg_hanger = NULL;
-	pthread_mutex_unlock(mtx);
+	pthread_mutex_unlock(amtx);
 	return msg;
 }
 
@@ -384,15 +284,8 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 		abort();
 	}
 
-	/* Poll the internal message queue first (NON-BLOCKING). */
-	if (msg_queue->first_hanger != NULL) {
-		return message_dequeue(evm_init_ptr);
-	}
-
-	/* EPOLL the input (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
-	if ((evs_fd_ptr = messages_epoll(evm_init_ptr)) == NULL) {
-		return NULL;
-	}
+	/* Poll the internal message queue first (THE ONLY POTENTIALLY BLOCKING POINT). */
+	return message_dequeue(evm_init_ptr);
 
 	/* Receive any data. */
 	if ((status = messages_receive(evs_fd_ptr)) < 0) {
@@ -443,69 +336,17 @@ static int message_queue_evmfd_read(int efd, evm_message_struct *message)
 	return 0;
 }
 
-int evm_message_call(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
-{
-	uint64_t u;
-	ssize_t s;
-
-	evm_log_info("(entry) evm_init_ptr=%p, msg=%p\n", evm_init_ptr, msg);
-	if (evm_init_ptr != NULL) {
-		if (evm_message_enqueue(evm_init_ptr, msg) != 0) {
-			evm_log_error("Message enqueuing failed!\n");
-			return -1;
-		}
-		return 0;
-	}
-	return -1;
-}
-
 int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 {
-	uint64_t u;
-	ssize_t s;
-
 	evm_log_info("(entry) evm_init_ptr=%p, msg=%p\n", evm_init_ptr, msg);
 	if (evm_init_ptr != NULL) {
 		if (evm_message_enqueue(evm_init_ptr, msg) != 0) {
 			evm_log_error("Message enqueuing failed!\n");
 			return -1;
 		}
-
-		u = 1;
-		if ((s = write(((message_queue_struct *)evm_init_ptr->msg_queue)->evmfd->fd, &u, sizeof(uint64_t))) != sizeof(uint64_t)) {
-			evm_log_system_error("write(): evm_message_pass\n");
-			if (message_dequeue(evm_init_ptr) == NULL) {
-				evm_log_error("Message dequeuing failed!\n");
-			}
-			return -1;
-		}
 		return 0;
 	}
 	return -1;
-}
-
-int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr)
-{
-	evm_log_info("(entry)\n");
-
-	if (evm_init_ptr == NULL)
-		return -1;
-
-	if (evm_fd_ptr == NULL)
-		return -1;
-
-	evm_fd_ptr->msg_ptr = (evm_message_struct *)calloc(1, sizeof(evm_message_struct));
-	if (evm_fd_ptr->msg_ptr == NULL) {
-		errno = ENOMEM;
-		evm_log_return_err("calloc(): 1 times %zd bytes\n", sizeof(evm_message_struct));
-	}
-	evm_log_debug("evm_fd_ptr: %p, &evm_fd_ptr->ev_epoll: %p\n", evm_fd_ptr, &evm_fd_ptr->ev_epoll);
-	evm_log_debug("evm_init_ptr->epollfd: %d, evm_fd_ptr->fd: %d\n", evm_init_ptr->epollfd, evm_fd_ptr->fd);
-	if (epoll_ctl(evm_init_ptr->epollfd, EPOLL_CTL_ADD, evm_fd_ptr->fd, &evm_fd_ptr->ev_epoll) < 0) {
-		evm_log_return_system_err("epoll_ctl()\n");
-	}
-
-	return 0;
 }
 
 #if 1 /*orig*/

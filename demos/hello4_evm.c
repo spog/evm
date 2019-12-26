@@ -394,13 +394,10 @@ static evm_init_struct * hello4_evm_init(void)
 	/* Initialize event machine for each thread... */
 	ptr->priv = (void *)NULL;
 	ptr->evm_sigpost = &evs_sigpost;
-	ptr->epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
-	ptr->epoll_timeout = -1; /* -1: wait indefinitely | 0: do not wait (asynchronous operation) */
 	if ((status = evm_init(ptr)) < 0) {
 		free(ptr);
 		return NULL;
 	}
-	evm_log_debug("evm epoll FD is %d\n", ptr->epollfd);
 
 	if ((tmrid_ptr = evm_tmrid_add(ptr, EV_ID_HELLO_TMR_IDLE)) == NULL) {
 		free(ptr);

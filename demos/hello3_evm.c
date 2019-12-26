@@ -445,15 +445,50 @@ static int hello3_evm_init(void)
 
 	evs_init[0].priv = (void *)0;
 	evs_init[0].evm_sigpost = &evs_sigpost;
-	evs_init[0].epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
-	evs_init[0].epoll_timeout = -1; /* -1: wait indefinitely | 0: do not wait (asynchronous operation) */
 	if ((status = evm_init(&evs_init[0])) < 0) {
 		return status;
 	}
-	evm_log_debug("evm epoll FD is %d\n", evs_init[0].epollfd);
 
 	/* Initialize event machine for the second thread... */
 	if ((msgtype_ptr = evm_msgtype_add(&evs_init[1], EV_TYPE_HELLO_MSG)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN0)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN1)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN2)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN3)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN4)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN5)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN6)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN7)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN8)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN9)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN10)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN11)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN12)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN13)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN14)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN15)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN16)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN17)) == NULL)
+		return -1;
+	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN18)) == NULL)
 		return -1;
 	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)
 		return -1;
@@ -463,12 +498,9 @@ static int hello3_evm_init(void)
 
 	evs_init[1].priv = (void *)1;
 	evs_init[1].evm_sigpost = &evs_sigpost;
-	evs_init[1].epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
-	evs_init[1].epoll_timeout = -1; /* -1: wait indefinitely | 0: do not wait (asynchronous operation) */
 	if ((status = evm_init(&evs_init[1])) < 0) {
 		return status;
 	}
-	evm_log_debug("evm epoll FD is %d\n", evs_init[1].epollfd);
 
 	evm_log_info("(exit)\n");
 	return 0;

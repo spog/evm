@@ -276,11 +276,7 @@ static int evHelloMsg(void *ev_ptr)
 #else
 	count++;
 	/* liveloop - 100 %CPU usage */
-#if 1
-	evm_message_call(&evs_init, &helloMsg);
-#else
 	evm_message_pass(&evs_init, &helloMsg);
-#endif
 #endif
 
 	return 0;
@@ -296,7 +292,7 @@ static int evHelloTmrIdle(void *ev_ptr)
 
 	count++;
 	sprintf((char *)helloMsg.iov_buff.iov_base, "%s: %u", hello_str, count);
-	evm_message_call(tmr->evm_ptr, &helloMsg);
+	evm_message_pass(tmr->evm_ptr, &helloMsg);
 	evm_log_notice("HELLO msg sent: \"%s\"\n", (char *)helloMsg.iov_buff.iov_base);
 
 	return status;
@@ -324,13 +320,10 @@ static int hello_evm_init(void)
 
 	/* Initialize event machine... */
 	evs_init.evm_sigpost = &evs_sigpost;;
-	evs_init.epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
-	evs_init.epoll_timeout = -1; /* -1: wait indefinitely | 0: do not wait (asynchronous operation) */
 	if ((status = evm_init(&evs_init)) < 0) {
 		evm_log_error("evm_init() failed!\n");
 		return status;
 	}
-	evm_log_debug("evm epoll FD is %d\n", evs_init.epollfd);
 
 	if ((msgtype_ptr = evm_msgtype_add(&evs_init, EV_TYPE_HELLO_MSG)) == NULL)
 		return -1;

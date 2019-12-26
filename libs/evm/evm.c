@@ -62,30 +62,21 @@ unsigned int evm_version_patch = EVM_VERSION_PATCH;
 int evm_init(evm_init_struct *evm_init_ptr)
 {
 	int status = -1;
-
 	evm_log_info("(entry) evm_init_ptr=%p\n", evm_init_ptr);
-	/* Initialize timers infrastructure... */
-	if ((status = evm_timers_init(evm_init_ptr)) < 0) {
-		return status;
-	}
 
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
 		return status;
 	}
+	sem_init(&evm_init_ptr->blocking_sem, 0, 0);
+
+	/* Initialize timers infrastructure... */
+	if ((status = evm_timers_init(evm_init_ptr)) < 0) {
+		return status;
+	}
 
 	/* Initialize EVM messages infrastructure... */
 	if ((status = evm_messages_init(evm_init_ptr)) < 0) {
-		return status;
-	}
-
-	/* Initialize internal timers queue FD... */
-	if ((status = evm_timers_queue_fd_init(evm_init_ptr)) < 0) {
-		return status;
-	}
-
-	/* Initialize internal messages queue FD... */
-	if ((status = evm_messages_queue_fd_init(evm_init_ptr)) < 0) {
 		return status;
 	}
 
@@ -141,8 +132,6 @@ int evm_run_async(evm_init_struct *evm_init_ptr)
 		evm_log_error("Event machine init structure undefined!\n");
 		abort();
 	}
-
-	evm_init_ptr->epoll_timeout = 0;
 
 	return evm_run_once(evm_init_ptr);
 }

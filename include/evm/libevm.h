@@ -26,6 +26,7 @@
 #include <sys/uio.h>
 #include <sys/epoll.h>
 #include <time.h>
+#include <semaphore.h>
 
 /*
  * Common
@@ -45,14 +46,10 @@ extern unsigned int evm_version_patch;
 
 /*User provided initialization structure!*/
 struct evm_init {
+	sem_t blocking_sem;
 	struct evm_sigpost *evm_sigpost;
 	evm_evtypes_list_struct *msgtypes_first;
 	evm_evids_list_struct *tmrids_first;
-	struct epoll_event *epoll_events;
-	int epoll_max_events;
-	int epoll_timeout;
-	int epoll_nfds;
-	int epollfd;
 	void *msg_queue; /*internal message queue*/
 	void *tmr_queue; /*internal timer queue*/
 	void *priv; /*private - application specific data*/
@@ -128,7 +125,6 @@ extern int evm_msgid_handle_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_ha
 extern int evm_msgid_finalize_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_finalize)(void *ev_ptr));
 
 extern int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr);
-extern int evm_message_call(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
 extern int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
 extern int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf);
 

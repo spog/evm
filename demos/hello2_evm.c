@@ -442,12 +442,9 @@ static int hello2_evm_init(void)
 
 	/* Initialize event machine... */
 	evs_init.evm_sigpost = &evs_sigpost;;
-	evs_init.epoll_max_events = MAX_EPOLL_EVENTS_PER_RUN;
-	evs_init.epoll_timeout = -1; /* -1: wait indefinitely | 0: do not wait (asynchronous operation) */
 	if ((status = evm_init(&evs_init)) < 0) {
 		return status;
 	}
-	evm_log_debug("evm epoll FD is %d\n", evs_init.epollfd);
 
 	if ((msgtype_ptr = evm_msgtype_add(&evs_init, EV_TYPE_HELLO_MSG)) == NULL)
 		return -1;
@@ -465,6 +462,7 @@ static int hello2_evm_init(void)
 	if (evm_tmrid_handle_cb_set(tmrid_ptr, evHelloTmrIdle) < 0)
 		return -1;
 
+#if 0 /*samo - orig*/
 	/* Prepare socket FD for EVM to operate over internal socket connection. */
 	evs_fd.fd = sock;
 	evs_fd.evtype_ptr = msgtype_ptr;
@@ -475,6 +473,7 @@ static int hello2_evm_init(void)
 	if ((status = evm_message_fd_add(&evs_init, &evs_fd)) < 0) {
 		return status;
 	}
+#endif
 
 	evm_log_info("(exit)\n");
 	return 0;

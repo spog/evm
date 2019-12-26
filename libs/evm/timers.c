@@ -48,8 +48,7 @@ typedef struct timer_queue timer_queue_struct;
 struct timer_queue {
 	evm_timer_struct *first_tmr;
 	evm_timer_struct *last_tmr;
-	evm_fd_struct *evmfd; /*internal timer queue FD binding - eventfd()*/
-	pthread_mutex_t mutex;
+	pthread_mutex_t access_mutex;
 };
 
 static int timer_queue_evmfd_read(int efd, evm_message_struct *ptr);
@@ -117,8 +116,8 @@ int evm_timers_init(evm_init_struct *evm_init_ptr)
 	evm_init_ptr->tmr_queue = (timer_queue_struct *)ptr;
 	((timer_queue_struct *)evm_init_ptr->tmr_queue)->first_tmr = NULL;
 	((timer_queue_struct *)evm_init_ptr->tmr_queue)->last_tmr = NULL;
-	pthread_mutex_init(&((timer_queue_struct *)ptr)->mutex, NULL);
-	pthread_mutex_unlock(&((timer_queue_struct *)ptr)->mutex);
+	pthread_mutex_init(&((timer_queue_struct *)ptr)->access_mutex, NULL);
+	pthread_mutex_unlock(&((timer_queue_struct *)ptr)->access_mutex);
 
 	pthread_mutex_lock(&global_timer_mutex);
 	if (global_timer_not_created) {
@@ -175,45 +174,15 @@ int evm_timers_init(evm_init_struct *evm_init_ptr)
 	return 0;
 }
 
-int evm_timers_queue_fd_init(evm_init_struct *evm_init_ptr)
-{
-	int status = -1;
-//	void *ptr;
-	evm_fd_struct *ptr;
-
-	evm_log_info("(entry) evm_init_ptr=%p\n", evm_init_ptr);
-	/* Prepare internal timer queue FD for EPOLL to operate over internal linked list. */
-	if ((ptr = (evm_fd_struct *)calloc(1, sizeof(evm_fd_struct))) == NULL) {
-		errno = ENOMEM;
-		evm_log_system_error("calloc(): internal timer queue evm FD\n");
-		return status;
-	}
-	((timer_queue_struct *)evm_init_ptr->tmr_queue)->evmfd = ptr;
-
-	if ((ptr->fd = eventfd(0, EFD_CLOEXEC)) < 0)
-		evm_log_return_system_err("eventfd()\n");
-
-	ptr->ev_epoll.events = EPOLLIN;
-	ptr->ev_epoll.data.ptr = ptr; /*our own address*/
-	ptr->msg_receive = timer_queue_evmfd_read;
-
-	evm_log_debug("ptr: %p, &ptr->ev_epoll: %p\n", ptr, &ptr->ev_epoll);
-	evm_log_debug("evm_init_ptr->epollfd: %d, ptr->fd: %d\n", evm_init_ptr->epollfd, ptr->fd);
-	if (epoll_ctl(evm_init_ptr->epollfd, EPOLL_CTL_ADD, ptr->fd, &ptr->ev_epoll) < 0) {
-		evm_log_return_system_err("epoll_ctl()\n");
-	}
-
-	return 0;
-}
-
 static int timer_enqueue(evm_init_struct *evm_init_ptr, evm_timer_struct *tmr)
 {
 	int status = -1;
 	timer_queue_struct *tmr_queue = (timer_queue_struct *)evm_init_ptr->tmr_queue;
-	pthread_mutex_t *mtx = &tmr_queue->mutex;
+	sem_t *bsem = &evm_init_ptr->blocking_sem;
+	pthread_mutex_t *amtx = &tmr_queue->access_mutex;
 
 	evm_log_info("(entry)\n");
-	pthread_mutex_lock(mtx);
+	pthread_mutex_lock(amtx);
 	if (tmr_queue->last_tmr == NULL)
 		tmr_queue->first_tmr = tmr;
 	else
@@ -221,7 +190,9 @@ static int timer_enqueue(evm_init_struct *evm_init_ptr, evm_timer_struct *tmr)
 
 	tmr_queue->last_tmr = tmr;
 	tmr->next = NULL;
-	pthread_mutex_unlock(mtx);
+	pthread_mutex_unlock(amtx);
+	evm_log_info("Post blocking semaphore (UNBLOCK)\n");
+	sem_post(bsem);
 	return 0;
 }
 
@@ -229,13 +200,13 @@ static evm_timer_struct * timer_dequeue(evm_init_struct *evm_init_ptr)
 {
 	evm_timer_struct *tmr;
 	timer_queue_struct *tmr_queue = (timer_queue_struct *)evm_init_ptr->tmr_queue;
-	pthread_mutex_t *mtx = &tmr_queue->mutex;
+	pthread_mutex_t *amtx = &tmr_queue->access_mutex;
 
 	evm_log_info("(entry)\n");
-	pthread_mutex_lock(mtx);
+	pthread_mutex_lock(amtx);
 	tmr = tmr_queue->first_tmr;
 	if (tmr == NULL) {
-		pthread_mutex_unlock(mtx);
+		pthread_mutex_unlock(amtx);
 		return NULL;
 	}
 
@@ -246,7 +217,7 @@ static evm_timer_struct * timer_dequeue(evm_init_struct *evm_init_ptr)
 		tmr_queue->first_tmr = tmr->next;
 
 	tmr->evm_ptr = evm_init_ptr; /*just in case:)*/
-	pthread_mutex_unlock(mtx);
+	pthread_mutex_unlock(amtx);
 	return tmr;
 }
 
@@ -263,6 +234,20 @@ static int timer_queue_evmfd_read(int efd, evm_message_struct *ptr)
 	return 0;
 }
 
+static int evm_timer_pass(evm_init_struct *evm_init_ptr, evm_timer_struct *tmr)
+{
+	evm_log_info("(entry) evm_init_ptr=%p, msg=%p\n", evm_init_ptr, tmr);
+	if (evm_init_ptr != NULL) {
+		if (timer_enqueue(evm_init_ptr, tmr) != 0) {
+			evm_log_error("Timer enqueuing failed!\n");
+			return -1;
+		}
+		return 0;
+	}
+	return -1;
+}
+
+#if 0 /*samo - orig*/
 static int evm_timer_pass(evm_init_struct *evm_init_ptr, evm_timer_struct *tmr)
 {
 	uint64_t u;
@@ -287,6 +272,7 @@ static int evm_timer_pass(evm_init_struct *evm_init_ptr, evm_timer_struct *tmr)
 	}
 	return -1;
 }
+#endif
 
 evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr)
 {
@@ -332,7 +318,7 @@ evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr)
 
 	if (clock_gettime(CLOCK_MONOTONIC, &time_stamp) == -1) {
 		evm_log_system_error("clock_gettime()\n");
-		/* on clock_gettime() failure reschedule timer_check() to next second */
+		/* on clock_gettime() failure reschedule evm_timers_check() to next second */
 		its.it_value.tv_sec = 1;
 		if (timer_settime(global_timerid, 0, &its, NULL) == -1) {
 			evm_log_system_error("timer_settime timer ID=%p\n", (void *)global_timerid);
