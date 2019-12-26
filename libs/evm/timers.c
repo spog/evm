@@ -219,6 +219,11 @@ static evm_timer_struct * timer_dequeue(evm_init_struct *evm_init_ptr)
 	return tmr;
 }
 
+/*
+ * Internal passing of expired timers from global queue
+ * to its internal tmr_queue when expired time doesn't belong
+ * to running evn_timers_check() (different evm_init_ptr).
+ */
 static int evm_timer_pass(evm_init_struct *evm_init_ptr, evm_timer_struct *tmr)
 {
 	evm_log_info("(entry) evm_init_ptr=%p, msg=%p\n", evm_init_ptr, tmr);
