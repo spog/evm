@@ -1,0 +1,4 @@
+The whole project public API naming uses prefix "evm_".
+Internal public API naming uses its implementation module file name prefix (i.e. "timers_" ot "messages_").
+Do not use above prefixes for internal per module symbols (static finctions and globals), as they can not be seen directly (by name) from other modules.
+Internal modules communication tries to follow hierarchical organisation so that a higher level module includes all used headers (submodules) and each submodule includes that higher level header.

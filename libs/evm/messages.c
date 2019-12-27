@@ -34,54 +34,57 @@
 
 #include "evm/libevm.h"
 
+#include "evm.h"
 #include "messages.h"
 
 #include "userlog/log_module.h"
 EVMLOG_MODULE_INIT(EVM_MSGS, 1)
 
-typedef struct message_queue message_queue_struct;
-typedef struct message_hanger message_hanger_struct;
+typedef struct msgs_queue msgs_queue_struct;
+typedef struct msg_hanger msg_hanger_struct;
 
-struct message_queue {
-	message_hanger_struct *first_hanger;
-	message_hanger_struct *last_hanger;
-	evm_fd_struct *evmfd; /*internal message queue FD binding - eventfd()*/
+struct msgs_queue {
+	msg_hanger_struct *first_hanger;
+	msg_hanger_struct *last_hanger;
+//samo - orig:	evm_fd_struct *evmfd; /*internal message queue FD binding - eventfd()*/
 	pthread_mutex_t access_mutex;
-};
+}; /*msgs_queue_struct*/
 
-struct message_hanger {
-	message_hanger_struct *next;
-	message_hanger_struct *prev;
+struct msg_hanger {
+	msg_hanger_struct *next;
+	msg_hanger_struct *prev;
 	evm_message_struct *msg; /*hangs of a hanger when linked in a chain - i.e.: in a message queue*/
-};
+}; /*msg_hanger_struct*/
 
-static void messages_sighandler(int signum, siginfo_t *siginfo, void *context);
-static int messages_sighandler_install(int signum);
-static evm_fd_struct * messages_epoll(evm_init_struct *evm_init_ptr);
+static sigset_t msgs_sigmask; /*actually a constant initialized via sigemptymask()*/
+/* Thread-specific data related. */
+static int msg_thr_keys_created = EVM_FALSE;
+static pthread_key_t msg_thr_signum_key; /*initialized only once - not for each call to evm_init() within a process*/
+
+static void msgs_sighandler(int signum, siginfo_t *siginfo, void *context);
+static int msgs_sighandler_install(int signum);
+#if 0 /*samo - orig*/
 static int messages_receive(evm_fd_struct *evs_fd_ptr);
 static int messages_parse(evm_fd_struct *evs_fd_ptr);
-static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr);
 static int message_queue_evmfd_read(int efd, evm_message_struct *message);
+#endif
+static int msg_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
+static evm_message_struct * msg_dequeue(evm_init_struct *evm_init_ptr);
 
-static sigset_t messages_sigmask; /*actually a constant initialized via seigemptymask()*/
-/* Thread-specific data related. */
-static int thr_keys_not_created = 1;
-static pthread_key_t thr_signum_key; /*initialized only once - not for each call to evm_init() within a process*/
-
-static void messages_sighandler(int signum, siginfo_t *siginfo, void *context)
+static void msgs_sighandler(int signum, siginfo_t *siginfo, void *context)
 {
-	int *thr_signum = (int *)pthread_getspecific(thr_signum_key);
+	int *thr_signum = (int *)pthread_getspecific(msg_thr_signum_key);
 	/* Save signum as thread-specific data. */
 	*thr_signum = signum;
 }
 
-static int messages_sighandler_install(int signum)
+static int msgs_sighandler_install(int signum)
 {
 	struct sigaction act;
 
 	memset (&act, '\0', sizeof(act));
-	/* Use the sa_sigaction field because the handles has two additional parameters */
-	act.sa_sigaction = &messages_sighandler;
+	/* Use the sa_sigaction field because the handle has two additional parameters */
+	act.sa_sigaction = &msgs_sighandler;
 	/* The SA_SIGINFO flag tells sigaction() to use the sa_sigaction field, not sa_handler. */
 	act.sa_flags = SA_SIGINFO;
  
@@ -91,7 +94,7 @@ static int messages_sighandler_install(int signum)
 	return 0;
 }
 
-int evm_messages_init(evm_init_struct *evm_init_ptr)
+int messages_init(evm_init_struct *evm_init_ptr)
 {
 	int status = -1;
 	void *ptr;
@@ -109,23 +112,23 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 		evm_log_debug("Signal post-processing handler undefined!\n");
 
 	/* Prepare thread-specific integer for thread related signal post-handling. */
-	if (thr_keys_not_created) {
-		if ((errno = pthread_key_create(&thr_signum_key, NULL)) != 0) {
+	if (!msg_thr_keys_created) {
+		if ((errno = pthread_key_create(&msg_thr_signum_key, NULL)) != 0) {
 			evm_log_return_system_err("pthread_key_create()\n");
 		}
-		thr_keys_not_created = 0;
+		msg_thr_keys_created = EVM_TRUE;
 	}
 	if ((ptr = calloc(1, sizeof(int))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): thread-specific data\n");
 		return status;
 	}
-	if ((errno = pthread_setspecific(thr_signum_key, ptr)) != 0) {
+	if ((errno = pthread_setspecific(msg_thr_signum_key, ptr)) != 0) {
 		evm_log_return_system_err("pthread_setspecific()\n");
 	}
 
 	/* Prepare module-local empty signal mask, used in epoll_pwait() to allow catching all signals there!*/!
-	sigemptyset(&messages_sigmask);
+	sigemptyset(&msgs_sigmask);
 
 	/* Unblock all signals, except HUP and CHLD, which are allowed to get caught only in epoll_pwait()! */
 	evm_log_debug("Unblocking all signals, except SIGHUP and SIGCHLD\n");
@@ -138,29 +141,30 @@ int evm_messages_init(evm_init_struct *evm_init_ptr)
 
 	/* Install signal handler for SIGHUP and SIGCHLD. */
 	evm_log_debug("Establishing handler for signal SIGHUP\n");
-	if (messages_sighandler_install(SIGHUP) < 0) {
+	if (msgs_sighandler_install(SIGHUP) < 0) {
 		evm_log_error("Failed to install SIGHUP signal handler!\n");
 		return status;
 	}
 	evm_log_debug("Establishing handler for signal SIGCHLD\n");
-	if (messages_sighandler_install(SIGCHLD) < 0) {
+	if (msgs_sighandler_install(SIGCHLD) < 0) {
 		evm_log_error("Failed to install SIGCHLD signal handler!\n");
 		return status;
 	}
 
 	/* Setup internal message queue. */
-	if ((ptr = calloc(1, sizeof(message_queue_struct))) == NULL) {
+	if ((ptr = calloc(1, sizeof(msgs_queue_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): internal message queue\n");
 		return status;
 	}
-	evm_init_ptr->msg_queue = ptr;
-	pthread_mutex_init(&((message_queue_struct *)ptr)->access_mutex, NULL);
-	pthread_mutex_unlock(&((message_queue_struct *)ptr)->access_mutex);
+	evm_init_ptr->msgs_queue = ptr;
+	pthread_mutex_init(&((msgs_queue_struct *)ptr)->access_mutex, NULL);
+	pthread_mutex_unlock(&((msgs_queue_struct *)ptr)->access_mutex);
 
 	return 0;
 }
 
+#if 0 /*samo - orig*/
 static int messages_receive(evm_fd_struct *evs_fd_ptr)
 {
 	int status = -1;
@@ -208,30 +212,31 @@ static int messages_parse(evm_fd_struct *evs_fd_ptr)
 	/*no extra parser function - expected to be parsed already*/
 	return 0;
 }
+#endif
 
-int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
+static int msg_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 {
 	int status = -1;
-	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
+	msgs_queue_struct *msgs_queue = (msgs_queue_struct *)evm_init_ptr->msgs_queue;
 	sem_t *bsem = &evm_init_ptr->blocking_sem;
-	pthread_mutex_t *amtx = &msg_queue->access_mutex;
-	message_hanger_struct *msg_hanger;
+	pthread_mutex_t *amtx = &msgs_queue->access_mutex;
+	msg_hanger_struct *msg_hanger;
 
 	evm_log_info("(entry)\n");
 	pthread_mutex_lock(amtx);
-	if ((msg_hanger = (message_hanger_struct *)calloc(1, sizeof(message_hanger_struct))) == NULL) {
+	if ((msg_hanger = (msg_hanger_struct *)calloc(1, sizeof(msg_hanger_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): message hanger\n");
 		pthread_mutex_unlock(amtx);
 		return status;
 	}
 	msg_hanger->msg = msg;
-	if (msg_queue->last_hanger == NULL)
-		msg_queue->first_hanger = msg_hanger;
+	if (msgs_queue->last_hanger == NULL)
+		msgs_queue->first_hanger = msg_hanger;
 	else
-		msg_queue->last_hanger->next = msg_hanger;
+		msgs_queue->last_hanger->next = msg_hanger;
 
-	msg_queue->last_hanger = msg_hanger;
+	msgs_queue->last_hanger = msg_hanger;
 	msg_hanger->next = NULL;
 	pthread_mutex_unlock(amtx);
 	evm_log_info("Post blocking semaphore (UNBLOCK)\n");
@@ -239,31 +244,31 @@ int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 	return 0;
 }
 
-static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr)
+static evm_message_struct * msg_dequeue(evm_init_struct *evm_init_ptr)
 {
 	int rv = 0;
 	evm_message_struct *msg;
-	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
+	msgs_queue_struct *msgs_queue = (msgs_queue_struct *)evm_init_ptr->msgs_queue;
 	sem_t *bsem = &evm_init_ptr->blocking_sem;
-	pthread_mutex_t *amtx = &msg_queue->access_mutex;
-	message_hanger_struct *msg_hanger;
+	pthread_mutex_t *amtx = &msgs_queue->access_mutex;
+	msg_hanger_struct *msg_hanger;
 
 	evm_log_info("(entry)\n");
 
 	evm_log_info("Wait blocking semaphore (BLOCK, IF LOCKED)\n");
 	sem_wait(bsem);
 	pthread_mutex_lock(amtx);
-	msg_hanger = msg_queue->first_hanger;
+	msg_hanger = msgs_queue->first_hanger;
 	if (msg_hanger == NULL) {
 		pthread_mutex_unlock(amtx);
 		return NULL;
 	}
 
 	if (msg_hanger->next == NULL) {
-		msg_queue->first_hanger = NULL;
-		msg_queue->last_hanger = NULL;
+		msgs_queue->first_hanger = NULL;
+		msgs_queue->last_hanger = NULL;
 	} else
-		msg_queue->first_hanger = msg_hanger->next;
+		msgs_queue->first_hanger = msg_hanger->next;
 
 	msg = msg_hanger->msg;
 	free(msg_hanger);
@@ -272,35 +277,33 @@ static evm_message_struct * message_dequeue(evm_init_struct *evm_init_ptr)
 	return msg;
 }
 
-evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
+evm_message_struct * messages_check(evm_init_struct *evm_init_ptr)
 {
 	int status = 0;
-	evm_fd_struct *evs_fd_ptr = NULL;
-	message_queue_struct *msg_queue = (message_queue_struct *)evm_init_ptr->msg_queue;
+//samo - orig:	evm_fd_struct *evs_fd_ptr = NULL;
+	msgs_queue_struct *msgs_queue = (msgs_queue_struct *)evm_init_ptr->msgs_queue;
 
-	evm_log_info("(entry) queue->first=%p\n", msg_queue->first_hanger);
+	evm_log_info("(entry) queue->first=%p\n", msgs_queue->first_hanger);
 	if (evm_init_ptr == NULL) {
 		evm_log_error("Event machine init structure undefined!\n");
 		abort();
 	}
 
 	/* Poll the internal message queue first (THE ONLY POTENTIALLY BLOCKING POINT). */
-	return message_dequeue(evm_init_ptr);
+	return msg_dequeue(evm_init_ptr);
 
+#if 0 /*samo - orig*/
 	/* Receive any data. */
 	if ((status = messages_receive(evs_fd_ptr)) < 0) {
 		evm_log_debug("messages_receive() returned %d\n", status);
 		return NULL;
 	}
 
-	if (
-		(evs_fd_ptr == ((message_queue_struct *)evm_init_ptr->msg_queue)->evmfd) ||
-		(evs_fd_ptr == ((message_queue_struct *)evm_init_ptr->tmr_queue)->evmfd)
-	) {
+	if (evs_fd_ptr == ((msgs_queue_struct *)evm_init_ptr->msgs_queue)->evmfd) {
 		evm_log_debug("Internal queue receive triggered!\n");
 #if 0 /*test*/
-		if (msg_queue->first_hanger != NULL) {
-			return message_dequeue(evm_init_ptr);
+		if (msgs_queue->first_hanger != NULL) {
+			return msg_dequeue(evm_init_ptr);
 		}
 #endif
 		return NULL;
@@ -316,10 +319,12 @@ evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr)
 			/* A new message has been decoded! */
 			return evs_fd_ptr->msg_ptr;
 		}
+#endif
 
 	return NULL;
 }
 
+#if 0 /*samo - orig*/
 static int message_queue_evmfd_read(int efd, evm_message_struct *message)
 {
 	uint64_t u;
@@ -335,12 +340,13 @@ static int message_queue_evmfd_read(int efd, evm_message_struct *message)
 	evm_log_debug("buffered=%zd, received data ptr: %p\n", message->iov_buff.iov_len, message->iov_buff.iov_base);
 	return 0;
 }
+#endif
 
 int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
 {
 	evm_log_info("(entry) evm_init_ptr=%p, msg=%p\n", evm_init_ptr, msg);
 	if (evm_init_ptr != NULL) {
-		if (evm_message_enqueue(evm_init_ptr, msg) != 0) {
+		if (msg_enqueue(evm_init_ptr, msg) != 0) {
 			evm_log_error("Message enqueuing failed!\n");
 			return -1;
 		}

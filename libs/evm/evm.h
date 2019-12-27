@@ -32,4 +32,7 @@
 #	define EXTERN extern
 #endif
 
+#define EVM_TRUE (0 == 0)
+#define EVM_FALSE (0 != 0)
+
 #endif /*EVM_FILE_evm_h*/

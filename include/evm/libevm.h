@@ -47,11 +47,11 @@ extern unsigned int evm_version_patch;
 /*User provided initialization structure!*/
 struct evm_init {
 	sem_t blocking_sem;
-	struct evm_sigpost *evm_sigpost;
+	evm_sigpost_struct *evm_sigpost;
 	evm_evtypes_list_struct *msgtypes_first;
 	evm_evids_list_struct *tmrids_first;
-	void *msg_queue; /*internal message queue*/
-	void *tmr_queue; /*internal timer queue*/
+	void *msgs_queue; /*internal messages queue*/
+	void *tmrs_queue; /*internal timers queue*/
 	void *priv; /*private - application specific data*/
 }; /*evm_init_struct*/
 

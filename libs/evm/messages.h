@@ -32,10 +32,7 @@
 #	define EXTERN extern
 #endif
 
-EXTERN int evm_messages_init(evm_init_struct *evm_init_ptr);
-EXTERN int evm_messages_queue_fd_init(evm_init_struct *evm_init_ptr);
-EXTERN evm_message_struct * evm_messages_check(evm_init_struct *evm_init_ptr);
-
-EXTERN int evm_message_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
+EXTERN int messages_init(evm_init_struct *evm_init_ptr);
+EXTERN evm_message_struct * messages_check(evm_init_struct *evm_init_ptr);
 
 #endif /*EVM_FILE_messages_h*/

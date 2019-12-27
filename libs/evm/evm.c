@@ -44,17 +44,17 @@
 #include "userlog/log_module.h"
 EVMLOG_MODULE_INIT(EVM_CORE, 1)
 
-static int evm_prepare_event(evm_evids_list_struct *evm_tmr, void *ev_ptr);
-static int evm_handle_event(evm_evids_list_struct *evm_tmr, void *ev_ptr);
-static int evm_finalize_event(evm_evids_list_struct *evm_tmr, void *ev_ptr);
-
-static int evm_handle_timer(evm_timer_struct *expdTmr);
-static int evm_handle_message(evm_message_struct *recvdMsg);
-
 /*current project version*/
 unsigned int evm_version_major = EVM_VERSION_MAJOR;
 unsigned int evm_version_minor = EVM_VERSION_MINOR;
 unsigned int evm_version_patch = EVM_VERSION_PATCH;
+
+static int prepare_event(evm_evids_list_struct *evm_tmr, void *ev_ptr);
+static int handle_event(evm_evids_list_struct *evm_tmr, void *ev_ptr);
+static int finalize_event(evm_evids_list_struct *evm_tmr, void *ev_ptr);
+
+static int handle_timer(evm_timer_struct *expdTmr);
+static int handle_message(evm_message_struct *recvdMsg);
 
 /*
  * Main event machine initialization
@@ -71,12 +71,12 @@ int evm_init(evm_init_struct *evm_init_ptr)
 	sem_init(&evm_init_ptr->blocking_sem, 0, 0);
 
 	/* Initialize timers infrastructure... */
-	if ((status = evm_timers_init(evm_init_ptr)) < 0) {
+	if ((status = timers_init(evm_init_ptr)) < 0) {
 		return status;
 	}
 
 	/* Initialize EVM messages infrastructure... */
-	if ((status = evm_messages_init(evm_init_ptr)) < 0) {
+	if ((status = messages_init(evm_init_ptr)) < 0) {
 		return status;
 	}
 
@@ -102,17 +102,17 @@ int evm_run_once(evm_init_struct *evm_init_ptr)
 	for (;;) {
 		evm_log_info("(main loop entry)\n");
 		/* Handle expired timer (NON-BLOCKING). */
-		if ((expdTmr = evm_timers_check(evm_init_ptr)) != NULL) {
-			if ((status = evm_handle_timer(expdTmr)) < 0)
-				evm_log_debug("evm_handle_timer() returned %d\n", status);
+		if ((expdTmr = timers_check(evm_init_ptr)) != NULL) {
+			if ((status = handle_timer(expdTmr)) < 0)
+				evm_log_debug("handle_timer() returned %d\n", status);
 		} else
 			break;
 	}
 
 	/* Handle handle received message (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
-	if ((recvdMsg = evm_messages_check(evm_init_ptr)) != NULL) {
-		if ((status = evm_handle_message(recvdMsg)) < 0)
-			evm_log_debug("evm_handle_message() returned %d\n", status);
+	if ((recvdMsg = messages_check(evm_init_ptr)) != NULL) {
+		if ((status = handle_message(recvdMsg)) < 0)
+			evm_log_debug("handle_message() returned %d\n", status);
 	}
 
 	return 0;
@@ -156,23 +156,23 @@ int evm_run(evm_init_struct *evm_init_ptr)
 	for (;;) {
 		evm_log_info("(main loop entry)\n");
 		/* Handle expired timer (NON-BLOCKING). */
-		if ((expdTmr = evm_timers_check(evm_init_ptr)) != NULL) {
-			if ((status = evm_handle_timer(expdTmr)) < 0)
-				evm_log_debug("evm_handle_timer() returned %d\n", status);
+		if ((expdTmr = timers_check(evm_init_ptr)) != NULL) {
+			if ((status = handle_timer(expdTmr)) < 0)
+				evm_log_debug("handle_timer() returned %d\n", status);
 			continue;
 		}
 
 		/* Handle handle received message (WAIT - THE ONLY BLOCKING POINT). */
-		if ((recvdMsg = evm_messages_check(evm_init_ptr)) != NULL) {
-			if ((status = evm_handle_message(recvdMsg)) < 0)
-				evm_log_debug("evm_handle_message() returned %d\n", status);
+		if ((recvdMsg = messages_check(evm_init_ptr)) != NULL) {
+			if ((status = handle_message(recvdMsg)) < 0)
+				evm_log_debug("handle_message() returned %d\n", status);
 		}
 	}
 
 	return 0;
 }
 
-static int evm_prepare_event(evm_evids_list_struct *evm_ev, void *ev_ptr)
+static int prepare_event(evm_evids_list_struct *evm_ev, void *ev_ptr)
 {
 	if (evm_ev != NULL) {
 		if (evm_ev->ev_prepare != NULL)
@@ -183,7 +183,7 @@ static int evm_prepare_event(evm_evids_list_struct *evm_ev, void *ev_ptr)
 	return -1;
 }
 
-static int evm_handle_event(evm_evids_list_struct *evm_ev, void *ev_ptr)
+static int handle_event(evm_evids_list_struct *evm_ev, void *ev_ptr)
 {
 	if (evm_ev != NULL)
 		if (evm_ev->ev_handle != NULL)
@@ -191,7 +191,7 @@ static int evm_handle_event(evm_evids_list_struct *evm_ev, void *ev_ptr)
 	return -1;
 }
 
-static int evm_finalize_event(evm_evids_list_struct *evm_ev, void *ev_ptr)
+static int finalize_event(evm_evids_list_struct *evm_ev, void *ev_ptr)
 {
 	if (evm_ev != NULL)
 		if (evm_ev->ev_finalize != NULL)
@@ -199,7 +199,7 @@ static int evm_finalize_event(evm_evids_list_struct *evm_ev, void *ev_ptr)
 	return -1;
 }
 
-static int evm_handle_timer(evm_timer_struct *expdTmr)
+static int handle_timer(evm_timer_struct *expdTmr)
 {
 	int status1 = 0;
 	int status2 = 0;
@@ -208,35 +208,35 @@ static int evm_handle_timer(evm_timer_struct *expdTmr)
 		return -1;
 
 	if (expdTmr->stopped == 0) {
-		status1 = evm_handle_event(expdTmr->tmrid_ptr, expdTmr);
+		status1 = handle_event(expdTmr->tmrid_ptr, expdTmr);
 		if (status1 < 0)
-			evm_log_debug("evm_handle_event() returned %d\n", status1);
+			evm_log_debug("handle_event() returned %d\n", status1);
 	}
 
-	status2 = evm_finalize_event(expdTmr->tmrid_ptr, expdTmr);
+	status2 = finalize_event(expdTmr->tmrid_ptr, expdTmr);
 	if (status2 < 0)
-		evm_log_debug("evm_handle_event() returned %d\n", status2);
+		evm_log_debug("handle_event() returned %d\n", status2);
 
 	return (status1 | status2);
 }
 
-static int evm_handle_message(evm_message_struct *recvdMsg)
+static int handle_message(evm_message_struct *recvdMsg)
 {
 	int status0 = 0;
 	int status1 = 0;
 	int status2 = 0;
 
-	status0 = evm_prepare_event(recvdMsg->msgid_ptr, recvdMsg);
+	status0 = prepare_event(recvdMsg->msgid_ptr, recvdMsg);
 	if (status0 < 0)
-		evm_log_debug("evm_prepare_event() returned %d\n", status0);
+		evm_log_debug("prepare_event() returned %d\n", status0);
 
-	status1 = evm_handle_event(recvdMsg->msgid_ptr, recvdMsg);
+	status1 = handle_event(recvdMsg->msgid_ptr, recvdMsg);
 	if (status1 < 0)
-		evm_log_debug("evm_handle_event() returned %d\n", status1);
+		evm_log_debug("handle_event() returned %d\n", status1);
 
-	status2 = evm_finalize_event(recvdMsg->msgid_ptr, recvdMsg);
+	status2 = finalize_event(recvdMsg->msgid_ptr, recvdMsg);
 	if (status2 < 0)
-		evm_log_debug("evm_finalize_event() returned %d\n", status2);
+		evm_log_debug("finalize_event() returned %d\n", status2);
 
 	return (status0 | status1 | status2);
 }

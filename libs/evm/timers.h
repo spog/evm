@@ -32,8 +32,7 @@
 #	define EXTERN extern
 #endif
 
-EXTERN int evm_timers_init(evm_init_struct *evm_init_ptr);
-EXTERN int evm_timers_queue_fd_init(evm_init_struct *evm_init_ptr);
-EXTERN evm_timer_struct * evm_timers_check(evm_init_struct *evm_init_ptr);
+EXTERN int timers_init(evm_init_struct *evm_init_ptr);
+EXTERN evm_timer_struct * timers_check(evm_init_struct *evm_init_ptr);
 
 #endif /*EVM_FILE_timers_h*/
