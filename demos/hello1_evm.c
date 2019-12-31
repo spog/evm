@@ -88,6 +88,7 @@ unsigned int evmlog_trace = 0;
 unsigned int evmlog_debug = 0;
 unsigned int evmlog_use_syslog = 0;
 unsigned int evmlog_add_header = 1;
+unsigned int demo_liveloop = 0;
 
 static void usage_help(char *argv[])
 {
@@ -116,6 +117,7 @@ static int usage_check(int argc, char *argv[])
 		static struct option long_options[] = {
 			{"quiet", 0, 0, 'q'},
 			{"verbose", 0, 0, 'v'},
+			{"liveloop", 0, 0, 'l'},
 #if (EVMLOG_MODULE_TRACE != 0)
 			{"trace", 0, 0, 't'},
 #endif
@@ -129,13 +131,13 @@ static int usage_check(int argc, char *argv[])
 		};
 
 #if (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG != 0)
-		c = getopt_long(argc, argv, "qvtgnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvltgnsh", long_options, &option_index);
 #elif (EVMLOG_MODULE_TRACE == 0) && (EVMLOG_MODULE_DEBUG != 0)
-		c = getopt_long(argc, argv, "qvgnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvlgnsh", long_options, &option_index);
 #elif (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG == 0)
-		c = getopt_long(argc, argv, "qvtnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvltnsh", long_options, &option_index);
 #else
-		c = getopt_long(argc, argv, "qvnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvlnsh", long_options, &option_index);
 #endif
 		if (c == -1)
 			break;
@@ -147,6 +149,10 @@ static int usage_check(int argc, char *argv[])
 
 		case 'v':
 			evmlog_verbose = 1;
+			break;
+
+		case 'l':
+			demo_liveloop = 1;
 			break;
 
 #if (EVMLOG_MODULE_TRACE != 0)
@@ -269,7 +275,6 @@ static unsigned int count;
 /* HELLO event handlers */
 static int evHelloMsg(void *msg_ptr)
 {
-#if 1
 	evmTmridStruct *tmrid_ptr;
 	struct iovec *iov_buff = NULL;
 	evmMessageStruct *msg = (evmMessageStruct *)msg_ptr;
@@ -278,19 +283,20 @@ static int evHelloMsg(void *msg_ptr)
 	if (msg == NULL)
 		return -1;
 
-	if ((iov_buff = evm_message_get_iovec(msg)) == NULL)
-		return -1;
-	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
+	if (demo_liveloop == 0) {
+		if ((iov_buff = evm_message_get_iovec(msg)) == NULL)
+			return -1;
+		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
 
-	if ((tmrid_ptr = evm_tmrid_get(evs, EV_ID_HELLO_TMR_IDLE)) == NULL)
-		return -1;
-	helloIdleTmr = hello_start_timer(helloIdleTmr, 10, 0, NULL, tmrid_ptr);
-	evm_log_notice("IDLE timer set: 10 s\n");
-#else
-	count++;
-	/* liveloop - 100 %CPU usage */
-	evm_message_pass(consumer, helloMsg);
-#endif
+		if ((tmrid_ptr = evm_tmrid_get(evs, EV_ID_HELLO_TMR_IDLE)) == NULL)
+			return -1;
+		helloIdleTmr = hello_start_timer(helloIdleTmr, 10, 0, NULL, tmrid_ptr);
+		evm_log_notice("IDLE timer set: 10 s\n");
+	} else {
+		count++;
+		/* liveloop - 100 %CPU usage */
+		evm_message_pass(consumer, helloMsg);
+	}
 
 	return 0;
 }

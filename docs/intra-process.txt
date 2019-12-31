@@ -69,6 +69,30 @@ real	1m0,004s
 user	0m39,270s
 sys	0m20,731s
 
+- New initialization and consumers added:
+-----------------------------------------
+samo@hp450g3:~/Code/U2UP/evm/.build/demos$ time ./hello1_evm
+[14140.686932|1465|DEMO1EVM] IDLE timer set: 0 s
+[14140.687025|1465|DEMO1EVM] QUIT timer set: 60 s
+[14140.687119|1465|DEMO1EVM] IDLE timer expired!
+[14140.687167|1465|DEMO1EVM] HELLO msg sent: "HELLO: 1"
+[14200.687038|1465|DEMO1EVM] QUIT timer expired (37544514 messages sent)!
+
+real	1m0,005s
+user	0m40,479s
+sys	0m19,383s
+
+samo@hp450g3:~/Code/U2UP/evm/.build/demos$ time ./hello1_evm
+[14345.656534|1543|DEMO1EVM] IDLE timer set: 0 s
+[14345.656673|1543|DEMO1EVM] QUIT timer set: 60 s
+[14345.656733|1543|DEMO1EVM] IDLE timer expired!
+[14345.656771|1543|DEMO1EVM] HELLO msg sent: "HELLO: 1"
+[14405.656686|1543|DEMO1EVM] QUIT timer expired (37814723 messages sent)!
+
+real	1m0,005s
+user	0m40,449s
+sys	0m19,550s
+
 New version - single msg_id and no FD-triggering (running evm async non-blocking in a loop):
 --------------------------------------------------------------------------------------------
 samo@hp450g3:~/Code/U2UP/evm/install/usr/bin$ time ./hello1_evm 
