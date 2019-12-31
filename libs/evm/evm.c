@@ -139,9 +139,10 @@ evmTopicStruct * evm_init(void)
 evmlist_el_struct * evm_walk_evmlist(evmlist_head_struct *head, int id)
 {
 	evmlist_el_struct *tmp = NULL;
+	evm_log_info("(entry) head=%p\n", head);
 
 	if (head != NULL) {
-		evmlist_el_struct *tmp = head->first;
+		tmp = head->first;
 		while (tmp != NULL) {
 			if (tmp->next == NULL)
 				break;
@@ -562,6 +563,27 @@ static int finalize_msg(evm_msgid_struct *msgid, void *msg)
 	return -1;
 }
 
+static int handle_message(evm_message_struct *recvdMsg)
+{
+	int status0 = 0;
+	int status1 = 0;
+	int status2 = 0;
+
+	status0 = prepare_msg(recvdMsg->msgid, recvdMsg);
+	if (status0 < 0)
+		evm_log_debug("prepare_msg() returned %d\n", status0);
+
+	status1 = handle_msg(recvdMsg->msgid, recvdMsg);
+	if (status1 < 0)
+		evm_log_debug("handle_msg() returned %d\n", status1);
+
+	status2 = finalize_msg(recvdMsg->msgid, recvdMsg);
+	if (status2 < 0)
+		evm_log_debug("finalize_msg() returned %d\n", status2);
+
+	return (status0 | status1 | status2);
+}
+
 static int handle_tmr(evm_tmrid_struct *tmrid, void *tmr)
 {
 	if (tmrid != NULL)
@@ -597,26 +619,5 @@ static int handle_timer(evm_timer_struct *expdTmr)
 		evm_log_debug("finalize_tmr() returned %d\n", status2);
 
 	return (status1 | status2);
-}
-
-static int handle_message(evm_message_struct *recvdMsg)
-{
-	int status0 = 0;
-	int status1 = 0;
-	int status2 = 0;
-
-	status0 = prepare_msg(recvdMsg->msgid, recvdMsg);
-	if (status0 < 0)
-		evm_log_debug("prepare_msg() returned %d\n", status0);
-
-	status1 = handle_msg(recvdMsg->msgid, recvdMsg);
-	if (status1 < 0)
-		evm_log_debug("handle_msg() returned %d\n", status1);
-
-	status2 = finalize_msg(recvdMsg->msgid, recvdMsg);
-	if (status2 < 0)
-		evm_log_debug("finalize_msg() returned %d\n", status2);
-
-	return (status0 | status1 | status2);
 }
 

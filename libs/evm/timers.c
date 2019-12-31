@@ -465,11 +465,13 @@ evmTmridStruct * evm_tmrid_get(evmStruct *evm, int id)
 	evm_struct *evmptr = (evm_struct *)evm;
 	evm_tmrid_struct *tmrid = NULL;
 	evmlist_el_struct *tmp;
+	evm_log_info("(entry)\n");
 
 	if (evmptr != NULL) {
 		if (evmptr->tmrids_list != NULL) {
 			pthread_mutex_lock(&evmptr->tmrids_list->access_mutex);
 			tmp = evm_walk_evmlist(evmptr->tmrids_list, id);
+			evm_log_debug("tmp=%p\n", tmp);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				tmrid = (evm_tmrid_struct *)tmp->el;
@@ -477,6 +479,7 @@ evmTmridStruct * evm_tmrid_get(evmStruct *evm, int id)
 			pthread_mutex_unlock(&evmptr->tmrids_list->access_mutex);
 		}
 	}
+	evm_log_debug("tmrid=%p\n", tmrid);
 	return (evmTmridStruct *)tmrid;
 }
 
@@ -485,6 +488,7 @@ evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id)
 	evm_struct *evmptr = (evm_struct *)evm;
 	evm_tmrid_struct *tmrid = NULL;
 	evmlist_el_struct *tmp;
+	evm_log_info("(entry)\n");
 
 	if (evmptr != NULL) {
 		if (evmptr->tmrids_list != NULL) {

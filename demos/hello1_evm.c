@@ -282,14 +282,14 @@ static int evHelloMsg(void *msg_ptr)
 		return -1;
 	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
 
-	if ((tmrid_ptr = evm_tmrid_get(consumer, EV_ID_HELLO_TMR_IDLE)) == NULL)
+	if ((tmrid_ptr = evm_tmrid_get(evs, EV_ID_HELLO_TMR_IDLE)) == NULL)
 		return -1;
 	helloIdleTmr = hello_start_timer(helloIdleTmr, 10, 0, NULL, tmrid_ptr);
 	evm_log_notice("IDLE timer set: 10 s\n");
 #else
 	count++;
 	/* liveloop - 100 %CPU usage */
-	evm_message_pass(consumer, &helloMsg);
+	evm_message_pass(consumer, helloMsg);
 #endif
 
 	return 0;
@@ -305,8 +305,7 @@ static int evHelloTmrIdle(void *tmr_ptr)
 
 	count++;
 	sprintf((char *)iov_buff.iov_base, "%s: %u", hello_str, count);
-	rv = evm_message_set_iovec(&helloMsg, &iov_buff);
-	evm_message_pass(consumer, &helloMsg);
+	evm_message_pass(consumer, helloMsg);
 	evm_log_notice("HELLO msg sent: \"%s\"\n", (char *)iov_buff.iov_base);
 
 	return rv;
@@ -358,6 +357,9 @@ static int hello_evm_init(void)
 			evm_log_error("evm_message_new() failed!\n");
 			rv = -1;
 		}
+		if (rv == 0) {
+			rv = evm_message_set_iovec(helloMsg, &iov_buff);
+		}
 	} else {
 		evm_log_error("evm_init() failed!\n");
 		rv = -1;
@@ -376,7 +378,7 @@ static int hello_evm_run(void)
 		return -1;
 	if (evm_tmrid_cb_handle_set(tmrid_ptr, evHelloTmrIdle) < 0)
 		return -1;
-	helloIdleTmr = hello_start_timer(NULL, 5, 0, NULL, tmrid_ptr);
+	helloIdleTmr = hello_start_timer(NULL, 0, 0, NULL, tmrid_ptr);
 	evm_log_notice("IDLE timer set: 0 s\n");
 
 	/* Set initial QUIT timer */
