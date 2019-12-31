@@ -35,4 +35,134 @@
 #define EVM_TRUE (0 == 0)
 #define EVM_FALSE (0 != 0)
 
+/*Generic EVM list head and element structures*/
+typedef struct evmlist_head evmlist_head_struct;
+typedef struct evmlist_el evmlist_el_struct;
+
+/*Generic EVM list head structure*/
+struct evmlist_head {
+	pthread_mutex_t access_mutex;
+	evmlist_el_struct *first;
+}; /*evmlist_head_struct*/
+
+/*Generic EVM list element structure*/
+struct evmlist_el {
+	evmlist_el_struct *prev;
+	evmlist_el_struct *next;
+	int id;
+	void *el;
+}; /*evmlist_el_struct*/
+
+/*Specific structures*/
+typedef struct evm evm_struct;
+typedef struct evm_msgtype evm_msgtype_struct;
+typedef struct evm_msgid evm_msgid_struct;
+typedef struct evm_tmrid evm_tmrid_struct;
+typedef struct evm_consumer evm_consumer_struct;
+typedef struct evm_topic evm_topic_struct;
+typedef struct evm_message evm_message_struct;
+typedef struct evm_timer evm_timer_struct;
+
+/*Structure returned by evm_init()!*/
+struct evm {
+	evmlist_head_struct *msgtypes_list;
+	evmlist_head_struct *tmrids_list;
+	evmlist_head_struct *consumers_list;
+	evmlist_head_struct *topics_list;
+	evm_sigpost_struct *evm_sigpost;
+	void *evm_priv; /*private - application specific data*/
+}; /*evm_struct*/
+
+struct msgs_queue;
+typedef struct msgs_queue msgs_queue_struct;
+
+struct tmrs_queue;
+typedef struct tmrs_queue tmrs_queue_struct;
+
+struct evm_consumer {
+	evm_struct *evm;
+	int id;
+	sem_t blocking_sem;
+	msgs_queue_struct *msgs_queue; /*internal messages queue*/
+	tmrs_queue_struct *tmrs_queue; /*internal timers queue*/
+}; /*evm_consumer_struct*/
+
+struct evm_topic {
+	evm_struct *evm;
+	int id;
+	sem_t blocking_sem;
+	msgs_queue_struct *msgs_queue; /*internal messages queue*/
+}; /*evm_consumer_struct*/
+
+/*
+ * Messages
+ */
+struct evm_msgtype {
+	evm_struct *evm;
+	int id; /* 0, 1, 2, 3,... */
+	int (*msgtype_parse)(void *ptr);
+	evmlist_head_struct *msgids_list;
+}; /*evm_msgtype_struct*/
+
+struct evm_msgid {
+	evm_struct *evm;
+	evm_msgtype_struct *msgtype;
+	int id;
+	int (*msg_prepare)(void *ptr);
+	int (*msg_handle)(void *ptr);
+	int (*msg_finalize)(void *ptr);
+}; /*evm_msgid_struct*/
+
+struct evm_message {
+	evm_msgtype_struct *msgtype;
+	evm_msgid_struct *msgid;
+	int saved;
+	void *ctx;
+	int rval_decode;
+	void *msg_decode;
+#if 0
+	struct sockaddr_in msg_addr;
+#endif
+	struct iovec *iov_buff;
+}; /*evm_message_struct*/
+
+/*
+ * Timers
+ */
+struct evm_tmrid {
+	evm_struct *evm;
+	int id;
+	int (*tmr_handle)(void *ptr);
+	int (*tmr_finalize)(void *ptr);
+}; /*evm_tmrid_struct*/
+
+struct evm_timer {
+	evm_tmrid_struct *tmrid;
+	evm_consumer_struct *consumer;
+	int saved;
+	int stopped;
+	void *ctx_ptr;
+	struct timespec tm_stamp;
+	evm_timer_struct *next;
+}; /*evm_timer_struct*/
+
+/*
+ * Internally global "evmlist" helper functions:
+ */
+/*
+ * evm_walk_evmlist()
+ * Returns:
+ * - NULL, if list is empty (head->first == NULL)
+ * - element with required id, if already existing
+ * - last element, if required id not existing
+ */
+EXTERN evmlist_el_struct * evm_walk_evmlist(evmlist_head_struct *head, int id);
+/*
+ * evm_new_evmlist_el()
+ * Returns:
+ * - NULL, if calloc() fails
+ * - new element with required id set
+ */
+EXTERN evmlist_el_struct * evm_new_evmlist_el(int id);
+
 #endif /*EVM_FILE_evm_h*/

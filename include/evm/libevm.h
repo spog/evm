@@ -32,123 +32,189 @@
  * Common
  */
 /* Struct aliases */
-typedef struct evm_init evm_init_struct;
 typedef struct evm_sigpost evm_sigpost_struct;
-typedef struct evm_evtypes_list evm_evtypes_list_struct;
-typedef struct evm_evids_list evm_evids_list_struct;
-typedef struct evm_message evm_message_struct;
-typedef struct evm_timer evm_timer_struct;
 typedef struct evm_fd evm_fd_struct;
 
 extern unsigned int evm_version_major;
 extern unsigned int evm_version_minor;
 extern unsigned int evm_version_patch;
 
-/*User provided initialization structure!*/
-struct evm_init {
-	sem_t blocking_sem;
-	evm_sigpost_struct *evm_sigpost;
-	evm_evtypes_list_struct *msgtypes_first;
-	evm_evids_list_struct *tmrids_first;
-	void *msgs_queue; /*internal messages queue*/
-	void *tmrs_queue; /*internal timers queue*/
-	void *priv; /*private - application specific data*/
-}; /*evm_init_struct*/
+typedef void evmStruct;
+typedef void evmMsgtypeStruct;
+typedef void evmMsgidStruct;
+typedef void evmTmridStruct;
+typedef void evmConsumerStruct;
+typedef void evmTopicStruct;
+typedef void evmTimerStruct;
+typedef void evmMessageStruct;
 
 /*User provided signal post-handling EVM callbacks!*/
 struct evm_sigpost {
 	int (*sigpost_handle)(int signum, void *ev_ptr);
 }; /*evm_sigpost_struct*/
 
-struct evm_evtypes_list {
-	evm_init_struct *evm_ptr;
-	int ev_type; /* 0, 1, 2, 3,... */
-	int (*ev_parse)(void *ev_ptr);
-	evm_evids_list_struct *evids_first;
-	evm_evtypes_list_struct *prev;
-	evm_evtypes_list_struct *next;
-}; /*evm_evtypes_list_struct*/
-
-struct evm_evids_list {
-	evm_init_struct *evm_ptr;
-	evm_evtypes_list_struct *evtype_ptr;
-	int ev_id;
-	int (*ev_prepare)(void *ev_ptr);
-	int (*ev_handle)(void *ev_ptr);
-	int (*ev_finalize)(void *ev_ptr);
-	evm_evids_list_struct *prev;
-	evm_evids_list_struct *next;
-}; /*evm_evids_list_struct*/
-
 struct evm_fd {
 	int fd;
-	evm_evtypes_list_struct *evtype_ptr;
+	evmMsgtypeStruct *msgtype_ptr;
 	struct epoll_event ev_epoll;
-	evm_message_struct *msg_ptr;
-	int (*msg_receive)(int fd, evm_message_struct *msg_ptr);
+	evmMessageStruct *msg_ptr;
+	int (*msg_receive)(int fd, evmMessageStruct *msg_ptr);
 #if 0
 	int (*msg_send)(int sock, struct sockaddr_in *sockAddr, const char *buffer);
 #endif
 }; /*evm_fd_struct*/
 
-extern int evm_init(evm_init_struct *evm_init_ptr);
-extern int evm_run_once(evm_init_struct *evm_init_ptr);
-extern int evm_run_async(evm_init_struct *evm_init_ptr);
-extern int evm_run(evm_init_struct *evm_init_ptr);
+/*
+ * Public API functions:
+ */
+
+/*
+ * Public API function:
+ * - evm_init()
+ *
+ * Main event machine initialization
+ */
+extern evmStruct * evm_init(void);
+
+/*
+ * Functions: evm_objectX_add()
+ * Returns:
+ * - NULL, if adding object fails or (evm == NULL)
+ * - pointer to the existing object with required id
+ * - pointer to the new object with required id
+ */
+extern evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int id);
+extern evmMsgidStruct * evm_msgid_add(evmMsgtypeStruct *msgtype, int id);
+extern evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id);
+extern evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id);
+extern evmTopicStruct * evm_topic_add(evmStruct *evm, int id);
+
+/*
+ * Functions: evm_objectX_get()
+ * Returns:
+ * - NULL, if objectX with required id wasn't found or (evm == NULL)
+ * - pointer to the existing objectX with required id
+ */
+extern evmMsgtypeStruct * evm_msgtype_get(evmStruct *evm, int id);
+extern evmMsgidStruct * evm_msgid_get(evmMsgtypeStruct *msgtype, int id);
+extern evmTmridStruct * evm_tmrid_get(evmStruct *evm, int id);
+extern evmConsumerStruct * evm_consumer_get(evmStruct *evm, int id);
+extern evmTopicStruct * evm_topic_get(evmStruct *evm, int id);
+
+/*
+ * Function: evm_objectX_del()
+ * Returns:
+ * - NULL, if objectX with required id wasn't found or (evm == NULL)
+ * - pointer to the deleted (freed) objectX with required id
+ */
+extern evmMsgtypeStruct * evm_msgtype_del(evmStruct *evm, int id);
+extern evmMsgidStruct * evm_msgid_del(evmMsgtypeStruct *msgtype, int id);
+extern evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id);
+extern evmConsumerStruct * evm_consumer_del(evmStruct *evm, int id);
+extern evmTopicStruct * evm_topic_del(evmStruct *evm, int id);
+
+extern int evm_set_priv(evmStruct *evm, void *priv);
+extern int evm_set_sigpost(evmStruct *evm, evm_sigpost_struct *sigpost);
+
+/*
+ * Public API functions:
+ * - evm_run_once()
+ * - evm_run_async()
+ * - evm_run()
+ */
+extern int evm_run_once(evmConsumerStruct *consumer);
+extern int evm_run_async(evmConsumerStruct *consumer);
+extern int evm_run(evmConsumerStruct *consumer);
 
 /*
  * Messages
  */
-struct evm_message {
-	evm_evtypes_list_struct *msgtype_ptr;
-	evm_evids_list_struct *msgid_ptr;
-	int saved;
-	void *ctx_ptr;
-	int rval_decode;
-	void *msg_decode;
-#if 0
-	struct sockaddr_in msg_addr;
-#endif
-	struct iovec iov_buff;
-}; /*evm_message_struct*/
 
-extern evm_evtypes_list_struct * evm_msgtype_add(evm_init_struct *evm_init_ptr, int msg_type);
-extern evm_evtypes_list_struct * evm_msgtype_get(evm_init_struct *evm_init_ptr, int msg_type);
-extern evm_evtypes_list_struct * evm_msgtype_del(evm_init_struct *evm_init_ptr, int msg_type);
-extern int evm_msgtype_parse_cb_set(evm_evtypes_list_struct *msgtype_ptr, int (*ev_parse)(void *ev_ptr));
+/*
+ * Public API functions:
+ * - evm_msgtype_add()
+ * - evm_msgtype_get()
+ * - evm_msgtype_del()
+ */
+extern evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int type);
+extern evmMsgtypeStruct * evm_msgtype_get(evmStruct *evm, int type);
+extern evmMsgtypeStruct * evm_msgtype_del(evmStruct *evm, int type);
 
-extern evm_evids_list_struct * evm_msgid_add(evm_evtypes_list_struct *msgtype_ptr, int msg_id);
-extern evm_evids_list_struct * evm_msgid_get(evm_evtypes_list_struct *msgtype_ptr, int msg_id);
-extern evm_evids_list_struct * evm_msgid_del(evm_evtypes_list_struct *msgtype_ptr, int msg_id);
-extern int evm_msgid_prepare_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_prepare)(void *ev_ptr));
-extern int evm_msgid_handle_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_handle)(void *ev_ptr));
-extern int evm_msgid_finalize_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_finalize)(void *ev_ptr));
+/*
+ * Public API function:
+ * - evm_msgtype_cb_parse_set()
+ */
+extern int evm_msgtype_cb_parse_set(evmMsgtypeStruct *msgtype, int (*msgtype_parse)(void *ptr));
 
-extern int evm_message_fd_add(evm_init_struct *evm_init_ptr, evm_fd_struct *evm_fd_ptr);
-extern int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
+/*
+ * Public API functions:
+ * - evm_msgid_cb_prepare_set()
+ * - evm_msgid_cb_handle_set()
+ * - evm_msgid_cb_finalize_set()
+ */
+extern int evm_msgid_cb_prepare_set(evmMsgidStruct *msgid_ptr, int (*msg_prepare)(void *ptr));
+extern int evm_msgid_cb_handle_set(evmMsgidStruct *msgid_ptr, int (*msg_handle)(void *ptr));
+extern int evm_msgid_cb_finalize_set(evmMsgidStruct *msgid_ptr, int (*msg_finalize)(void *ptr));
+
+extern int evm_message_fd_add(evmStruct *evm_ptr, evm_fd_struct *evm_fd_ptr);
+
+/*
+ * Public API functions:
+ * - evm_message_new()
+ * - evm_message_delete()
+ * - evm_message_get_iovec()
+ * - evm_message_set_iovec()
+ */
+extern evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *msgid);
+extern void evm_message_delete(evmMessageStruct *msg);
+extern struct iovec * evm_message_get_iovec(evmMessageStruct *msg);
+extern int evm_message_set_iovec(evmMessageStruct *msg, struct iovec *iov_buff);
+
+/*
+ * Public API functions:
+ * - evm_message_pass()
+ * - evm_message_concatenate()
+ */
+extern int evm_message_pass(evmConsumerStruct *consumer, evmMessageStruct *msg);
 extern int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf);
 
 /*
  * Timers
  */
-struct evm_timer {
-	evm_init_struct *evm_ptr;
-	evm_evids_list_struct *tmrid_ptr;
-	int saved;
-	int stopped;
-	void *ctx_ptr;
-	struct timespec tm_stamp;
-	evm_timer_struct *next;
-}; /*evm_timer_struct*/
 
-extern evm_evids_list_struct * evm_tmrid_add(evm_init_struct *evm_init_ptr, int tmr_id);
-extern evm_evids_list_struct * evm_tmrid_get(evm_init_struct *evm_init_ptr, int tmr_id);
-extern evm_evids_list_struct * evm_tmrid_del(evm_init_struct *evm_init_ptr, int tmr_id);
-extern int evm_tmrid_handle_cb_set(evm_evids_list_struct *tmrid_ptr, int (*ev_handle)(void *ev_ptr));
-extern int evm_tmrid_finalize_cb_set(evm_evids_list_struct *tmrid_ptr, int (*ev_finalize)(void *ev_ptr));
+/*
+ * Public API functions:
+ * - evm_tmrid_add()
+ * - evm_tmrid_get()
+ * - evm_tmrid_del()
+ */
+extern evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id);
+extern evmTmridStruct * evm_tmrid_get(evmStruct *evm, int id);
+extern evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id);
 
-extern evm_timer_struct * evm_timer_start(evm_init_struct *evm_init_ptr, evm_evids_list_struct *tmrid_ptr, time_t tv_sec, long tv_nsec, void *ctx_ptr);
-extern int evm_timer_stop(evm_timer_struct *timer);
+/*
+ * Public API functions:
+ * - evm_tmrid_cb_handle_set()
+ * - evm_tmrid_cb_finalize_set()
+ */
+extern int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(void *ptr));
+extern int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(void *ptr));
+
+/*
+ * Public API functions:
+ * - evm_timer_start()
+ * - evm_timer_stop()
+ */
+extern evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tmrid, time_t tv_sec, long tv_nsec, void *ctx_ptr);
+extern int evm_timer_stop(evmTimerStruct *timer);
+
+/*
+ * Public API function:
+ * - evm_timer_finalize()
+ *
+ * Automatically free expired timer, if specific "timerid_finalize_cb" not set!
+ * Requires the "ptr" argument to be the timer_ptr itself!
+ */
 extern int evm_timer_finalize(void *ptr);
 
 #endif /*EVM_FILE_libevm_h*/

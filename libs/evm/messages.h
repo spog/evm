@@ -32,7 +32,22 @@
 #	define EXTERN extern
 #endif
 
-EXTERN int messages_init(evm_init_struct *evm_init_ptr);
-EXTERN evm_message_struct * messages_check(evm_init_struct *evm_init_ptr);
+typedef struct msg_hanger msg_hanger_struct;
+
+struct msgs_queue {
+	msg_hanger_struct *first_hanger;
+	msg_hanger_struct *last_hanger;
+//samo - orig:	evm_fd_struct *evmfd; /*internal message queue FD binding - eventfd()*/
+	pthread_mutex_t access_mutex;
+}; /*msgs_queue_struct*/
+
+struct msg_hanger {
+	msg_hanger_struct *next;
+	msg_hanger_struct *prev;
+	evm_message_struct *msg; /*hangs of a hanger when linked in a chain - i.e.: in a message queue*/
+}; /*msg_hanger_struct*/
+
+EXTERN msgs_queue_struct * messages_queue_init(evm_consumer_struct *consumer_ptr);
+EXTERN evm_message_struct * messages_check(evm_consumer_struct *consumer_ptr);
 
 #endif /*EVM_FILE_messages_h*/

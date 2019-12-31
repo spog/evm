@@ -40,22 +40,6 @@
 #include "userlog/log_module.h"
 EVMLOG_MODULE_INIT(EVM_MSGS, 1)
 
-typedef struct msgs_queue msgs_queue_struct;
-typedef struct msg_hanger msg_hanger_struct;
-
-struct msgs_queue {
-	msg_hanger_struct *first_hanger;
-	msg_hanger_struct *last_hanger;
-//samo - orig:	evm_fd_struct *evmfd; /*internal message queue FD binding - eventfd()*/
-	pthread_mutex_t access_mutex;
-}; /*msgs_queue_struct*/
-
-struct msg_hanger {
-	msg_hanger_struct *next;
-	msg_hanger_struct *prev;
-	evm_message_struct *msg; /*hangs of a hanger when linked in a chain - i.e.: in a message queue*/
-}; /*msg_hanger_struct*/
-
 static sigset_t msgs_sigmask; /*actually a constant initialized via sigemptymask()*/
 /* Thread-specific data related. */
 static int msg_thr_keys_created = EVM_FALSE;
@@ -68,8 +52,8 @@ static int messages_receive(evm_fd_struct *evs_fd_ptr);
 static int messages_parse(evm_fd_struct *evs_fd_ptr);
 static int message_queue_evmfd_read(int efd, evm_message_struct *message);
 #endif
-static int msg_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg);
-static evm_message_struct * msg_dequeue(evm_init_struct *evm_init_ptr);
+static int msg_enqueue(evm_consumer_struct *consumer_ptr, evm_message_struct *msg);
+static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer_ptr);
 
 static void msgs_sighandler(int signum, siginfo_t *siginfo, void *context)
 {
@@ -94,37 +78,42 @@ static int msgs_sighandler_install(int signum)
 	return 0;
 }
 
-int messages_init(evm_init_struct *evm_init_ptr)
+msgs_queue_struct * messages_queue_init(evm_consumer_struct *consumer_ptr)
 {
-	int status = -1;
 	void *ptr;
 	sigset_t sigmask;
-	evm_sigpost_struct *evm_sigpost;
-
+	msgs_queue_struct *msgs_queue_ptr = NULL;
+	evm_sigpost_struct *evm_sigpost = NULL;
 	evm_log_info("(entry)\n");
-	if (evm_init_ptr == NULL) {
-		evm_log_error("Event machine init structure undefined!\n");
-		return status;
+
+	if (consumer_ptr == NULL) {
+		evm_log_error("Event machine consumer object undefined!\n");
+		return NULL;
 	}
 
-	evm_sigpost = evm_init_ptr->evm_sigpost;
+	if (consumer_ptr->evm != NULL)
+		evm_sigpost = consumer_ptr->evm->evm_sigpost;
 	if (evm_sigpost == NULL)
 		evm_log_debug("Signal post-processing handler undefined!\n");
 
 	/* Prepare thread-specific integer for thread related signal post-handling. */
 	if (!msg_thr_keys_created) {
 		if ((errno = pthread_key_create(&msg_thr_signum_key, NULL)) != 0) {
-			evm_log_return_system_err("pthread_key_create()\n");
+			evm_log_system_error("pthread_key_create()\n");
+			return NULL;
 		}
 		msg_thr_keys_created = EVM_TRUE;
 	}
 	if ((ptr = calloc(1, sizeof(int))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): thread-specific data\n");
-		return status;
+		return NULL;
 	}
 	if ((errno = pthread_setspecific(msg_thr_signum_key, ptr)) != 0) {
-		evm_log_return_system_err("pthread_setspecific()\n");
+		evm_log_system_error("pthread_setspecific()\n");
+		free(ptr);
+		ptr = NULL;
+		return NULL;
 	}
 
 	/* Prepare module-local empty signal mask, used in epoll_pwait() to allow catching all signals there!*/!
@@ -136,32 +125,41 @@ int messages_init(evm_init_struct *evm_init_ptr)
 	sigaddset(&sigmask, SIGHUP);
 	sigaddset(&sigmask, SIGCHLD);
 	if (pthread_sigmask(SIG_SETMASK, &sigmask, NULL) < 0) {
-		evm_log_return_system_err("sigprocmask() SIG_SETMASK\n");
+		evm_log_system_error("sigprocmask() SIG_SETMASK\n");
+		free(ptr);
+		ptr = NULL;
+		return NULL;
 	}
 
 	/* Install signal handler for SIGHUP and SIGCHLD. */
 	evm_log_debug("Establishing handler for signal SIGHUP\n");
 	if (msgs_sighandler_install(SIGHUP) < 0) {
-		evm_log_error("Failed to install SIGHUP signal handler!\n");
-		return status;
+		evm_log_system_error("Failed to install SIGHUP signal handler!\n");
+		free(ptr);
+		ptr = NULL;
+		return NULL;
 	}
 	evm_log_debug("Establishing handler for signal SIGCHLD\n");
 	if (msgs_sighandler_install(SIGCHLD) < 0) {
 		evm_log_error("Failed to install SIGCHLD signal handler!\n");
-		return status;
+		free(ptr);
+		ptr = NULL;
+		return NULL;
 	}
 
 	/* Setup internal message queue. */
-	if ((ptr = calloc(1, sizeof(msgs_queue_struct))) == NULL) {
+	if ((msgs_queue_ptr = calloc(1, sizeof(msgs_queue_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): internal message queue\n");
-		return status;
+		free(ptr);
+		ptr = NULL;
+		return NULL;
 	}
-	evm_init_ptr->msgs_queue = ptr;
-	pthread_mutex_init(&((msgs_queue_struct *)ptr)->access_mutex, NULL);
-	pthread_mutex_unlock(&((msgs_queue_struct *)ptr)->access_mutex);
+	consumer_ptr->msgs_queue = ptr;
+	pthread_mutex_init(&consumer_ptr->msgs_queue->access_mutex, NULL);
+	pthread_mutex_unlock(&consumer_ptr->msgs_queue->access_mutex);
 
-	return 0;
+	return msgs_queue_ptr;
 }
 
 #if 0 /*samo - orig*/
@@ -214,46 +212,67 @@ static int messages_parse(evm_fd_struct *evs_fd_ptr)
 }
 #endif
 
-static int msg_enqueue(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
-{
-	int status = -1;
-	msgs_queue_struct *msgs_queue = (msgs_queue_struct *)evm_init_ptr->msgs_queue;
-	sem_t *bsem = &evm_init_ptr->blocking_sem;
-	pthread_mutex_t *amtx = &msgs_queue->access_mutex;
-	msg_hanger_struct *msg_hanger;
-
-	evm_log_info("(entry)\n");
-	pthread_mutex_lock(amtx);
-	if ((msg_hanger = (msg_hanger_struct *)calloc(1, sizeof(msg_hanger_struct))) == NULL) {
-		errno = ENOMEM;
-		evm_log_system_error("calloc(): message hanger\n");
-		pthread_mutex_unlock(amtx);
-		return status;
-	}
-	msg_hanger->msg = msg;
-	if (msgs_queue->last_hanger == NULL)
-		msgs_queue->first_hanger = msg_hanger;
-	else
-		msgs_queue->last_hanger->next = msg_hanger;
-
-	msgs_queue->last_hanger = msg_hanger;
-	msg_hanger->next = NULL;
-	pthread_mutex_unlock(amtx);
-	evm_log_info("Post blocking semaphore (UNBLOCK)\n");
-	sem_post(bsem);
-	return 0;
-}
-
-static evm_message_struct * msg_dequeue(evm_init_struct *evm_init_ptr)
+static int msg_enqueue(evm_consumer_struct *consumer_ptr, evm_message_struct *msg)
 {
 	int rv = 0;
-	evm_message_struct *msg;
-	msgs_queue_struct *msgs_queue = (msgs_queue_struct *)evm_init_ptr->msgs_queue;
-	sem_t *bsem = &evm_init_ptr->blocking_sem;
-	pthread_mutex_t *amtx = &msgs_queue->access_mutex;
+	msgs_queue_struct *msgs_queue;
 	msg_hanger_struct *msg_hanger;
-
+	sem_t *bsem;
+	pthread_mutex_t *amtx;
 	evm_log_info("(entry)\n");
+
+	if (consumer_ptr != NULL) {
+		msgs_queue = consumer_ptr->msgs_queue;
+		bsem = &consumer_ptr->blocking_sem;
+		if (msgs_queue != NULL)
+			amtx = &msgs_queue->access_mutex;
+		else
+			rv = -1;
+	} else
+		rv = -1;
+
+	if (rv == 0) {
+		pthread_mutex_lock(amtx);
+		if ((msg_hanger = (msg_hanger_struct *)calloc(1, sizeof(msg_hanger_struct))) == NULL) {
+			errno = ENOMEM;
+			evm_log_system_error("calloc(): message hanger\n");
+			pthread_mutex_unlock(amtx);
+			return -1;
+		}
+		msg_hanger->msg = msg;
+		if (msgs_queue->last_hanger == NULL)
+			msgs_queue->first_hanger = msg_hanger;
+		else
+			msgs_queue->last_hanger->next = msg_hanger;
+
+		msgs_queue->last_hanger = msg_hanger;
+		msg_hanger->next = NULL;
+		pthread_mutex_unlock(amtx);
+		evm_log_info("Post blocking semaphore (UNBLOCK)\n");
+		sem_post(bsem);
+	}
+	return rv;
+}
+
+static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer_ptr)
+{
+	evm_message_struct *msg;
+	msgs_queue_struct *msgs_queue;
+	msg_hanger_struct *msg_hanger;
+	sem_t *bsem;
+	pthread_mutex_t *amtx;
+	evm_log_info("(entry)\n");
+
+	if (consumer_ptr != NULL) {
+		msgs_queue = (msgs_queue_struct *)consumer_ptr->msgs_queue;
+		bsem = &consumer_ptr->blocking_sem;
+		if (msgs_queue != NULL)
+			amtx = &msgs_queue->access_mutex;
+		else
+			return NULL;
+	} else
+		return NULL;
+
 
 	evm_log_info("Wait blocking semaphore (BLOCK, IF LOCKED)\n");
 	sem_wait(bsem);
@@ -277,20 +296,23 @@ static evm_message_struct * msg_dequeue(evm_init_struct *evm_init_ptr)
 	return msg;
 }
 
-evm_message_struct * messages_check(evm_init_struct *evm_init_ptr)
+evm_message_struct * messages_check(evm_consumer_struct *consumer_ptr)
 {
 	int status = 0;
 //samo - orig:	evm_fd_struct *evs_fd_ptr = NULL;
-	msgs_queue_struct *msgs_queue = (msgs_queue_struct *)evm_init_ptr->msgs_queue;
+	msgs_queue_struct *msgs_queue;
+	evm_log_info("(entry)\n");
 
-	evm_log_info("(entry) queue->first=%p\n", msgs_queue->first_hanger);
-	if (evm_init_ptr == NULL) {
-		evm_log_error("Event machine init structure undefined!\n");
+	if (consumer_ptr == NULL) {
+		evm_log_error("Event machine consumer object undefined!\n");
 		abort();
 	}
 
+	msgs_queue = consumer_ptr->msgs_queue;
+	evm_log_info("queue->first=%p\n", msgs_queue->first_hanger);
+
 	/* Poll the internal message queue first (THE ONLY POTENTIALLY BLOCKING POINT). */
-	return msg_dequeue(evm_init_ptr);
+	return msg_dequeue(consumer_ptr);
 
 #if 0 /*samo - orig*/
 	/* Receive any data. */
@@ -299,11 +321,11 @@ evm_message_struct * messages_check(evm_init_struct *evm_init_ptr)
 		return NULL;
 	}
 
-	if (evs_fd_ptr == ((msgs_queue_struct *)evm_init_ptr->msgs_queue)->evmfd) {
+	if (evs_fd_ptr == ((msgs_queue_struct *)consumer_ptr->msgs_queue)->evmfd) {
 		evm_log_debug("Internal queue receive triggered!\n");
 #if 0 /*test*/
 		if (msgs_queue->first_hanger != NULL) {
-			return msg_dequeue(evm_init_ptr);
+			return msg_dequeue(consumer_ptr);
 		}
 #endif
 		return NULL;
@@ -342,11 +364,19 @@ static int message_queue_evmfd_read(int efd, evm_message_struct *message)
 }
 #endif
 
-int evm_message_pass(evm_init_struct *evm_init_ptr, evm_message_struct *msg)
+/*
+ * Public API functions:
+ * - evm_message_pass()
+ * - evm_message_concatenate()
+ */
+int evm_message_pass(evmConsumerStruct *consumer, evmMessageStruct *msg)
 {
-	evm_log_info("(entry) evm_init_ptr=%p, msg=%p\n", evm_init_ptr, msg);
-	if (evm_init_ptr != NULL) {
-		if (msg_enqueue(evm_init_ptr, msg) != 0) {
+	evm_consumer_struct *consumer_ptr = (evm_consumer_struct *)consumer;
+	evm_message_struct * msgptr = (evm_message_struct *)msg;
+	evm_log_info("(entry) consumer=%p, msg=%p\n", consumer, msg);
+
+	if (consumer_ptr != NULL) {
+		if (msg_enqueue(consumer_ptr, msgptr) != 0) {
 			evm_log_error("Message enqueuing failed!\n");
 			return -1;
 		}
@@ -369,230 +399,361 @@ int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf)
 }
 #endif
 
-evm_evtypes_list_struct * evm_msgtype_add(evm_init_struct *evm_init_ptr, int msg_type)
+/*
+ * Public API functions:
+ * - evm_msgtype_add()
+ * - evm_msgtype_get()
+ * - evm_msgtype_del()
+ */
+evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int id)
 {
-	evm_evtypes_list_struct *new, *tmp;
+	evm_struct *evmptr = (evm_struct *)evm;
+	evm_msgtype_struct *msgtype = NULL;
+	evmlist_el_struct *tmp, *new;
 	evm_log_info("(entry)\n");
 
-	if (evm_init_ptr == NULL)
-		return NULL;
-
-	tmp = evm_init_ptr->msgtypes_first;
-	while (tmp != NULL) {
-		if (msg_type == tmp->ev_type)
-			return tmp; /* returns the same as evm_msgtype_get() */
-		if (tmp->next == NULL)
-			break;
-		tmp = tmp->next;
+	if (evmptr != NULL) {
+		if (evmptr->msgtypes_list != NULL) {
+			pthread_mutex_lock(&evmptr->msgtypes_list->access_mutex);
+			tmp = evm_walk_evmlist(evmptr->msgtypes_list, id);
+			if ((tmp != NULL) && (tmp->id == id)) {
+				/* required id already exists - return existing element */
+				msgtype = (evm_msgtype_struct *)tmp->el;
+			} else {
+				/* create new evmlist element with id */
+				if ((new = evm_new_evmlist_el(id)) != NULL) {
+					/* create new msgtype */
+					if ((msgtype = (evm_msgtype_struct *)calloc(1, sizeof(evm_msgtype_struct))) == NULL) {
+						errno = ENOMEM;
+						evm_log_system_error("calloc(): (evm_msgtype_struct)msgtype\n");
+						free(new);
+						new = NULL;
+					}
+					if (msgtype != NULL) {
+						msgtype->evm = evmptr;
+						msgtype->id = id;
+						msgtype->msgtype_parse = NULL;
+						if ((msgtype->msgids_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
+							errno = ENOMEM;
+							evm_log_system_error("calloc(): (evmlist_head_struct)msgtype->msgids_list\n");
+							free(msgtype);
+							msgtype = NULL;
+							free(new);
+							new = NULL;
+						} else {
+							pthread_mutex_init(&evmptr->tmrids_list->access_mutex, NULL);
+							pthread_mutex_unlock(&evmptr->tmrids_list->access_mutex);
+						}
+					}
+				}
+				if (new != NULL) {
+					new->id = id;
+					new->el = (void *)msgtype;
+					new->prev = tmp;
+					new->next = NULL;
+					if (tmp != NULL)
+						tmp->next = new;
+					else
+						evmptr->msgtypes_list->first = new;
+				}
+			}
+			pthread_mutex_unlock(&evmptr->msgtypes_list->access_mutex);
+		}	
 	}
+	return (evmMsgtypeStruct *)msgtype;
+}
 
-	if ((new = calloc(1, sizeof(evm_evtypes_list_struct))) == NULL) {
+evmMsgtypeStruct * evm_msgtype_get(evmStruct *evm, int id)
+{
+	evm_struct *evmptr = (evm_struct *)evm;
+	evm_msgtype_struct *msgtype = NULL;
+	evmlist_el_struct *tmp;
+
+	if (evmptr != NULL) {
+		if (evmptr->msgtypes_list != NULL) {
+			pthread_mutex_lock(&evmptr->msgtypes_list->access_mutex);
+			tmp = evm_walk_evmlist(evmptr->msgtypes_list, id);
+			if ((tmp != NULL) && (tmp->id == id)) {
+				/* required id already exists - return existing element */
+				msgtype = (evm_msgtype_struct *)tmp->el;
+			}
+			pthread_mutex_unlock(&evmptr->msgtypes_list->access_mutex);
+		}	
+	}
+	return (evmMsgtypeStruct *)msgtype;
+}
+
+evmMsgtypeStruct * evm_msgtype_del(evmStruct *evm, int id)
+{
+	evm_struct *evmptr = (evm_struct *)evm;
+	evm_msgtype_struct *msgtype = NULL;
+	evmlist_el_struct *tmp;
+
+	if (evmptr != NULL) {
+		if (evmptr->msgtypes_list != NULL) {
+			pthread_mutex_lock(&evmptr->msgtypes_list->access_mutex);
+			tmp = evm_walk_evmlist(evmptr->msgtypes_list, id);
+			if ((tmp != NULL) && (tmp->id == id)) {
+				/* required id already exists - return existing element */
+				msgtype = (evm_msgtype_struct *)tmp->el;
+				if (msgtype != NULL) {
+					free(msgtype);
+				}
+				tmp->prev->next = tmp->next;
+				if (tmp->next != NULL)
+					tmp->next->prev = tmp->prev;
+				free(tmp);
+				tmp = NULL;
+			}
+			pthread_mutex_unlock(&evmptr->msgtypes_list->access_mutex);
+		}	
+	}
+	return (evmMsgtypeStruct *)msgtype;
+}
+
+/*
+ * Public API function:
+ * - evm_msgtype_cb_parse_set()
+ */
+int evm_msgtype_cb_parse_set(evmMsgtypeStruct *msgtype, int (*msgtype_parse)(void *ptr))
+{
+	int rv = 0;
+	evm_msgtype_struct *msgtype_ptr = (evm_msgtype_struct *)msgtype;
+	evm_log_info("(entry)\n");
+
+	if (msgtype_ptr == NULL)
+		return -1;
+
+	if (msgtype_parse == NULL)
+		return -1;
+
+	if (rv == 0) {
+		msgtype_ptr->msgtype_parse = msgtype_parse;
+	}
+	return rv;
+}
+
+/*
+ * Public API functions:
+ * - evm_msgid_add()
+ * - evm_msgid_get()
+ * - evm_msgid_del()
+ */
+evmMsgidStruct * evm_msgid_add(evmMsgtypeStruct *msgtype, int id)
+{
+	evm_msgtype_struct *msgtype_ptr = (evm_msgtype_struct *)msgtype;
+	evm_msgid_struct *msgid = NULL;
+	evmlist_el_struct *tmp, *new;
+	evm_log_info("(entry)\n");
+
+	if (msgtype_ptr != NULL) {
+		if (msgtype_ptr->msgids_list != NULL) {
+			pthread_mutex_lock(&msgtype_ptr->msgids_list->access_mutex);
+			tmp = evm_walk_evmlist(msgtype_ptr->msgids_list, id);
+			if ((tmp != NULL) && (tmp->id == id)) {
+				/* required id already exists - return existing element */
+				msgid = (evm_msgid_struct *)tmp->el;
+			} else {
+				/* create new evmlist element with id */
+				if ((new = evm_new_evmlist_el(id)) != NULL) {
+					/* create new msgid */
+					if ((msgid = (evm_msgid_struct *)calloc(1, sizeof(evm_msgid_struct))) == NULL) {
+						errno = ENOMEM;
+						evm_log_system_error("calloc(): (evm_msgid_struct)msgid\n");
+						free(new);
+						new = NULL;
+					}
+					if (msgid != NULL) {
+						msgid->evm = msgtype_ptr->evm;
+						msgid->msgtype = msgtype_ptr;
+						msgid->id = id;
+						msgid->msg_prepare = NULL;
+						msgid->msg_handle = NULL;
+						msgid->msg_finalize = NULL;
+					}
+				}
+				if (new != NULL) {
+					new->id = id;
+					new->el = (void *)msgid;
+					new->prev = tmp;
+					new->next = NULL;
+					if (tmp != NULL)
+						tmp->next = new;
+					else
+						msgtype_ptr->msgids_list->first = new;
+				}
+			}
+			pthread_mutex_unlock(&msgtype_ptr->msgids_list->access_mutex);
+		}	
+	}
+	return (evmMsgidStruct *)msgid;
+}
+
+evmMsgidStruct * evm_msgid_get(evmMsgtypeStruct *msgtype, int id)
+{
+	evm_msgtype_struct *msgtype_ptr = (evm_msgtype_struct *)msgtype;
+	evm_msgid_struct *msgid = NULL;
+	evmlist_el_struct *tmp;
+
+	if (msgtype_ptr != NULL) {
+		if (msgtype_ptr->msgids_list != NULL) {
+			pthread_mutex_lock(&msgtype_ptr->msgids_list->access_mutex);
+			tmp = evm_walk_evmlist(msgtype_ptr->msgids_list, id);
+			if ((tmp != NULL) && (tmp->id == id)) {
+				/* required id already exists - return existing element */
+				msgid = (evm_msgid_struct *)tmp->el;
+			}
+			pthread_mutex_unlock(&msgtype_ptr->msgids_list->access_mutex);
+		}	
+	}
+	return (evmMsgidStruct *)msgid;
+}
+
+evmMsgidStruct * evm_msgid_del(evmMsgtypeStruct *msgtype, int id)
+{
+	evm_msgtype_struct *msgtype_ptr = (evm_msgtype_struct *)msgtype;
+	evm_msgid_struct *msgid = NULL;
+	evmlist_el_struct *tmp;
+
+	if (msgtype_ptr != NULL) {
+		if (msgtype_ptr->msgids_list != NULL) {
+			pthread_mutex_lock(&msgtype_ptr->msgids_list->access_mutex);
+			tmp = evm_walk_evmlist(msgtype_ptr->msgids_list, id);
+			if ((tmp != NULL) && (tmp->id == id)) {
+				/* required id already exists - return existing element */
+				msgid = (evm_msgid_struct *)tmp->el;
+				if (msgid != NULL) {
+					free(msgid);
+				}
+				tmp->prev->next = tmp->next;
+				if (tmp->next != NULL)
+					tmp->next->prev = tmp->prev;
+				free(tmp);
+				tmp = NULL;
+			}
+			pthread_mutex_unlock(&msgtype_ptr->msgids_list->access_mutex);
+		}	
+	}
+	return (evmMsgidStruct *)msgid;
+}
+
+/*
+ * Public API functions:
+ * - evm_msgid_cb_prepare_set()
+ * - evm_msgid_cb_handle_set()
+ * - evm_msgid_cb_finalize_set()
+ */
+int evm_msgid_cb_prepare_set(evmMsgidStruct *msgid_ptr, int (*msg_prepare)(void *ptr))
+{
+	int rv = 0;
+	evm_msgid_struct *msgid = (evm_msgid_struct *)msgid_ptr;
+	evm_log_info("(entry)\n");
+
+	if (msgid == NULL)
+		return -1;
+
+	if (msg_prepare == NULL)
+		return -1;
+
+	if (rv == 0) {
+		msgid->msg_prepare = msg_prepare;
+	}
+	return rv;
+}
+
+int evm_msgid_cb_handle_set(evmMsgidStruct *msgid_ptr, int (*msg_handle)(void *ptr))
+{
+	int rv = 0;
+	evm_msgid_struct *msgid = (evm_msgid_struct *)msgid_ptr;
+	evm_log_info("(entry)\n");
+
+	if (msgid == NULL)
+		return -1;
+
+	if (msg_handle == NULL)
+		return -1;
+
+	if (rv == 0) {
+		msgid->msg_handle = msg_handle;
+	}
+	return rv;
+}
+
+int evm_msgid_cb_finalize_set(evmMsgidStruct *msgid_ptr, int (*msg_finalize)(void *ptr))
+{
+	int rv = 0;
+	evm_msgid_struct *msgid = (evm_msgid_struct *)msgid_ptr;
+	evm_log_info("(entry)\n");
+
+	if (msgid == NULL)
+		return -1;
+
+	if (msg_finalize == NULL)
+		return -1;
+
+	if (rv == 0) {
+		msgid->msg_finalize = msg_finalize;
+	}
+	return rv;
+}
+
+/*
+ * Public API functions:
+ * - evm_message_new()
+ * - evm_message_delete()
+ * - evm_message_get_iovec()
+ * - evm_message_set_iovec()
+ */
+evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *msgid)
+{
+	evm_msgtype_struct *msgtype_ptr = (evm_msgtype_struct *)msgtype;
+	evm_msgid_struct *msgid_ptr = (evm_msgid_struct *)msgid;
+	evm_message_struct *msg = NULL;
+	evm_log_info("(entry)\n");
+
+	if ((msg = (evm_message_struct *)calloc(1, sizeof(evm_message_struct))) == NULL) {
 		errno = ENOMEM;
-		evm_log_system_error("calloc(): evm event types list\n");
+		evm_log_system_error("calloc(): (evm_message_struct)msg\n");
 		return NULL;
 	}
-	new->evm_ptr = evm_init_ptr;
-	new->ev_type = msg_type;
-	new->ev_parse = NULL;
-	new->evids_first = NULL;
-	new->prev = tmp;
-	new->next = NULL;
-	if (tmp != NULL)
-		tmp->next = new;
-	else
-		evm_init_ptr->msgtypes_first = new;
-	return new;
+	msg->msgtype = msgtype_ptr;
+	msg->msgid = msgid_ptr;
+	return msg;
 }
 
-evm_evtypes_list_struct * evm_msgtype_get(evm_init_struct *evm_init_ptr, int msg_type)
+void evm_message_delete(evmMessageStruct *msg)
 {
-	evm_evtypes_list_struct *tmp = NULL;
+	evm_message_struct *msg_ptr = (evm_message_struct *)msg;
 	evm_log_info("(entry)\n");
 
-	if (evm_init_ptr == NULL)
+	if (msg_ptr != NULL) {
+		free(msg_ptr);
+		msg_ptr = NULL;
+	}
+}
+
+struct iovec * evm_message_get_iovec(evmMessageStruct *msg)
+{
+	evm_message_struct *msg_ptr = (evm_message_struct *)msg;
+	evm_log_info("(entry)\n");
+
+	if (msg_ptr == NULL)
 		return NULL;
 
-	tmp = evm_init_ptr->msgtypes_first;
-	while (tmp != NULL) {
-		evm_log_debug("evm_msgtype_get() tmp=%p,tmp->ev_type=%d, msg_type=%d\n", (void *)tmp, tmp->ev_type, msg_type);
-		if (msg_type == tmp->ev_type)
-			return tmp;
-		tmp = tmp->next;
-	}
-
-	return NULL;
+	return (msg_ptr->iov_buff);
 }
 
-evm_evtypes_list_struct * evm_msgtype_del(evm_init_struct *evm_init_ptr, int msg_type)
+int evm_message_set_iovec(evmMessageStruct *msg, struct iovec *iov_buff)
 {
-	evm_evtypes_list_struct *tmp = NULL;
+	evm_message_struct *msg_ptr = (evm_message_struct *)msg;
 	evm_log_info("(entry)\n");
 
-	if (evm_init_ptr == NULL)
-		return NULL;
-
-	tmp = evm_init_ptr->msgtypes_first;
-	while (tmp != NULL) {
-		if (msg_type == tmp->ev_type)
-			break;
-		tmp = tmp->next;
-	}
-
-	if (tmp != NULL) {
-		tmp->prev->next = tmp->next;
-		if (tmp->next != NULL)
-			tmp->next->prev = tmp->prev;
-		free(tmp);
-	}
-	return tmp;
-}
-
-int evm_msgtype_parse_cb_set(evm_evtypes_list_struct *msgtype_ptr, int (*ev_parse)(void *ev_ptr))
-{
-	int rv = 0;
-	evm_log_info("(entry)\n");
-
-	if (msgtype_ptr == NULL)
+	if (msg_ptr == NULL)
 		return -1;
 
-	if (ev_parse == NULL)
+	if (iov_buff == NULL)
 		return -1;
 
-	if (rv == 0) {
-		msgtype_ptr->ev_parse = ev_parse;
-	}
-	return rv;
-
+	msg_ptr->iov_buff = iov_buff;
+	return 0;
 }
-
-evm_evids_list_struct * evm_msgid_add(evm_evtypes_list_struct *msgtype_ptr, int msg_id)
-{
-	evm_evids_list_struct *new, *tmp;
-	evm_log_info("(entry)\n");
-
-	if (msgtype_ptr == NULL)
-		return NULL;
-
-	tmp = msgtype_ptr->evids_first;
-	while (tmp != NULL) {
-		if (msg_id == tmp->ev_id)
-			return tmp; /* returns the same as evm_msgid_get() */
-		if (tmp->next == NULL)
-			break;
-		tmp = tmp->next;
-	}
-
-	if ((new = calloc(1, sizeof(evm_evids_list_struct))) == NULL) {
-		errno = ENOMEM;
-		evm_log_system_error("calloc(): evm event ids list\n");
-		return NULL;
-	}
-	new->evm_ptr = NULL;
-	new->evtype_ptr = msgtype_ptr;
-	new->ev_id = msg_id;
-	new->ev_prepare = NULL;
-	new->ev_handle = NULL;
-	new->ev_finalize = NULL;
-	new->prev = tmp;
-	new->next = NULL;
-	if (tmp != NULL)
-		tmp->next = new;
-	else
-		msgtype_ptr->evids_first = new;
-	return new;
-}
-
-evm_evids_list_struct * evm_msgid_get(evm_evtypes_list_struct *msgtype_ptr, int msg_id)
-{
-	evm_evids_list_struct *tmp = NULL;
-	evm_log_info("(entry)\n");
-
-	if (msgtype_ptr == NULL)
-		return NULL;
-
-	tmp = msgtype_ptr->evids_first;
-	while (tmp != NULL) {
-		evm_log_debug("evm_msgid_get() tmp=%p,tmp->ev_id=%d, msg_id=%d\n", (void *)tmp, tmp->ev_id, msg_id);
-		if (msg_id == tmp->ev_id)
-			return tmp;
-		tmp = tmp->next;
-	}
-
-	return NULL;
-}
-
-evm_evids_list_struct * evm_msgid_del(evm_evtypes_list_struct *msgtype_ptr, int msg_id)
-{
-	evm_evids_list_struct *tmp = NULL;
-	evm_log_info("(entry)\n");
-
-	if (msgtype_ptr == NULL)
-		return NULL;
-
-	tmp = msgtype_ptr->evids_first;
-	while (tmp != NULL) {
-		if (msg_id == tmp->ev_id)
-			break;
-		tmp = tmp->next;
-	}
-
-	if (tmp != NULL) {
-		tmp->prev->next = tmp->next;
-		if (tmp->next != NULL)
-			tmp->next->prev = tmp->prev;
-		free(tmp);
-	}
-	return tmp;
-}
-
-int evm_msgid_prepare_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_prepare)(void *ev_ptr))
-{
-	int rv = 0;
-	evm_log_info("(entry)\n");
-
-	if (msgid_ptr == NULL)
-		return -1;
-
-	if (ev_prepare == NULL)
-		return -1;
-
-	if (rv == 0) {
-		msgid_ptr->ev_prepare = ev_prepare;
-	}
-	return rv;
-}
-
-int evm_msgid_handle_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_handle)(void *ev_ptr))
-{
-	int rv = 0;
-	evm_log_info("(entry)\n");
-
-	if (msgid_ptr == NULL)
-		return -1;
-
-	if (ev_handle == NULL)
-		return -1;
-
-	if (rv == 0) {
-		msgid_ptr->ev_handle = ev_handle;
-	}
-	return rv;
-}
-
-int evm_msgid_finalize_cb_set(evm_evids_list_struct *msgid_ptr, int (*ev_finalize)(void *ev_ptr))
-{
-	int rv = 0;
-	evm_log_info("(entry)\n");
-
-	if (msgid_ptr == NULL)
-		return -1;
-
-	if (ev_finalize == NULL)
-		return -1;
-
-	if (rv == 0) {
-		msgid_ptr->ev_finalize = ev_finalize;
-	}
-	return rv;
-}
-

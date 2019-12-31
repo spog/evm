@@ -23,8 +23,8 @@ SUBMAKES := libs | demos
 export SUBMAKES
 
 comp_version_MAJOR := 0
-comp_version_MINOR := 1
-comp_version_PATCH := 2
+comp_version_MINOR := 5
+comp_version_PATCH := 0
 export  comp_version_MAJOR comp_version_MINOR comp_version_PATCH
 
 CFLAGS := -I$(_SRCDIR_)/include -DEVM_VERSION_MAJOR=$(comp_version_MAJOR) -DEVM_VERSION_MINOR=$(comp_version_MINOR) -DEVM_VERSION_PATCH=$(comp_version_PATCH) -DEVMLOG_MODULE_DEBUG=1 -DEVMLOG_MODULE_TRACE=1

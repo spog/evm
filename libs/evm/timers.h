@@ -32,7 +32,19 @@
 #	define EXTERN extern
 #endif
 
-EXTERN int timers_init(evm_init_struct *evm_init_ptr);
-EXTERN evm_timer_struct * timers_check(evm_init_struct *evm_init_ptr);
+struct tmrs_queue {
+	evm_timer_struct *first_tmr;
+	evm_timer_struct *last_tmr;
+	pthread_mutex_t access_mutex;
+}; /*tmrs_queue_struct*/
+
+/*
+ * Per consumer timers initialization.
+ * Return:
+ * - Pointer to initialized tmrs_queue
+ * - NULL on failure
+ */
+EXTERN tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer_ptr);
+EXTERN evm_timer_struct * timers_check(evm_consumer_struct *consumer_ptr);
 
 #endif /*EVM_FILE_timers_h*/
