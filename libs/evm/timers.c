@@ -557,6 +557,8 @@ int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(void *p
  * Public API functions:
  * - evm_timer_start()
  * - evm_timer_stop()
+ * - evm_timer_consumer_get()
+ * - evm_timer_ctx_get()
  */
 evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tmrid, time_t tv_sec, long tv_nsec, void *ctx_ptr)
 {
@@ -588,7 +590,7 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 	new->consumer = consumer_ptr;
 	new->saved = 0;
 	new->stopped = 0;
-	new->ctx_ptr = ctx_ptr;
+	new->ctx = ctx_ptr;
 
 	if (clock_gettime(CLOCK_MONOTONIC, &new->tm_stamp) == -1) {
 		evm_log_system_error("clock_gettime()\n");
@@ -671,6 +673,28 @@ int evm_timer_stop(evmTimerStruct *timer)
 	timer_ptr->stopped = 1;
 
 	return 0;
+}
+
+evmConsumerStruct * evm_timer_consumer_get(evmTimerStruct *tmr)
+{
+	evm_timer_struct *tmr_ptr = (evm_timer_struct *)tmr;
+	evm_log_info("(entry)\n");
+
+	if (tmr_ptr == NULL)
+		return NULL;
+
+	return (evmConsumerStruct *)(tmr_ptr->consumer);
+}
+
+void * evm_timer_ctx_get(evmTimerStruct *tmr)
+{
+	evm_timer_struct *tmr_ptr = (evm_timer_struct *)tmr;
+	evm_log_info("(entry)\n");
+
+	if (tmr_ptr == NULL)
+		return NULL;
+
+	return (tmr_ptr->ctx);
 }
 
 /*

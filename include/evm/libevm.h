@@ -113,8 +113,9 @@ extern evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id);
 extern evmConsumerStruct * evm_consumer_del(evmStruct *evm, int id);
 extern evmTopicStruct * evm_topic_del(evmStruct *evm, int id);
 
-extern int evm_set_priv(evmStruct *evm, void *priv);
-extern int evm_set_sigpost(evmStruct *evm, evm_sigpost_struct *sigpost);
+extern int evm_priv_set(evmStruct *evm, void *priv);
+extern void * evm_priv_get(evmStruct *evm);
+extern int evm_sigpost_set(evmStruct *evm, evm_sigpost_struct *sigpost);
 
 /*
  * Public API functions:
@@ -125,6 +126,14 @@ extern int evm_set_sigpost(evmStruct *evm, evm_sigpost_struct *sigpost);
 extern int evm_run_once(evmConsumerStruct *consumer);
 extern int evm_run_async(evmConsumerStruct *consumer);
 extern int evm_run(evmConsumerStruct *consumer);
+
+/*
+ * Public API functions:
+ * - evm_consumer_priv_set()
+ * - evm_consumer_priv_get()
+ */
+extern int evm_consumer_priv_set(evmConsumerStruct *consumer, void *priv);
+extern void * evm_consumer_priv_get(evmConsumerStruct *consumer);
 
 /*
  * Messages
@@ -162,13 +171,19 @@ extern int evm_message_fd_add(evmStruct *evm_ptr, evm_fd_struct *evm_fd_ptr);
  * Public API functions:
  * - evm_message_new()
  * - evm_message_delete()
- * - evm_message_get_iovec()
- * - evm_message_set_iovec()
+ * - evm_message_consumer_get()
+ * - evm_message_ctx_set()
+ * - evm_message_ctx_get()
+ * - evm_message_iovec_set()
+ * - evm_message_iovec_get()
  */
 extern evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *msgid);
 extern void evm_message_delete(evmMessageStruct *msg);
-extern struct iovec * evm_message_get_iovec(evmMessageStruct *msg);
-extern int evm_message_set_iovec(evmMessageStruct *msg, struct iovec *iov_buff);
+extern evmConsumerStruct * evm_message_consumer_get(evmMessageStruct *msg);
+extern int evm_message_ctx_set(evmMessageStruct *msg, void *ctx);
+extern void * evm_message_ctx_get(evmMessageStruct *msg);
+extern int evm_message_iovec_set(evmMessageStruct *msg, struct iovec *iov_buff);
+extern struct iovec * evm_message_iovec_get(evmMessageStruct *msg);
 
 /*
  * Public API functions:
@@ -204,9 +219,13 @@ extern int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(
  * Public API functions:
  * - evm_timer_start()
  * - evm_timer_stop()
+ * - evm_timer_consumer_get()
+ * - evm_timer_ctx_get()
  */
-extern evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tmrid, time_t tv_sec, long tv_nsec, void *ctx_ptr);
+extern evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tmrid, time_t tv_sec, long tv_nsec, void *ctx);
 extern int evm_timer_stop(evmTimerStruct *timer);
+extern evmConsumerStruct * evm_timer_consumer_get(evmTimerStruct *timer);
+extern void * evm_timer_ctx_get(evmTimerStruct *timer);
 
 /*
  * Public API function:

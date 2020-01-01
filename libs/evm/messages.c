@@ -290,6 +290,7 @@ static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer_ptr)
 		msgs_queue->first_hanger = msg_hanger->next;
 
 	msg = msg_hanger->msg;
+	msg->consumer = consumer_ptr; /*set dequeueing consumer*/
 	free(msg_hanger);
 	msg_hanger = NULL;
 	pthread_mutex_unlock(amtx);
@@ -701,8 +702,11 @@ int evm_msgid_cb_finalize_set(evmMsgidStruct *msgid_ptr, int (*msg_finalize)(voi
  * Public API functions:
  * - evm_message_new()
  * - evm_message_delete()
- * - evm_message_get_iovec()
- * - evm_message_set_iovec()
+ * - evm_message_consumer_get()
+ * - evm_message_ctx_set()
+ * - evm_message_ctx_get()
+ * - evm_message_iovec_set()
+ * - evm_message_iovec_get()
  */
 evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *msgid)
 {
@@ -732,7 +736,7 @@ void evm_message_delete(evmMessageStruct *msg)
 	}
 }
 
-struct iovec * evm_message_get_iovec(evmMessageStruct *msg)
+evmConsumerStruct * evm_message_consumer_get(evmMessageStruct *msg)
 {
 	evm_message_struct *msg_ptr = (evm_message_struct *)msg;
 	evm_log_info("(entry)\n");
@@ -740,10 +744,35 @@ struct iovec * evm_message_get_iovec(evmMessageStruct *msg)
 	if (msg_ptr == NULL)
 		return NULL;
 
-	return (msg_ptr->iov_buff);
+	return (evmConsumerStruct *)(msg_ptr->consumer);
 }
 
-int evm_message_set_iovec(evmMessageStruct *msg, struct iovec *iov_buff)
+int evm_message_ctx_set(evmMessageStruct *msg, void *ctx)
+{
+	evm_message_struct *msg_ptr = (evm_message_struct *)msg;
+	evm_log_info("(entry)\n");
+
+	if (msg_ptr == NULL)
+		return -1;
+
+	if (ctx == NULL)
+		return -1;
+
+	msg_ptr->ctx = ctx;
+	return 0;
+}
+
+void * evm_message_ctx_get(evmMessageStruct *msg)
+{
+	evm_message_struct *msg_ptr = (evm_message_struct *)msg;
+	evm_log_info("(entry)\n");
+
+	if (msg_ptr == NULL)
+		return NULL;
+
+	return (msg_ptr->ctx);
+}
+int evm_message_iovec_set(evmMessageStruct *msg, struct iovec *iov_buff)
 {
 	evm_message_struct *msg_ptr = (evm_message_struct *)msg;
 	evm_log_info("(entry)\n");
@@ -757,3 +786,15 @@ int evm_message_set_iovec(evmMessageStruct *msg, struct iovec *iov_buff)
 	msg_ptr->iov_buff = iov_buff;
 	return 0;
 }
+
+struct iovec * evm_message_iovec_get(evmMessageStruct *msg)
+{
+	evm_message_struct *msg_ptr = (evm_message_struct *)msg;
+	evm_log_info("(entry)\n");
+
+	if (msg_ptr == NULL)
+		return NULL;
+
+	return (msg_ptr->iov_buff);
+}
+

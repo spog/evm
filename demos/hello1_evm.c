@@ -45,35 +45,31 @@
 #include <userlog/log_module.h>
 EVMLOG_MODULE_INIT(DEMO1EVM, 2);
 
-#define MAX_EPOLL_EVENTS_PER_RUN 10
-
 static int signal_processing(int sig, void *ptr);
 
-#define EVM_CONSUMER_ID (0)
+enum evm_consumer_ids {
+	EVM_CONSUMER_ID_0 = 0
+};
 
-enum event_msg_types {
+enum evm_msgtype_ids {
 	EV_TYPE_UNKNOWN_MSG = 0,
 	EV_TYPE_HELLO_MSG
 };
 
-enum event_tmr_types {
-	EV_TYPE_UNKNOWN_TMR = 0,
-	EV_TYPE_HELLO_TMR
-};
-
-enum hello_msg_ev_ids {
+enum evm_msg_ids {
 	EV_ID_HELLO_MSG_HELLO = 0
 };
-enum hello_tmr_ev_ids {
+
+enum evm_tmr_ids {
 	EV_ID_HELLO_TMR_IDLE = 0,
 	EV_ID_HELLO_TMR_QUIT
 };
 
 static evmTimerStruct * hello_start_timer(evmTimerStruct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evmTmridStruct *tmrid_ptr);
 
-static int evHelloMsg(void *ev_ptr);
-static int evHelloTmrIdle(void *ev_ptr);
-static int evHelloTmrQuit(void *ev_ptr);
+static int evHelloMsg(void *msg_ptr);
+static int evHelloTmrIdle(void *tmr_ptr);
+static int evHelloTmrQuit(void *tmr_ptr);
 
 static int hello_evm_init(void);
 static int hello_evm_run(void);
@@ -284,7 +280,7 @@ static int evHelloMsg(void *msg_ptr)
 		return -1;
 
 	if (demo_liveloop == 0) {
-		if ((iov_buff = evm_message_get_iovec(msg)) == NULL)
+		if ((iov_buff = evm_message_iovec_get(msg)) == NULL)
 			return -1;
 		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
 
@@ -295,7 +291,7 @@ static int evHelloMsg(void *msg_ptr)
 	} else {
 		count++;
 		/* liveloop - 100 %CPU usage */
-		evm_message_pass(consumer, helloMsg);
+		evm_message_pass(consumer, msg);
 	}
 
 	return 0;
@@ -339,11 +335,11 @@ static int hello_evm_init(void)
 
 	/* Initialize event machine... */
 	if ((evs = evm_init()) != NULL) {
-		if (evm_set_sigpost(evs, &evs_sigpost) != 0) {
-			evm_log_error("evm_set_sigpost() failed!\n");
+		if (evm_sigpost_set(evs, &evs_sigpost) != 0) {
+			evm_log_error("evm_sigpost_set() failed!\n");
 			rv = -1;
 		}
-		if ((rv == 0) && ((consumer = evm_consumer_add(evs, EVM_CONSUMER_ID)) == NULL)) {
+		if ((rv == 0) && ((consumer = evm_consumer_add(evs, EVM_CONSUMER_ID_0)) == NULL)) {
 			evm_log_error("evm_consumer_add() failed!\n");
 			rv = -1;
 		}
@@ -364,7 +360,7 @@ static int hello_evm_init(void)
 			rv = -1;
 		}
 		if (rv == 0) {
-			rv = evm_message_set_iovec(helloMsg, &iov_buff);
+			rv = evm_message_iovec_set(helloMsg, &iov_buff);
 		}
 	} else {
 		evm_log_error("evm_init() failed!\n");

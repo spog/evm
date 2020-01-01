@@ -400,10 +400,11 @@ evmTopicStruct * evm_topic_del(evmStruct *evm, int id)
 
 /*
  * Public API functions:
- * - evm_set_priv()
- * - evm_set_sigpost()
+ * - evm_priv_set()
+ * - evm_priv_get()
+ * - evm_sigpost_set()
  */
-int evm_set_priv(evmStruct *evm, void *priv)
+int evm_priv_set(evmStruct *evm, void *priv)
 {
 	int rv = 0;
 	evm_struct *evm_ptr = (evm_struct *)evm;
@@ -416,12 +417,23 @@ int evm_set_priv(evmStruct *evm, void *priv)
 		return -1;
 
 	if (rv == 0) {
-		evm_ptr->evm_priv = priv;
+		evm_ptr->priv = priv;
 	}
 	return rv;
 }
 
-int evm_set_sigpost(evmStruct *evm, evm_sigpost_struct *sigpost)
+void * evm_priv_get(evmStruct *evm)
+{
+	evm_struct *evm_ptr = (evm_struct *)evm;
+	evm_log_info("(entry)\n");
+
+	if (evm_ptr == NULL)
+		return NULL;
+
+	return (evm_ptr->priv);
+}
+
+int evm_sigpost_set(evmStruct *evm, evm_sigpost_struct *sigpost)
 {
 	int rv = 0;
 	evm_struct *evm_ptr = (evm_struct *)evm;
@@ -534,6 +546,40 @@ int evm_run(evmConsumerStruct *consumer)
 	}
 
 	return 0;
+}
+
+/*
+ * Public API functions:
+ * - evm_consumer_priv_set()
+ * - evm_consumer_priv_get()
+ */
+int evm_consumer_priv_set(evmConsumerStruct *consumer, void *priv)
+{
+	int rv = 0;
+	evm_consumer_struct *consumer_ptr = (evm_consumer_struct *)consumer;
+	evm_log_info("(entry)\n");
+
+	if (consumer_ptr == NULL)
+		return -1;
+
+	if (priv == NULL)
+		return -1;
+
+	if (rv == 0) {
+		consumer_ptr->priv = priv;
+	}
+	return rv;
+}
+
+void * evm_consumer_priv_get(evmConsumerStruct *consumer)
+{
+	evm_consumer_struct *consumer_ptr = (evm_consumer_struct *)consumer;
+	evm_log_info("(entry)\n");
+
+	if (consumer_ptr == NULL)
+		return NULL;
+
+	return (consumer_ptr->priv);
 }
 
 static int prepare_msg(evm_msgid_struct *msgid, void *msg)

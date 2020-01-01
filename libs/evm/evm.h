@@ -70,7 +70,7 @@ struct evm {
 	evmlist_head_struct *consumers_list;
 	evmlist_head_struct *topics_list;
 	evm_sigpost_struct *evm_sigpost;
-	void *evm_priv; /*private - application specific data*/
+	void *priv; /*private - application specific data*/
 }; /*evm_struct*/
 
 struct msgs_queue;
@@ -85,6 +85,7 @@ struct evm_consumer {
 	sem_t blocking_sem;
 	msgs_queue_struct *msgs_queue; /*internal messages queue*/
 	tmrs_queue_struct *tmrs_queue; /*internal timers queue*/
+	void *priv; /*private - consumer specific data*/
 }; /*evm_consumer_struct*/
 
 struct evm_topic {
@@ -116,6 +117,7 @@ struct evm_msgid {
 struct evm_message {
 	evm_msgtype_struct *msgtype;
 	evm_msgid_struct *msgid;
+	evm_consumer_struct *consumer;
 	int saved;
 	void *ctx;
 	int rval_decode;
@@ -141,7 +143,7 @@ struct evm_timer {
 	evm_consumer_struct *consumer;
 	int saved;
 	int stopped;
-	void *ctx_ptr;
+	void *ctx;
 	struct timespec tm_stamp;
 	evm_timer_struct *next;
 }; /*evm_timer_struct*/
