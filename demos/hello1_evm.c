@@ -93,6 +93,7 @@ static void usage_help(char *argv[])
 	printf("options:\n");
 	printf("\t-q, --quiet              Disable all output.\n");
 	printf("\t-v, --verbose            Enable verbose output.\n");
+	printf("\t-l, --liveloop           Enable liveloop measurement mode.\n");
 #if (EVMLOG_MODULE_TRACE != 0)
 	printf("\t-t, --trace              Enable trace output.\n");
 #endif

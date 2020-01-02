@@ -148,6 +148,7 @@ evmlist_el_struct * evm_walk_evmlist(evmlist_head_struct *head, int id)
 				break;
 			if (tmp->id == id)
 				break;
+			tmp = tmp->next;
 		}
 	}
 	return tmp;
@@ -165,6 +166,7 @@ evmlist_el_struct * evm_new_evmlist_el(int id)
 		evm_log_system_error("calloc(): (evmlist_el_struct)new\n");
 	} else
 		new->id = id;
+		new->next = NULL;
 
 	return new;
 }
@@ -180,7 +182,7 @@ evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id)
 	evm_struct *evmptr = (evm_struct *)evm;
 	evm_consumer_struct *consumer = NULL;
 	evmlist_el_struct *tmp, *new;
-	evm_log_info("(entry)\n");
+	evm_log_info("(entry) evm=%p, id=%d\n", evm, id);
 
 	if (evmptr != NULL) {
 		if (evmptr->consumers_list != NULL) {

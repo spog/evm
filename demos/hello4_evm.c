@@ -93,6 +93,7 @@ unsigned int evmlog_debug = 0;
 unsigned int evmlog_use_syslog = 0;
 unsigned int evmlog_add_header = 1;
 unsigned int num_additional_threads = 0;
+unsigned int demo_liveloop = 0;
 
 static void usage_help(char *argv[])
 {
@@ -101,6 +102,7 @@ static void usage_help(char *argv[])
 	printf("options:\n");
 	printf("\t-q, --quiet              Disable all output.\n");
 	printf("\t-v, --verbose            Enable verbose output.\n");
+	printf("\t-l, --liveloop           Enable liveloop measurement mode.\n");
 #if (EVMLOG_MODULE_TRACE != 0)
 	printf("\t-t, --trace              Enable trace output.\n");
 #endif
@@ -121,6 +123,7 @@ static int usage_check(int argc, char *argv[])
 		static struct option long_options[] = {
 			{"quiet", 0, 0, 'q'},
 			{"verbose", 0, 0, 'v'},
+			{"liveloop", 0, 0, 'l'},
 #if (EVMLOG_MODULE_TRACE != 0)
 			{"trace", 0, 0, 't'},
 #endif
@@ -134,13 +137,13 @@ static int usage_check(int argc, char *argv[])
 		};
 
 #if (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG != 0)
-		c = getopt_long(argc, argv, "qvtgnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvltgnsh", long_options, &option_index);
 #elif (EVMLOG_MODULE_TRACE == 0) && (EVMLOG_MODULE_DEBUG != 0)
-		c = getopt_long(argc, argv, "qvgnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvlgnsh", long_options, &option_index);
 #elif (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG == 0)
-		c = getopt_long(argc, argv, "qvtnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvltnsh", long_options, &option_index);
 #else
-		c = getopt_long(argc, argv, "qvnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvlnsh", long_options, &option_index);
 #endif
 		if (c == -1)
 			break;
@@ -152,6 +155,10 @@ static int usage_check(int argc, char *argv[])
 
 		case 'v':
 			evmlog_verbose = 1;
+			break;
+
+		case 'l':
+			demo_liveloop = 1;
 			break;
 
 #if (EVMLOG_MODULE_TRACE != 0)
@@ -260,8 +267,6 @@ static int signal_processing(int sig, void *ptr)
 }
 
 /* HELLO messages */
-static char send_buff[MAX_BUFF_SIZE] = "";
-static char recv_buff[MAX_BUFF_SIZE] = "";
 static char *hello_str = "HELLO";
 evmMessageStruct *helloMsg;
 
@@ -291,12 +296,19 @@ static int evHelloMsg(void *msg_ptr)
 	loc_consumer_ptr = evm_message_consumer_get(msg);
 	rem_consumer_ptr = (evmConsumerStruct *)evm_message_ctx_get(msg);
 #if 1
-	if ((iov_buff = evm_message_iovec_get(msg)) == NULL)
-		return -1;
-	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
+	if (demo_liveloop == 0) {
+		if ((iov_buff = evm_message_iovec_get(msg)) == NULL)
+			return -1;
+		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
 
-	helloIdleTmr = hello_start_timer(loc_consumer_ptr, NULL, 10, 0, (void *)rem_consumer_ptr, tmrid_idle_ptr);
-	evm_log_notice("IDLE timer set: 10 s\n");
+		helloIdleTmr = hello_start_timer(loc_consumer_ptr, NULL, 10, 0, (void *)rem_consumer_ptr, tmrid_idle_ptr);
+		evm_log_notice("IDLE timer set: 10 s\n");
+	} else {
+		/* liveloop - 100 %CPU usage */
+		/* Send HELLO message to another thread. */
+//		evm_log_notice("HELLO msg sent: \"%s%d\"\n", "HELLO: ", *(int *)loc_evm_ptr->priv + 1);
+		hello4_send_hello(loc_consumer_ptr, rem_consumer_ptr);
+	}
 #else
 	/* liveloop - 100 %CPU usage */
 	/* Send HELLO message to another thread. */
@@ -313,13 +325,17 @@ static int evHelloMsgFree(void *msg_ptr)
 	struct iovec *iov_buff = NULL;
 	evm_log_info("(cb entry) msg_ptr=%p\n", msg_ptr);
 
-	if ((iov_buff = evm_message_iovec_get(msg)) == NULL)
-		return -1;
-	free(iov_buff->iov_base);
-	iov_buff->iov_base = NULL;
-	free(iov_buff);
-	evm_message_delete(msg);
-	msg = NULL;
+	if (msg != NULL) {
+		if ((iov_buff = evm_message_iovec_get(msg)) != NULL) {
+			if (iov_buff->iov_base != NULL) {
+				free(iov_buff->iov_base);
+				iov_buff->iov_base = NULL;
+			}
+			free(iov_buff);
+		}
+		evm_message_delete(msg);
+		msg = NULL;
+	}
 
 	return 0;
 }
@@ -340,7 +356,6 @@ static int evHelloTmrIdle(void *tmr_ptr)
 	loc_consumer = evm_timer_consumer_get(tmr);
 	rem_consumer = (evmConsumerStruct *)evm_timer_ctx_get(tmr);
 
-	evm_log_notice("HELLO msg sent: \"%s%d\"\n", "HELLO: ", *(int *)(evm_consumer_priv_get(loc_consumer) + 1));
 	hello4_send_hello(loc_consumer, rem_consumer);
 
 	return status;
@@ -350,7 +365,7 @@ static int evHelloTmrQuit(void *tmr_ptr)
 {
 	int status = 0;
 	evmTimerStruct *tmr = (evmTimerStruct *)tmr_ptr;
-	int *count = (int*)evm_priv_get(evm);
+	int *count = (int*)evm_consumer_priv_get(consumers[0]);
 	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
 
 	if (tmr == NULL)
@@ -391,6 +406,8 @@ static int hello4_send_hello(evmConsumerStruct *loc_consumer_ptr, evmConsumerStr
 
 	evm_message_ctx_set(msg, (void *)loc_consumer_ptr);
 	/* Send HELLO message to another thread. */
+	if (demo_liveloop == 0)
+		evm_log_notice("HELLO msg send: %s\n", iov_buff->iov_base);
 	evm_message_pass(rem_consumer_ptr, msg);
 
 	return 0;
@@ -426,6 +443,10 @@ static int hello4_evm_init(void)
 			rv = -1;
 		}
 		if ((rv == 0) && (evm_msgid_cb_handle_set(msgid_hello_ptr, evHelloMsg) < 0)) {
+			evm_log_error("evm_msgid_cb_handle() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && (evm_msgid_cb_finalize_set(msgid_hello_ptr, evHelloMsgFree) < 0)) {
 			evm_log_error("evm_msgid_cb_handle() failed!\n");
 			rv = -1;
 		}
@@ -477,7 +498,6 @@ static void * hello4_new_thread_start(void *arg)
 	consumer_ptr = (evmConsumerStruct *)arg;
 	evm_consumer_priv_set(consumer_ptr, (void *)&count);
 	/* Send initial HELLO to the first thread! */
-	evm_log_notice("HELLO msg sent: \"%s%d\"\n", "HELLO", count + 1);
 	hello4_send_hello(consumer_ptr, consumers[0]);
 
 	/*
@@ -498,21 +518,23 @@ static int hello4_evm_run(void)
 
 	evm_consumer_priv_set(consumers[0], (void *)&count);
 
+	/* Start initial QUIT timer */
+	helloQuitTmr = hello_start_timer(consumers[0], NULL, 60, 0, NULL, tmrid_quit_ptr);
+	printf("QUIT timer set: 60 s\n");
+
 	if ((rv = pthread_attr_init(&attr)) != 0)
 		evm_log_return_system_err("pthread_attr_init()\n");
 
 	for (i = 1; i <= (num_additional_threads); i++) {
+		evm_log_debug("i=%d, rv=%d\n", i, rv);
 		if ((rv == 0) && ((consumers[i] = evm_consumer_add(evm, i)) == NULL)) {
 			evm_log_error("evm_consumer_add() failed!\n");
 			rv = -1;
 		}
 		if ((rv = pthread_create(&second_thread, &attr, hello4_new_thread_start, (void *)consumers[i])) != 0)
 			evm_log_return_system_err("pthread_create()\n");
+		evm_log_debug("pthread_create() rv=%d\n", rv);
 	}
-
-	/* Start initial QUIT timer */
-	helloQuitTmr = hello_start_timer(consumers[0], NULL, 60, 0, NULL, tmrid_quit_ptr);
-	printf("QUIT timer set: 60 s\n");
 
 	/*
 	 * Main thread EVM processing (event loop)
