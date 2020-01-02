@@ -295,7 +295,7 @@ static int evHelloMsg(void *msg_ptr)
 
 	loc_consumer_ptr = evm_message_consumer_get(msg);
 	rem_consumer_ptr = (evmConsumerStruct *)evm_message_ctx_get(msg);
-#if 1
+
 	if (demo_liveloop == 0) {
 		if ((iov_buff = evm_message_iovec_get(msg)) == NULL)
 			return -1;
@@ -309,12 +309,6 @@ static int evHelloMsg(void *msg_ptr)
 //		evm_log_notice("HELLO msg sent: \"%s%d\"\n", "HELLO: ", *(int *)loc_evm_ptr->priv + 1);
 		hello4_send_hello(loc_consumer_ptr, rem_consumer_ptr);
 	}
-#else
-	/* liveloop - 100 %CPU usage */
-	/* Send HELLO message to another thread. */
-//	evm_log_notice("HELLO msg sent: \"%s%d\"\n", "HELLO: ", *(int *)loc_evm_ptr->priv + 1);
-	hello4_send_hello(loc_evm_ptr, rem_evm_ptr);
-#endif
 
 	return 0;
 }
@@ -501,7 +495,7 @@ static void * hello4_new_thread_start(void *arg)
 	hello4_send_hello(consumer_ptr, consumers[0]);
 
 	/*
-	 * Main aditional thread EVM processing (event loop)
+	 * Aditional thread EVM processing (event loop)
 	 */
 	evm_run(consumer_ptr);
 	return NULL;
@@ -513,7 +507,7 @@ static int hello4_evm_run(void)
 	int count = 0;
 	int i;
 	pthread_attr_t attr;
-	pthread_t second_thread;
+	pthread_t new_thread;
 	evm_log_info("(entry)\n");
 
 	evm_consumer_priv_set(consumers[0], (void *)&count);
@@ -531,7 +525,7 @@ static int hello4_evm_run(void)
 			evm_log_error("evm_consumer_add() failed!\n");
 			rv = -1;
 		}
-		if ((rv = pthread_create(&second_thread, &attr, hello4_new_thread_start, (void *)consumers[i])) != 0)
+		if ((rv = pthread_create(&new_thread, &attr, hello4_new_thread_start, (void *)consumers[i])) != 0)
 			evm_log_return_system_err("pthread_create()\n");
 		evm_log_debug("pthread_create() rv=%d\n", rv);
 	}

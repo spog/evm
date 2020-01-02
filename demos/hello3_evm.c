@@ -52,20 +52,18 @@
 #include <userlog/log_module.h>
 EVMLOG_MODULE_INIT(DEMO3EVM, 2);
 
-#define MAX_EPOLL_EVENTS_PER_RUN 10
-
 static int signal_processing(int sig, void *ptr);
 
-enum event_msg_types {
+enum evm_consumer_ids {
+	EVM_CONSUMER_ID_0 = 0
+};
+
+enum evm_msgtype_ids {
 	EV_TYPE_UNKNOWN_MSG = 0,
 	EV_TYPE_HELLO_MSG
 };
-enum event_tmr_types {
-	EV_TYPE_UNKNOWN_TMR = 0,
-	EV_TYPE_HELLO_TMR
-};
 
-enum hello_msg_ev_ids {
+enum evm_msg_ids {
 	EV_ID_HELLO_MSG_UNKNOWN0 = 0,
 	EV_ID_HELLO_MSG_UNKNOWN1,
 	EV_ID_HELLO_MSG_UNKNOWN2,
@@ -88,20 +86,18 @@ enum hello_msg_ev_ids {
 	EV_ID_HELLO_MSG_HELLO,
 	EV_NUM_IDS
 };
-enum hello_tmr_ev_ids {
+
+enum evm_tmr_ids {
 	EV_ID_HELLO_TMR_IDLE = 0,
 	EV_ID_HELLO_TMR_QUIT
 };
 
-/* Quick link between ids and ptrs */
-evm_evids_list_struct *msgids_tab[2][EV_NUM_IDS];
+static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTimerStruct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evmTmridStruct *tmrid_ptr);
+static int hello3_send_hello(evmConsumerStruct *loc_evm_ptr, evmConsumerStruct *rem_evm_ptr);
 
-static evm_timer_struct * hello_start_timer(int evm_id, evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evm_evids_list_struct *tmrid_ptr);
-static int hello3_send_hello(int evm_id);
-
-static int evHelloMsg(void *ev_ptr);
-static int evHelloTmrIdle(void *ev_ptr);
-static int evHelloTmrQuit(void *ev_ptr);
+static int evHelloMsg(void *msg_ptr);
+static int evHelloTmrIdle(void *tmr_ptr);
+static int evHelloTmrQuit(void *tmr_ptr);
 
 static int hello3_evm_init(void);
 static int hello3_evm_run(void);
@@ -116,6 +112,7 @@ unsigned int evmlog_trace = 0;
 unsigned int evmlog_debug = 0;
 unsigned int evmlog_use_syslog = 0;
 unsigned int evmlog_add_header = 1;
+unsigned int demo_liveloop = 0;
 
 static void usage_help(char *argv[])
 {
@@ -124,6 +121,7 @@ static void usage_help(char *argv[])
 	printf("options:\n");
 	printf("\t-q, --quiet              Disable all output.\n");
 	printf("\t-v, --verbose            Enable verbose output.\n");
+	printf("\t-l, --liveloop           Enable liveloop measurement mode.\n");
 #if (EVMLOG_MODULE_TRACE != 0)
 	printf("\t-t, --trace              Enable trace output.\n");
 #endif
@@ -144,6 +142,7 @@ static int usage_check(int argc, char *argv[])
 		static struct option long_options[] = {
 			{"quiet", 0, 0, 'q'},
 			{"verbose", 0, 0, 'v'},
+			{"liveloop", 0, 0, 'l'},
 #if (EVMLOG_MODULE_TRACE != 0)
 			{"trace", 0, 0, 't'},
 #endif
@@ -157,13 +156,13 @@ static int usage_check(int argc, char *argv[])
 		};
 
 #if (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG != 0)
-		c = getopt_long(argc, argv, "qvtgnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvltgnsh", long_options, &option_index);
 #elif (EVMLOG_MODULE_TRACE == 0) && (EVMLOG_MODULE_DEBUG != 0)
-		c = getopt_long(argc, argv, "qvgnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvlgnsh", long_options, &option_index);
 #elif (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG == 0)
-		c = getopt_long(argc, argv, "qvtnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvltnsh", long_options, &option_index);
 #else
-		c = getopt_long(argc, argv, "qvnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvlnsh", long_options, &option_index);
 #endif
 		if (c == -1)
 			break;
@@ -175,6 +174,10 @@ static int usage_check(int argc, char *argv[])
 
 		case 'v':
 			evmlog_verbose = 1;
+			break;
+
+		case 'l':
+			demo_liveloop = 1;
 			break;
 
 #if (EVMLOG_MODULE_TRACE != 0)
@@ -222,6 +225,14 @@ static int usage_check(int argc, char *argv[])
 	return 0;
 }
 
+static evmStruct *evm;
+static evmTmridStruct *tmrid_idle_ptr;
+static evmTmridStruct *tmrid_quit_ptr;
+static evmMsgidStruct *msgid_hello_ptr;
+static evmMsgtypeStruct *msgtype_hello_ptr;
+
+static evmConsumerStruct **consumers;
+
 int main(int argc, char *argv[])
 {
 	usage_check(argc, argv);
@@ -252,12 +263,7 @@ int main(int argc, char *argv[])
 /*
  * The EVM part.
  */
-static int count = 0;
-
-/*
- * General EVM structure - required by evm_init() and evm_run():
- */
-static evm_init_struct evs_init[2];
+static int count = 0; /* common global counter shared beteen both threads */
 
 /*
  * Signal post-processing callback - optional for evm_init():
@@ -274,115 +280,105 @@ static int signal_processing(int sig, void *ptr)
 }
 
 /* HELLO messages */
-static char send_buff[MAX_BUFF_SIZE] = "";
-static char recv_buff[MAX_BUFF_SIZE] = "";
 static char *hello_str = "HELLO";
-evm_message_struct helloMsg;
+evmMessageStruct *helloMsg;
 
 /* HELLO timers */
-static evm_timer_struct *helloIdleTmr;
-static evm_timer_struct *helloQuitTmr;
+static evmTimerStruct *helloIdleTmr;
+static evmTimerStruct *helloQuitTmr;
 
-static evm_timer_struct * hello_start_timer(int evm_id, evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evm_evids_list_struct *tmrid_ptr)
+static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTimerStruct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evmTmridStruct *tmrid_ptr)
 {
-	evm_log_info("(entry) evm_id=%d, tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", evm_id, tmr, tv_sec, tv_nsec, ctx_ptr);
+	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
 	evm_timer_stop(tmr);
-	return evm_timer_start(&evs_init[evm_id], tmrid_ptr, tv_sec, tv_nsec, ctx_ptr);
+	return evm_timer_start(consumer_ptr, tmrid_ptr, tv_sec, tv_nsec, ctx_ptr);
 }
 
 /* HELLO event handlers */
-static int evHelloMsg(void *ev_ptr)
+static int evHelloMsg(void *msg_ptr)
 {
-	evm_message_struct *msg = (evm_message_struct *)ev_ptr;
-	evm_init_struct *evm_ptr = msg->msgtype_ptr->evm_ptr;
-	int evm_id = (long)evm_ptr->priv;
-#if 1
-	evm_evids_list_struct *tmrid_ptr;
+	struct iovec *iov_buff = NULL;
+	evmMessageStruct *msg = (evmMessageStruct *)msg_ptr;
+	evmConsumerStruct *loc_consumer_ptr;
+	evmConsumerStruct *rem_consumer_ptr;
+	evm_log_info("(cb entry) msg_ptr=%p\n", msg_ptr);
 
-	evm_log_info("(cb entry) ev_ptr=%p, evm_ptr=%p evm_id=%d\n", ev_ptr, evm_ptr, evm_id);
-	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)msg->iov_buff.iov_base);
+	if (msg == NULL)
+		return -1;
 
-	if ((tmrid_ptr = evm_tmrid_get(evm_ptr, EV_ID_HELLO_TMR_IDLE)) == NULL)
-		return -1;
-	helloIdleTmr = hello_start_timer(evm_id, NULL, 10, 0, NULL, tmrid_ptr);
-	evm_log_notice("IDLE timer set: 10 s\n");
-#else
-	evm_evids_list_struct *msgid_ptr;
-	evm_evtypes_list_struct *msgtype_ptr;
+	loc_consumer_ptr = evm_message_consumer_get(msg);
+	rem_consumer_ptr = (evmConsumerStruct *)evm_message_ctx_get(msg);
 
-	/* liveloop - 100 %CPU usage */
-	count++;
-	helloMsg.iov_buff.iov_base = (void *)send_buff;
-	sprintf((char *)helloMsg.iov_buff.iov_base, "%s: %u", hello_str, count);
-	evm_id = (evm_id + 1) % 2;
-#if 0 /*generic search for msg_id and msg_type pointers*/
-	if ((msgtype_ptr = evm_msgtype_get(&evs_init[evm_id], EV_TYPE_HELLO_MSG)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_get(msgtype_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)
-		return -1;
-	helloMsg.msgid_ptr = msgid_ptr;
-	helloMsg.msgtype_ptr = msgtype_ptr;
-#else /*prepared msg_id and msg_type pointers in a table*/
-	helloMsg.msgid_ptr = msgids_tab[evm_id][EV_ID_HELLO_MSG_HELLO];
-	helloMsg.msgtype_ptr = msgids_tab[evm_id][EV_ID_HELLO_MSG_HELLO]->evtype_ptr;
-#endif
-	evm_message_pass(&evs_init[evm_id], &helloMsg);
-#endif
+	if (demo_liveloop == 0) {
+		if ((iov_buff = evm_message_iovec_get(msg)) == NULL)
+			return -1;
+		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
+
+		helloIdleTmr = hello_start_timer(loc_consumer_ptr, NULL, 10, 0, (void *)rem_consumer_ptr, tmrid_idle_ptr);
+		evm_log_notice("IDLE timer set: 10 s\n");
+	} else {
+		/* liveloop - 100 %CPU usage */
+		/* Send HELLO message to another thread. */
+//		evm_log_notice("HELLO msg sent: \"%s%d\"\n", "HELLO: ", *(int *)loc_evm_ptr->priv + 1);
+		hello3_send_hello(loc_consumer_ptr, rem_consumer_ptr);
+	}
 
 	return 0;
 }
 
-static int evHelloTmrIdle(void *ev_ptr)
+static int evHelloTmrIdle(void *tmr_ptr)
 {
-	static unsigned int count;
 	int status = 0;
-	evm_init_struct *evm_ptr = ((evm_timer_struct *)ev_ptr)->evm_ptr;
-	int evm_id = (long)evm_ptr->priv;
+	evmTimerStruct *tmr = (evmTimerStruct *)tmr_ptr;
+	evmConsumerStruct *loc_consumer;
+	evmConsumerStruct *rem_consumer;
 
-	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
+	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+
+	if (tmr == NULL)
+		return -1;
+
 	evm_log_notice("IDLE timer expired!\n");
+	loc_consumer = evm_timer_consumer_get(tmr);
+	rem_consumer = (evmConsumerStruct *)evm_timer_ctx_get(tmr);
 
-	/* send from evm_id */
-	hello3_send_hello(evm_id);
+	hello3_send_hello(loc_consumer, rem_consumer);
 
 	return status;
 }
 
-static int evHelloTmrQuit(void *ev_ptr)
+static int evHelloTmrQuit(void *tmr_ptr)
 {
 	int status = 0;
-	evm_timer_struct *tmr = (evm_timer_struct *)ev_ptr;
+	evmTimerStruct *tmr = (evmTimerStruct *)tmr_ptr;
+	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
 
-	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
-	evm_log_notice("QUIT timer expired (%d messages sent)!\n", count);
+	if (tmr == NULL)
+		return -1;
+
+	printf("QUIT timer expired (%d messages sent)!\n", count);
 
 	exit(EXIT_SUCCESS);
 }
 
-static int hello3_send_hello(int evm_id)
+static int hello3_send_hello(evmConsumerStruct *loc_consumer_ptr, evmConsumerStruct *rem_consumer_ptr)
 {
-	evm_evids_list_struct *msgid_ptr;
-	evm_evtypes_list_struct *msgtype_ptr;
-	evm_log_info("(entry) from evm_id=%d\n", evm_id);
+	struct iovec *iov_buff = NULL;
 
-	/* Send HELLO message to another thread. */
+	evm_log_info("(entry) loc_consumer_ptr=%p, rem_consumer_ptr=%p\n", loc_consumer_ptr, rem_consumer_ptr);
+
+	if ((iov_buff = evm_message_iovec_get(helloMsg)) == NULL) {
+		return -1;
+	}
 	count++;
-	helloMsg.iov_buff.iov_base = (void *)send_buff;
-	sprintf((char *)helloMsg.iov_buff.iov_base, "%s: %u", hello_str, count);
-	evm_id = (evm_id + 1) % 2;
-#if 1 /*generic search for msg_id and msg_type pointers*/
-	if ((msgtype_ptr = evm_msgtype_get(&evs_init[evm_id], EV_TYPE_HELLO_MSG)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_get(msgtype_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)
-		return -1;
-	helloMsg.msgid_ptr = msgid_ptr;
-	helloMsg.msgtype_ptr = msgtype_ptr;
-#else /*prepared msg_id and msg_type pointers in a table*/
-	helloMsg.msgid_ptr = msgids_tab[evm_id][EV_ID_HELLO_MSG_HELLO];
-	helloMsg.msgtype_ptr = msgids_tab[evm_id][EV_ID_HELLO_MSG_HELLO]->evtype_ptr;
-#endif
-	evm_message_pass(&evs_init[evm_id], &helloMsg);
-	evm_log_notice("HELLO msg sent to evm_id=%d: \"%s\"\n", evm_id, (char *)helloMsg.iov_buff.iov_base);
+	sprintf((char *)iov_buff->iov_base, "%s: %u", hello_str, count);
+
+	evm_message_ctx_set(helloMsg, (void *)loc_consumer_ptr);
+	/* Send HELLO message to another thread. */
+	if (demo_liveloop == 0)
+		evm_log_notice("HELLO msg send: %s\n", (char *)iov_buff->iov_base);
+
+	evm_message_pass(rem_consumer_ptr, helloMsg);
 
 	return 0;
 }
@@ -390,173 +386,200 @@ static int hello3_send_hello(int evm_id)
 /* EVM initialization */
 static int hello3_evm_init(void)
 {
-	int status = 0;
-	evm_evids_list_struct *msgid_ptr;
-	evm_evtypes_list_struct *msgtype_ptr;
+	int rv = 0;
+	struct iovec *iov_buff = NULL;
 
-	evm_log_info("(entry) &evs_init[0]=%p, &evs_init[1]=%p\n", &evs_init[0], &evs_init[1]);
+	evm_log_info("(entry)\n");
 
-	/* Initialize event machine for the first thread... */
-	if ((msgtype_ptr = evm_msgtype_add(&evs_init[0], EV_TYPE_HELLO_MSG)) == NULL)
+	/* Prepare consumers table for 2 */
+	if ((consumers = (evmConsumerStruct **)calloc(2, sizeof(evmConsumerStruct *))) == NULL)
 		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN0)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN1)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN2)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN3)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN4)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN5)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN6)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN7)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN8)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN9)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN10)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN11)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN12)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN13)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN14)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN15)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN16)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN17)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN18)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)
-		return -1;
-	if (evm_msgid_handle_cb_set(msgid_ptr, evHelloMsg) < 0)
-		return -1;
-	msgids_tab[0][EV_ID_HELLO_MSG_HELLO] = msgid_ptr;
 
-	evs_init[0].priv = (void *)0;
-	evs_init[0].evm_sigpost = &evs_sigpost;
-	if ((status = evm_init(&evs_init[0])) < 0) {
-		return status;
-	}
-
-	/* Initialize event machine for the second thread... */
-	if ((msgtype_ptr = evm_msgtype_add(&evs_init[1], EV_TYPE_HELLO_MSG)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN0)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN1)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN2)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN3)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN4)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN5)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN6)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN7)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN8)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN9)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN10)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN11)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN12)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN13)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN14)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN15)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN16)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN17)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_UNKNOWN18)) == NULL)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)
-		return -1;
-	if (evm_msgid_handle_cb_set(msgid_ptr, evHelloMsg) < 0)
-		return -1;
-	msgids_tab[1][EV_ID_HELLO_MSG_HELLO] = msgid_ptr;
-
-	evs_init[1].priv = (void *)1;
-	evs_init[1].evm_sigpost = &evs_sigpost;
-	if ((status = evm_init(&evs_init[1])) < 0) {
-		return status;
+	/* Initialize event machine... */
+	if ((evm = evm_init()) != NULL) {
+		if (evm_sigpost_set(evm, &evs_sigpost) != 0) {
+			evm_log_error("evm_sigpost_set() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((consumers[0] = evm_consumer_add(evm, EVM_CONSUMER_ID_0)) == NULL)) {
+			evm_log_error("evm_consumer_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgtype_hello_ptr = evm_msgtype_add(evm, EV_TYPE_HELLO_MSG)) == NULL)) {
+			evm_log_error("evm_msgtype_add() failed!\n");
+			rv = -1;
+		}
+#if 1
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN0)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN1)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN2)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN3)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN4)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN5)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN6)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN7)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN8)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN9)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN10)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN11)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN12)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN13)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN14)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN15)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN16)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN17)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_UNKNOWN18)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+#endif
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && (evm_msgid_cb_handle_set(msgid_hello_ptr, evHelloMsg) < 0)) {
+			evm_log_error("evm_msgid_cb_handle() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((helloMsg = evm_message_new(msgtype_hello_ptr, msgid_hello_ptr)) == NULL)) {
+			evm_log_error("evm_message_new() failed!\n");
+			rv = -1;
+		}
+		if (rv == 0) {
+			if ((iov_buff = (struct iovec *)calloc(1, sizeof(struct iovec))) == NULL)
+				return -1;
+			if ((iov_buff->iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL) {
+				free(iov_buff);
+				return -1;
+			}
+			rv = evm_message_iovec_set(helloMsg, iov_buff);
+		}
+		if ((rv == 0) && ((tmrid_idle_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_IDLE)) == NULL)) {
+			evm_log_error("evm_tmrid_add() failed!\n");
+			return -1;
+		}
+		if ((rv == 0) && (evm_tmrid_cb_handle_set(tmrid_idle_ptr, evHelloTmrIdle) < 0)) {
+			evm_log_error("evm_tmrid_cb_handle() failed!\n");
+			return -1;
+		}
+		if ((rv == 0) && ((tmrid_quit_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_QUIT)) == NULL)) {
+			evm_log_error("evm_tmrid_add() failed!\n");
+			return -1;
+		}
+		if ((rv == 0) && (evm_tmrid_cb_handle_set(tmrid_quit_ptr, evHelloTmrQuit) < 0)) {
+			evm_log_error("evm_tmrid_cb_handle() failed!\n");
+			return -1;
+		}
+	} else {
+		evm_log_error("evm_init() failed!\n");
+		rv = -1;
 	}
 
 	evm_log_info("(exit)\n");
-	return 0;
+	return rv;
 }
 
 /* Main core processing (event loop) */
 static void * hello3_second_thread_start(void *arg)
 {
+	evmConsumerStruct *consumer_ptr;
 	evm_log_info("(entry)\n");
 
-	/* Send first HELLO to the other thread - from thread 1! */
-	hello3_send_hello(1);
+	if (arg == NULL)
+		return NULL;
+
+	consumer_ptr = (evmConsumerStruct *)arg;
+	evm_consumer_priv_set(consumer_ptr, (void *)&count);
+	/* Send initial HELLO to the first thread! */
+	hello3_send_hello(consumer_ptr, consumers[0]);
 
 	/*
-	 * Main EVM processing (thread event loop - thread 1)
+	 * Second thread EVM processing (event loop)
 	 */
-	evm_run(&evs_init[1]);
+	evm_run(consumer_ptr);
 	return NULL;
 }
 
 static int hello3_evm_run(void)
 {
-	int status = 0;
+	int rv = 0;
 	pthread_attr_t attr;
 	pthread_t second_thread;
-	evm_evids_list_struct *tmrid_ptr;
-
 	evm_log_info("(entry)\n");
 
-	/* Prepare IDLE timers */
-	if ((tmrid_ptr = evm_tmrid_add(&evs_init[0], EV_ID_HELLO_TMR_IDLE)) == NULL)
-		return -1;
-	if (evm_tmrid_handle_cb_set(tmrid_ptr, evHelloTmrIdle) < 0)
-		return -1;
-	if ((tmrid_ptr = evm_tmrid_add(&evs_init[1], EV_ID_HELLO_TMR_IDLE)) == NULL)
-		return -1;
-	if (evm_tmrid_handle_cb_set(tmrid_ptr, evHelloTmrIdle) < 0)
-		return -1;
+	evm_consumer_priv_set(consumers[0], (void *)&count);
 
-	if ((status = pthread_attr_init(&attr)) != 0)
+	/* Start initial QUIT timer */
+	helloQuitTmr = hello_start_timer(consumers[0], NULL, 60, 0, NULL, tmrid_quit_ptr);
+	printf("QUIT timer set: 60 s\n");
+
+	if ((rv = pthread_attr_init(&attr)) != 0)
 		evm_log_return_system_err("pthread_attr_init()\n");
 
-	if ((status = pthread_create(&second_thread, &attr, &hello3_second_thread_start, NULL)) != 0)
+	if ((rv == 0) && ((consumers[1] = evm_consumer_add(evm, 1)) == NULL)) {
+		evm_log_error("evm_consumer_add() failed!\n");
+		rv = -1;
+	}
+	if ((rv = pthread_create(&second_thread, &attr, hello3_second_thread_start, (void *)consumers[1])) != 0)
 		evm_log_return_system_err("pthread_create()\n");
 
-	/* Set initial QUIT timer */
-	if ((tmrid_ptr = evm_tmrid_add(&evs_init[0], EV_ID_HELLO_TMR_QUIT)) == NULL)
-		return -1;
-	if (evm_tmrid_handle_cb_set(tmrid_ptr, evHelloTmrQuit) < 0)
-		return -1;
-	helloQuitTmr = hello_start_timer(0, NULL, 60, 0, NULL, tmrid_ptr);
-	evm_log_notice("QUIT timer set: 60 s\n");
-
 	/*
-	 * Main EVM processing (event loop)
+	 * Main thread EVM processing (event loop)
 	 */
-	return evm_run(&evs_init[0]);
+	return evm_run(consumers[0]);
 }
 
