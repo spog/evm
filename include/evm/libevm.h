@@ -39,14 +39,22 @@ extern unsigned int evm_version_major;
 extern unsigned int evm_version_minor;
 extern unsigned int evm_version_patch;
 
-typedef void evmStruct;
-typedef void evmMsgtypeStruct;
-typedef void evmMsgidStruct;
-typedef void evmTmridStruct;
-typedef void evmConsumerStruct;
-typedef void evmTopicStruct;
-typedef void evmTimerStruct;
-typedef void evmMessageStruct;
+struct evm;
+struct evm_msgtype;
+struct evm_msgid;
+struct evm_tmrid;
+struct evm_consumer;
+struct evm_topic;
+struct evm_message;
+struct evm_timer;
+typedef struct evm evmStruct;
+typedef struct evm_msgtype evmMsgtypeStruct;
+typedef struct evm_msgid evmMsgidStruct;
+typedef struct evm_tmrid evmTmridStruct;
+typedef struct evm_consumer evmConsumerStruct;
+typedef struct evm_topic evmTopicStruct;
+typedef struct evm_message evmMessageStruct;
+typedef struct evm_timer evmTimerStruct;
 
 /*User provided signal post-handling EVM callbacks!*/
 struct evm_sigpost {

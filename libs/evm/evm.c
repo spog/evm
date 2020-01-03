@@ -66,71 +66,71 @@ static int handle_message(evm_message_struct *recvdMsg);
  *
  * Main event machine initialization
  */
-evmTopicStruct * evm_init(void)
+evmStruct * evm_init(void)
 {
-	evm_struct *evmptr = NULL;
+	evmStruct *evm = NULL;
 
-	if ((evmptr = calloc(1, sizeof(evm_struct))) == NULL) {
+	if ((evm = calloc(1, sizeof(evmStruct))) == NULL) {
 		errno = ENOMEM;
-		evm_log_system_error("calloc(): (evm_struct)evmptr\n");
+		evm_log_system_error("calloc(): (evm_struct)evm\n");
 	}
-	if (evmptr != NULL) {
-		if ((evmptr->msgtypes_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
+	if (evm != NULL) {
+		if ((evm->msgtypes_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): (evmlist_head_struct)evmptr->msgtypes_list\n");
-			free(evmptr);
-			evmptr = NULL;
+			evm_log_system_error("calloc(): (evmlist_head_struct)evm->msgtypes_list\n");
+			free(evm);
+			evm = NULL;
 		} else {
-			pthread_mutex_init(&evmptr->msgtypes_list->access_mutex, NULL);
-			pthread_mutex_unlock(&evmptr->msgtypes_list->access_mutex);
+			pthread_mutex_init(&evm->msgtypes_list->access_mutex, NULL);
+			pthread_mutex_unlock(&evm->msgtypes_list->access_mutex);
 		}
 	}
-	if (evmptr != NULL) {
-		if ((evmptr->tmrids_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
+	if (evm != NULL) {
+		if ((evm->tmrids_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): (evmlist_head_struct)evmptr->tmrids_list\n");
-			free(evmptr->msgtypes_list);
-			evmptr->msgtypes_list = NULL;
-			free(evmptr);
-			evmptr = NULL;
+			evm_log_system_error("calloc(): (evmlist_head_struct)evm->tmrids_list\n");
+			free(evm->msgtypes_list);
+			evm->msgtypes_list = NULL;
+			free(evm);
+			evm = NULL;
 		} else {
-			pthread_mutex_init(&evmptr->tmrids_list->access_mutex, NULL);
-			pthread_mutex_unlock(&evmptr->tmrids_list->access_mutex);
+			pthread_mutex_init(&evm->tmrids_list->access_mutex, NULL);
+			pthread_mutex_unlock(&evm->tmrids_list->access_mutex);
 		}
 	}
-	if (evmptr != NULL) {
-		if ((evmptr->consumers_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
+	if (evm != NULL) {
+		if ((evm->consumers_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): (evmlist_head_struct)evmptr->consumers_list\n");
-			free(evmptr->tmrids_list);
-			evmptr->tmrids_list = NULL;
-			free(evmptr->msgtypes_list);
-			evmptr->msgtypes_list = NULL;
-			free(evmptr);
-			evmptr = NULL;
+			evm_log_system_error("calloc(): (evmlist_head_struct)evm->consumers_list\n");
+			free(evm->tmrids_list);
+			evm->tmrids_list = NULL;
+			free(evm->msgtypes_list);
+			evm->msgtypes_list = NULL;
+			free(evm);
+			evm = NULL;
 		} else {
-			pthread_mutex_init(&evmptr->consumers_list->access_mutex, NULL);
-			pthread_mutex_unlock(&evmptr->consumers_list->access_mutex);
+			pthread_mutex_init(&evm->consumers_list->access_mutex, NULL);
+			pthread_mutex_unlock(&evm->consumers_list->access_mutex);
 		}
 	}
-	if (evmptr != NULL) {
-		if ((evmptr->topics_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
+	if (evm != NULL) {
+		if ((evm->topics_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): (evmlist_head_struct)evmptr->topics_list\n");
-			free(evmptr->consumers_list);
-			evmptr->consumers_list = NULL;
-			free(evmptr->tmrids_list);
-			evmptr->tmrids_list = NULL;
-			free(evmptr->msgtypes_list);
-			evmptr->msgtypes_list = NULL;
-			free(evmptr);
-			evmptr = NULL;
+			evm_log_system_error("calloc(): (evmlist_head_struct)evm->topics_list\n");
+			free(evm->consumers_list);
+			evm->consumers_list = NULL;
+			free(evm->tmrids_list);
+			evm->tmrids_list = NULL;
+			free(evm->msgtypes_list);
+			evm->msgtypes_list = NULL;
+			free(evm);
+			evm = NULL;
 		} else {
-			pthread_mutex_init(&evmptr->topics_list->access_mutex, NULL);
-			pthread_mutex_unlock(&evmptr->topics_list->access_mutex);
+			pthread_mutex_init(&evm->topics_list->access_mutex, NULL);
+			pthread_mutex_unlock(&evm->topics_list->access_mutex);
 		}
 	}
-	return (evmTopicStruct *)evmptr;
+	return evm;
 }
 
 /*
@@ -179,15 +179,14 @@ evmlist_el_struct * evm_new_evmlist_el(int id)
  */
 evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id)
 {
-	evm_struct *evmptr = (evm_struct *)evm;
-	evm_consumer_struct *consumer = NULL;
+	evmConsumerStruct *consumer = NULL;
 	evmlist_el_struct *tmp, *new;
 	evm_log_info("(entry) evm=%p, id=%d\n", evm, id);
 
-	if (evmptr != NULL) {
-		if (evmptr->consumers_list != NULL) {
-			pthread_mutex_lock(&evmptr->consumers_list->access_mutex);
-			tmp = evm_walk_evmlist(evmptr->consumers_list, id);
+	if (evm != NULL) {
+		if (evm->consumers_list != NULL) {
+			pthread_mutex_lock(&evm->consumers_list->access_mutex);
+			tmp = evm_walk_evmlist(evm->consumers_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				consumer = (evm_consumer_struct *)tmp->el;
@@ -202,7 +201,7 @@ evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id)
 						new = NULL;
 					}
 					if (consumer != NULL) {
-						consumer->evm = evmptr;
+						consumer->evm = evm;
 						consumer->id = id;
 						if (sem_init(&consumer->blocking_sem, 0, 0) != 0) {
 							free(consumer);
@@ -238,47 +237,45 @@ evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id)
 					if (tmp != NULL)
 						tmp->next = new;
 					else
-						evmptr->consumers_list->first = new;
+						evm->consumers_list->first = new;
 				}
 			}
-			pthread_mutex_unlock(&evmptr->consumers_list->access_mutex);
+			pthread_mutex_unlock(&evm->consumers_list->access_mutex);
 		}	
 	}
-	return (evmConsumerStruct *)consumer;
+	return consumer;
 }
 
 evmConsumerStruct * evm_consumer_get(evmStruct *evm, int id)
 {
-	evm_struct *evmptr = (evm_struct *)evm;
-	evm_consumer_struct *consumer = NULL;
+	evmConsumerStruct *consumer = NULL;
 	evmlist_el_struct *tmp;
 	evm_log_info("(entry)\n");
 
-	if (evmptr != NULL) {
-		if (evmptr->consumers_list != NULL) {
-			pthread_mutex_lock(&evmptr->consumers_list->access_mutex);
-			tmp = evm_walk_evmlist(evmptr->consumers_list, id);
+	if (evm != NULL) {
+		if (evm->consumers_list != NULL) {
+			pthread_mutex_lock(&evm->consumers_list->access_mutex);
+			tmp = evm_walk_evmlist(evm->consumers_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				consumer = (evm_consumer_struct *)tmp->el;
 			}
-			pthread_mutex_unlock(&evmptr->consumers_list->access_mutex);
+			pthread_mutex_unlock(&evm->consumers_list->access_mutex);
 		}	
 	}
-	return (evmConsumerStruct *)consumer;
+	return consumer;
 }
 
 evmConsumerStruct * evm_consumer_del(evmStruct *evm, int id)
 {
-	evm_struct *evmptr = (evm_struct *)evm;
-	evm_consumer_struct *consumer = NULL;
+	evmConsumerStruct *consumer = NULL;
 	evmlist_el_struct *tmp;
 	evm_log_info("(entry)\n");
 
-	if (evmptr != NULL) {
-		if (evmptr->consumers_list != NULL) {
-			pthread_mutex_lock(&evmptr->consumers_list->access_mutex);
-			tmp = evm_walk_evmlist(evmptr->consumers_list, id);
+	if (evm != NULL) {
+		if (evm->consumers_list != NULL) {
+			pthread_mutex_lock(&evm->consumers_list->access_mutex);
+			tmp = evm_walk_evmlist(evm->consumers_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				consumer = (evm_consumer_struct *)tmp->el;
@@ -291,10 +288,10 @@ evmConsumerStruct * evm_consumer_del(evmStruct *evm, int id)
 				free(tmp);
 				tmp = NULL;
 			}
-			pthread_mutex_unlock(&evmptr->consumers_list->access_mutex);
+			pthread_mutex_unlock(&evm->consumers_list->access_mutex);
 		}	
 	}
-	return (evmConsumerStruct *)consumer;
+	return consumer;
 }
 
 /*
@@ -305,15 +302,14 @@ evmConsumerStruct * evm_consumer_del(evmStruct *evm, int id)
  */
 evmTopicStruct * evm_topic_add(evmStruct *evm, int id)
 {
-	evm_struct *evmptr = (evm_struct *)evm;
-	evm_topic_struct *topic = NULL;
+	evmTopicStruct *topic = NULL;
 	evmlist_el_struct *tmp, *new;
 	evm_log_info("(entry)\n");
 
-	if (evmptr != NULL) {
-		if (evmptr->topics_list != NULL) {
-			pthread_mutex_lock(&evmptr->topics_list->access_mutex);
-			tmp = evm_walk_evmlist(evmptr->topics_list, id);
+	if (evm != NULL) {
+		if (evm->topics_list != NULL) {
+			pthread_mutex_lock(&evm->topics_list->access_mutex);
+			tmp = evm_walk_evmlist(evm->topics_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				topic = (evm_topic_struct *)tmp->el;
@@ -328,7 +324,7 @@ evmTopicStruct * evm_topic_add(evmStruct *evm, int id)
 						new = NULL;
 					}
 					if (topic != NULL) {
-						topic->evm = evmptr;
+						topic->evm = evm;
 						topic->id = id;
 						sem_init(&topic->blocking_sem, 0, 0);
 						/*prepare per topic msgs queue here*/
@@ -341,47 +337,45 @@ evmTopicStruct * evm_topic_add(evmStruct *evm, int id)
 					if (tmp != NULL)
 						tmp->next = new;
 					else
-						evmptr->topics_list->first = new;
+						evm->topics_list->first = new;
 				}
 			}
-			pthread_mutex_unlock(&evmptr->topics_list->access_mutex);
+			pthread_mutex_unlock(&evm->topics_list->access_mutex);
 		}	
 	}
-	return (evmConsumerStruct *)topic;
+	return topic;
 }
 
 evmTopicStruct * evm_topic_get(evmStruct *evm, int id)
 {
-	evm_struct *evmptr = (evm_struct *)evm;
-	evm_topic_struct *topic = NULL;
+	evmTopicStruct *topic = NULL;
 	evmlist_el_struct *tmp;
 	evm_log_info("(entry)\n");
 
-	if (evmptr != NULL) {
-		if (evmptr->topics_list != NULL) {
-			pthread_mutex_lock(&evmptr->topics_list->access_mutex);
-			tmp = evm_walk_evmlist(evmptr->topics_list, id);
+	if (evm != NULL) {
+		if (evm->topics_list != NULL) {
+			pthread_mutex_lock(&evm->topics_list->access_mutex);
+			tmp = evm_walk_evmlist(evm->topics_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				topic = (evm_topic_struct *)tmp->el;
 			}
-			pthread_mutex_unlock(&evmptr->topics_list->access_mutex);
+			pthread_mutex_unlock(&evm->topics_list->access_mutex);
 		}	
 	}
-	return (evmTopicStruct *)topic;
+	return topic;
 }
 
 evmTopicStruct * evm_topic_del(evmStruct *evm, int id)
 {
-	evm_struct *evmptr = (evm_struct *)evm;
-	evm_topic_struct *topic = NULL;
+	evmTopicStruct *topic = NULL;
 	evmlist_el_struct *tmp;
 	evm_log_info("(entry)\n");
 
-	if (evmptr != NULL) {
-		if (evmptr->topics_list != NULL) {
-			pthread_mutex_lock(&evmptr->topics_list->access_mutex);
-			tmp = evm_walk_evmlist(evmptr->topics_list, id);
+	if (evm != NULL) {
+		if (evm->topics_list != NULL) {
+			pthread_mutex_lock(&evm->topics_list->access_mutex);
+			tmp = evm_walk_evmlist(evm->topics_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				topic = (evm_topic_struct *)tmp->el;
@@ -394,10 +388,10 @@ evmTopicStruct * evm_topic_del(evmStruct *evm, int id)
 				free(tmp);
 				tmp = NULL;
 			}
-			pthread_mutex_unlock(&evmptr->topics_list->access_mutex);
+			pthread_mutex_unlock(&evm->topics_list->access_mutex);
 		}	
 	}
-	return (evmTopicStruct *)topic;
+	return topic;
 }
 
 /*
@@ -409,46 +403,43 @@ evmTopicStruct * evm_topic_del(evmStruct *evm, int id)
 int evm_priv_set(evmStruct *evm, void *priv)
 {
 	int rv = 0;
-	evm_struct *evm_ptr = (evm_struct *)evm;
 	evm_log_info("(entry)\n");
 
-	if (evm_ptr == NULL)
+	if (evm == NULL)
 		return -1;
 
 	if (priv == NULL)
 		return -1;
 
 	if (rv == 0) {
-		evm_ptr->priv = priv;
+		evm->priv = priv;
 	}
 	return rv;
 }
 
 void * evm_priv_get(evmStruct *evm)
 {
-	evm_struct *evm_ptr = (evm_struct *)evm;
 	evm_log_info("(entry)\n");
 
-	if (evm_ptr == NULL)
+	if (evm == NULL)
 		return NULL;
 
-	return (evm_ptr->priv);
+	return (evm->priv);
 }
 
 int evm_sigpost_set(evmStruct *evm, evm_sigpost_struct *sigpost)
 {
 	int rv = 0;
-	evm_struct *evm_ptr = (evm_struct *)evm;
 	evm_log_info("(entry)\n");
 
-	if (evm_ptr == NULL)
+	if (evm == NULL)
 		return -1;
 
 	if (sigpost == NULL)
 		return -1;
 
 	if (rv == 0) {
-		evm_ptr->evm_sigpost = sigpost;
+		evm->evm_sigpost = sigpost;
 	}
 	return rv;
 }
@@ -466,10 +457,9 @@ int evm_run_once(evmConsumerStruct *consumer)
 	int status = 0;
 	evm_timer_struct *expdTmr;
 	evm_message_struct *recvdMsg;
-	evm_consumer_struct *consumer_ptr = (evm_consumer_struct *)consumer;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr == NULL) {
+	if (consumer == NULL) {
 		evm_log_error("Event machine consumer object undefined!\n");
 		abort();
 	}
@@ -478,7 +468,7 @@ int evm_run_once(evmConsumerStruct *consumer)
 	for (;;) {
 		evm_log_info("(main loop entry)\n");
 		/* Handle expired timer (NON-BLOCKING). */
-		if ((expdTmr = timers_check(consumer_ptr)) != NULL) {
+		if ((expdTmr = timers_check(consumer)) != NULL) {
 			if ((status = handle_timer(expdTmr)) < 0)
 				evm_log_debug("handle_timer() returned %d\n", status);
 		} else
@@ -486,7 +476,7 @@ int evm_run_once(evmConsumerStruct *consumer)
 	}
 
 	/* Handle handle received message (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
-	if ((recvdMsg = messages_check(consumer_ptr)) != NULL) {
+	if ((recvdMsg = messages_check(consumer)) != NULL) {
 		if ((status = handle_message(recvdMsg)) < 0)
 			evm_log_debug("handle_message() returned %d\n", status);
 	}
@@ -500,18 +490,17 @@ int evm_run_once(evmConsumerStruct *consumer)
 int evm_run_async(evmConsumerStruct *consumer)
 {
 	sem_t *bsem;
-	evm_consumer_struct *consumer_ptr = (evm_consumer_struct *)consumer;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr == NULL) {
+	if (consumer == NULL) {
 		evm_log_error("Event machine consumer object undefined!\n");
 		abort();
 	}
 
-	bsem = &consumer_ptr->blocking_sem;
+	bsem = &consumer->blocking_sem;
 	evm_log_info("Post blocking semaphore (UNBLOCK - prevent blocking)\n");
 	sem_post(bsem);
-	return evm_run_once(consumer_ptr);
+	return evm_run_once(consumer);
 }
 
 /*
@@ -522,10 +511,9 @@ int evm_run(evmConsumerStruct *consumer)
 	int status = 0;
 	evm_timer_struct *expdTmr;
 	evm_message_struct *recvdMsg;
-	evm_consumer_struct *consumer_ptr = (evm_consumer_struct *)consumer;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr == NULL) {
+	if (consumer == NULL) {
 		evm_log_error("Event machine consumer object undefined!\n");
 		abort();
 	}
@@ -534,14 +522,14 @@ int evm_run(evmConsumerStruct *consumer)
 	for (;;) {
 		evm_log_info("(main loop entry)\n");
 		/* Handle expired timer (NON-BLOCKING). */
-		if ((expdTmr = timers_check(consumer_ptr)) != NULL) {
+		if ((expdTmr = timers_check(consumer)) != NULL) {
 			if ((status = handle_timer(expdTmr)) < 0)
 				evm_log_debug("handle_timer() returned %d\n", status);
 			continue;
 		}
 
 		/* Handle handle received message (WAIT - THE ONLY BLOCKING POINT). */
-		if ((recvdMsg = messages_check(consumer_ptr)) != NULL) {
+		if ((recvdMsg = messages_check(consumer)) != NULL) {
 			if ((status = handle_message(recvdMsg)) < 0)
 				evm_log_debug("handle_message() returned %d\n", status);
 		}
@@ -558,30 +546,28 @@ int evm_run(evmConsumerStruct *consumer)
 int evm_consumer_priv_set(evmConsumerStruct *consumer, void *priv)
 {
 	int rv = 0;
-	evm_consumer_struct *consumer_ptr = (evm_consumer_struct *)consumer;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr == NULL)
+	if (consumer == NULL)
 		return -1;
 
 	if (priv == NULL)
 		return -1;
 
 	if (rv == 0) {
-		consumer_ptr->priv = priv;
+		consumer->priv = priv;
 	}
 	return rv;
 }
 
 void * evm_consumer_priv_get(evmConsumerStruct *consumer)
 {
-	evm_consumer_struct *consumer_ptr = (evm_consumer_struct *)consumer;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr == NULL)
+	if (consumer == NULL)
 		return NULL;
 
-	return (consumer_ptr->priv);
+	return (consumer->priv);
 }
 
 static int prepare_msg(evm_msgid_struct *msgid, void *msg)

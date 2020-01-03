@@ -414,15 +414,14 @@ evm_timer_struct * timers_check(evm_consumer_struct *consumer_ptr)
  */
 evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id)
 {
-	evm_struct *evmptr = (evm_struct *)evm;
-	evm_tmrid_struct *tmrid = NULL;
+	evmTmridStruct *tmrid = NULL;
 	evmlist_el_struct *tmp, *new;
 	evm_log_info("(entry)\n");
 
-	if (evmptr != NULL) {
-		if (evmptr->tmrids_list != NULL) {
-			pthread_mutex_lock(&evmptr->tmrids_list->access_mutex);
-			tmp = evm_walk_evmlist(evmptr->tmrids_list, id);
+	if (evm != NULL) {
+		if (evm->tmrids_list != NULL) {
+			pthread_mutex_lock(&evm->tmrids_list->access_mutex);
+			tmp = evm_walk_evmlist(evm->tmrids_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				tmrid = (evm_tmrid_struct *)tmp->el;
@@ -437,7 +436,7 @@ evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id)
 						new = NULL;
 					}
 					if (tmrid != NULL) {
-						tmrid->evm = evmptr;
+						tmrid->evm = evm;
 						tmrid->id = id;
 						tmrid->tmr_handle = NULL;
 						tmrid->tmr_finalize = evm_timer_finalize;
@@ -451,49 +450,47 @@ evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id)
 					if (tmp != NULL)
 						tmp->next = new;
 					else
-						evmptr->tmrids_list->first = new;
+						evm->tmrids_list->first = new;
 				}
 			}
-			pthread_mutex_unlock(&evmptr->tmrids_list->access_mutex);
+			pthread_mutex_unlock(&evm->tmrids_list->access_mutex);
 		}
 	}
-	return (evmTmridStruct *)tmrid;
+	return tmrid;
 }
 
 evmTmridStruct * evm_tmrid_get(evmStruct *evm, int id)
 {
-	evm_struct *evmptr = (evm_struct *)evm;
-	evm_tmrid_struct *tmrid = NULL;
+	evmTmridStruct *tmrid = NULL;
 	evmlist_el_struct *tmp;
 	evm_log_info("(entry)\n");
 
-	if (evmptr != NULL) {
-		if (evmptr->tmrids_list != NULL) {
-			pthread_mutex_lock(&evmptr->tmrids_list->access_mutex);
-			tmp = evm_walk_evmlist(evmptr->tmrids_list, id);
+	if (evm != NULL) {
+		if (evm->tmrids_list != NULL) {
+			pthread_mutex_lock(&evm->tmrids_list->access_mutex);
+			tmp = evm_walk_evmlist(evm->tmrids_list, id);
 			evm_log_debug("tmp=%p\n", tmp);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				tmrid = (evm_tmrid_struct *)tmp->el;
 			}
-			pthread_mutex_unlock(&evmptr->tmrids_list->access_mutex);
+			pthread_mutex_unlock(&evm->tmrids_list->access_mutex);
 		}
 	}
 	evm_log_debug("tmrid=%p\n", tmrid);
-	return (evmTmridStruct *)tmrid;
+	return tmrid;
 }
 
 evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id)
 {
-	evm_struct *evmptr = (evm_struct *)evm;
-	evm_tmrid_struct *tmrid = NULL;
+	evmTmridStruct *tmrid = NULL;
 	evmlist_el_struct *tmp;
 	evm_log_info("(entry)\n");
 
-	if (evmptr != NULL) {
-		if (evmptr->tmrids_list != NULL) {
-			pthread_mutex_lock(&evmptr->tmrids_list->access_mutex);
-			tmp = evm_walk_evmlist(evmptr->tmrids_list, id);
+	if (evm != NULL) {
+		if (evm->tmrids_list != NULL) {
+			pthread_mutex_lock(&evm->tmrids_list->access_mutex);
+			tmp = evm_walk_evmlist(evm->tmrids_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				tmrid = (evm_tmrid_struct *)tmp->el;
@@ -506,10 +503,10 @@ evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id)
 				free(tmp);
 				tmp = NULL;
 			}
-			pthread_mutex_unlock(&evmptr->tmrids_list->access_mutex);
+			pthread_mutex_unlock(&evm->tmrids_list->access_mutex);
 		}
 	}
-	return (evmTmridStruct *)tmrid;
+	return tmrid;
 }
 
 /*
@@ -520,17 +517,16 @@ evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id)
 int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(void *ptr))
 {
 	int rv = 0;
-	evm_tmrid_struct *tmrid_ptr = (evm_tmrid_struct *)tmrid;
 	evm_log_info("(entry)\n");
 
-	if (tmrid_ptr == NULL)
+	if (tmrid == NULL)
 		return -1;
 
 	if (tmr_handle == NULL)
 		return -1;
 
 	if (rv == 0) {
-		tmrid_ptr->tmr_handle = tmr_handle;
+		tmrid->tmr_handle = tmr_handle;
 	}
 	return rv;
 }
@@ -538,17 +534,16 @@ int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(void *ptr))
 int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(void *ptr))
 {
 	int rv = 0;
-	evm_tmrid_struct *tmrid_ptr = (evm_tmrid_struct *)tmrid;
 	evm_log_info("(entry)\n");
 
-	if (tmrid_ptr == NULL)
+	if (tmrid == NULL)
 		return -1;
 
 	if (tmr_finalize == NULL)
 		return -1;
 
 	if (rv == 0) {
-		tmrid_ptr->tmr_finalize = tmr_finalize;
+		tmrid->tmr_finalize = tmr_finalize;
 	}
 	return rv;
 }
@@ -563,22 +558,21 @@ int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(void *p
 evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tmrid, time_t tv_sec, long tv_nsec, void *ctx_ptr)
 {
 	struct itimerspec its;
-	evm_timer_struct *new, *prev, *tmr;
-	evm_consumer_struct *consumer_ptr = (evm_consumer_struct *)consumer;
-	evm_tmrid_struct *tmrid_ptr = (evm_tmrid_struct *)tmrid;
+	evmTimerStruct *new;
+	evm_timer_struct *prev, *tmr;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr == NULL) {
+	if (consumer == NULL) {
 		evm_log_error("Event machine consumer object undefined!\n");
 		return NULL;
 	}
 
-	if (tmrid_ptr == NULL) {
+	if (tmrid == NULL) {
 		evm_log_error("Event machine tmrid object undefined!\n");
 		return NULL;
 	}
 
-	new = (evm_timer_struct *)calloc(1, sizeof(evm_timer_struct));
+	new = (evmTimerStruct *)calloc(1, sizeof(evmTimerStruct));
 	if (new == NULL) {
 		errno = ENOMEM;
 		return NULL;
@@ -586,8 +580,8 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 
 	evm_log_debug("New timer ptr=%p\n", (void *)new);
 
-	new->tmrid = tmrid_ptr;
-	new->consumer = consumer_ptr;
+	new->tmrid = tmrid;
+	new->consumer = consumer;
 	new->saved = 0;
 	new->stopped = 0;
 	new->ctx = ctx_ptr;
@@ -621,7 +615,7 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 
 		global_tmrs_queue.first_tmr = new;
 		pthread_mutex_unlock(&global_timer_mutex);
-		return (evmTimerStruct *)new;
+		return new;
 	}
 
 	prev = tmr;
@@ -648,7 +642,7 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 				prev->next = new;
 
 			pthread_mutex_unlock(&global_timer_mutex);
-			return (evmTimerStruct *)new;
+			return new;
 		}
 
 		prev = tmr;
@@ -659,42 +653,39 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 	prev->next = new;
 	pthread_mutex_unlock(&global_timer_mutex);
 
-	return (evmTimerStruct *)new;
+	return new;
 }
 
 int evm_timer_stop(evmTimerStruct *timer)
 {
-	evm_timer_struct *timer_ptr = (evm_timer_struct *)timer;
 	evm_log_info("(entry)\n");
 
-	if (timer_ptr == NULL)
+	if (timer == NULL)
 		return -1;
 
-	timer_ptr->stopped = 1;
+	timer->stopped = 1;
 
 	return 0;
 }
 
 evmConsumerStruct * evm_timer_consumer_get(evmTimerStruct *tmr)
 {
-	evm_timer_struct *tmr_ptr = (evm_timer_struct *)tmr;
 	evm_log_info("(entry)\n");
 
-	if (tmr_ptr == NULL)
+	if (tmr == NULL)
 		return NULL;
 
-	return (evmConsumerStruct *)(tmr_ptr->consumer);
+	return tmr->consumer;
 }
 
 void * evm_timer_ctx_get(evmTimerStruct *tmr)
 {
-	evm_timer_struct *tmr_ptr = (evm_timer_struct *)tmr;
 	evm_log_info("(entry)\n");
 
-	if (tmr_ptr == NULL)
+	if (tmr == NULL)
 		return NULL;
 
-	return (tmr_ptr->ctx);
+	return tmr->ctx;
 }
 
 /*
@@ -703,15 +694,15 @@ void * evm_timer_ctx_get(evmTimerStruct *tmr)
  */
 int evm_timer_finalize(void *ptr)
 {
-	evm_timer_struct *timer_ptr = (evm_timer_struct *)ptr;
+	evm_timer_struct *timer = (evm_timer_struct *)ptr;
 	evm_log_info("(cb entry) ptr=%p\n", ptr);
 
-	if (timer_ptr == NULL)
+	if (timer == NULL)
 		return -1;
 
-	if (timer_ptr->saved == 0) {
-		free(timer_ptr);
-		timer_ptr = NULL;
+	if (timer->saved == 0) {
+		free(timer);
+		timer = NULL;
 	}
 
 	return 0;
