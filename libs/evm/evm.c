@@ -164,9 +164,10 @@ evmlist_el_struct * evm_new_evmlist_el(int id)
 	if ((new = calloc(1, sizeof(evmlist_el_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): (evmlist_el_struct)new\n");
-	} else
+	} else {
 		new->id = id;
 		new->next = NULL;
+	}
 
 	return new;
 }

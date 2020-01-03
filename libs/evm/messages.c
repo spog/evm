@@ -116,7 +116,7 @@ msgs_queue_struct * messages_queue_init(evm_consumer_struct *consumer_ptr)
 		return NULL;
 	}
 
-	/* Prepare module-local empty signal mask, used in epoll_pwait() to allow catching all signals there!*/!
+	/* Prepare module-local empty signal mask, used in epoll_pwait() to allow catching all signals there!*/
 	sigemptyset(&msgs_sigmask);
 
 	/* Unblock all signals, except HUP and CHLD, which are allowed to get caught only in epoll_pwait()! */
@@ -299,8 +299,10 @@ static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer_ptr)
 
 evm_message_struct * messages_check(evm_consumer_struct *consumer_ptr)
 {
+#if 0 /*samo - orig*/
 	int status = 0;
-//samo - orig:	evm_fd_struct *evs_fd_ptr = NULL;
+	evm_fd_struct *evs_fd_ptr = NULL;
+#endif
 	msgs_queue_struct *msgs_queue;
 	evm_log_info("(entry)\n");
 

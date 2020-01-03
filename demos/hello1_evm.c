@@ -231,7 +231,6 @@ int main(int argc, char *argv[])
 /*
  * General EVM structure - Provided by evm_init():
  */
-//static evmStruct *evm;
 static evmStruct *evm;
 static evmConsumerStruct *consumer;
 
@@ -302,9 +301,8 @@ static int evHelloMsg(void *msg_ptr)
 static int evHelloTmrIdle(void *tmr_ptr)
 {
 	int rv = 0;
-	evmTimerStruct *tmr = (evmTimerStruct *)tmr_ptr;
-
 	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+
 	evm_log_notice("IDLE timer expired!\n");
 
 	count++;
@@ -317,10 +315,8 @@ static int evHelloTmrIdle(void *tmr_ptr)
 
 static int evHelloTmrQuit(void *tmr_ptr)
 {
-	int status = 0;
-	evmTimerStruct *tmr = (evmTimerStruct *)tmr_ptr;
-
 	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+
 	evm_log_notice("QUIT timer expired (%d messages sent)!\n", count);
 
 	exit(EXIT_SUCCESS);

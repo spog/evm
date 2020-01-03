@@ -73,7 +73,7 @@ enum evm_tmr_ids {
 
 static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTimerStruct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evmTmridStruct *tmrid_ptr);
 
-static int hello2_connect(void);
+static int hello2_fork_and_connect(void);
 static int hello2_socket_send_hello(int sock);
 static int hello2_receive(int sock);
 static int hello2_parse(struct iovec *iov_buff);
@@ -331,7 +331,7 @@ static int evHelloTmrQuit(void *tmr_ptr)
 	if (tmr_ptr == NULL)
 		return -1;
 
-	printf("QUIT timer expired (%d messages sent)!\n", count);
+	evm_log_notice("QUIT timer expired (%d messages sent)!\n", count);
 
 	exit(EXIT_SUCCESS);
 }
@@ -432,7 +432,6 @@ static int hello2_receive(int sock)
 {
 	struct iovec *iov_buff = NULL;
 	struct msghdr msg;
-	char *recv_ptr;
 	int err_save = EINVAL;
 	int ret;
 	evm_log_info("(cb entry) sock=%d\n", sock);
@@ -564,7 +563,7 @@ static int hello2_evm_run(void)
 
 	/* Start initial QUIT timer */
 	helloQuitTmr = hello_start_timer(consumer, NULL, 60, 0, NULL, tmrid_quit_ptr);
-	printf("QUIT timer set: 60 s\n");
+	evm_log_notice("QUIT timer set: 60 s\n");
 
 	if ((rv = pthread_attr_init(&attr)) != 0)
 		evm_log_return_system_err("pthread_attr_init()\n");

@@ -354,7 +354,7 @@ static int evHelloTmrQuit(void *tmr_ptr)
 	if (tmr == NULL)
 		return -1;
 
-	printf("QUIT timer expired (%d messages sent)!\n", count);
+	evm_log_notice("QUIT timer expired (%d messages sent)!\n", count);
 
 	exit(EXIT_SUCCESS);
 }
@@ -563,7 +563,7 @@ static int hello3_evm_run(void)
 
 	/* Start initial QUIT timer */
 	helloQuitTmr = hello_start_timer(consumers[0], NULL, 60, 0, NULL, tmrid_quit_ptr);
-	printf("QUIT timer set: 60 s\n");
+	evm_log_notice("QUIT timer set: 60 s\n");
 
 	if ((rv = pthread_attr_init(&attr)) != 0)
 		evm_log_return_system_err("pthread_attr_init()\n");

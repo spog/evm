@@ -286,7 +286,6 @@ static int timer_pass(evm_consumer_struct *consumer_ptr, evm_timer_struct *tmr)
 
 evm_timer_struct * timers_check(evm_consumer_struct *consumer_ptr)
 {
-	int semVal;
 	evm_timer_struct *tmr_return = NULL;
 	evm_timer_struct *tmr;
 	struct timespec time_stamp;

@@ -357,7 +357,6 @@ static int evHelloTmrIdle(void *tmr_ptr)
 
 static int evHelloTmrQuit(void *tmr_ptr)
 {
-	int status = 0;
 	evmTimerStruct *tmr = (evmTimerStruct *)tmr_ptr;
 	int *count = (int*)evm_consumer_priv_get(consumers[0]);
 	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
@@ -365,8 +364,8 @@ static int evHelloTmrQuit(void *tmr_ptr)
 	if (tmr == NULL)
 		return -1;
 
-	//evm_log_notice("QUIT timer expired (%d messages sent)!\n", (*count) * 2);
-	printf("QUIT timer expired (%d messages sent)!\n", (*count) * 2);
+	evm_log_notice("QUIT timer expired (%d messages sent)!\n", (*count) * 2);
+	//printf("QUIT timer expired (%d messages sent)!\n", (*count) * 2);
 
 	exit(EXIT_SUCCESS);
 }
@@ -514,7 +513,7 @@ static int hello4_evm_run(void)
 
 	/* Start initial QUIT timer */
 	helloQuitTmr = hello_start_timer(consumers[0], NULL, 60, 0, NULL, tmrid_quit_ptr);
-	printf("QUIT timer set: 60 s\n");
+	evm_log_notice("QUIT timer set: 60 s\n");
 
 	if ((rv = pthread_attr_init(&attr)) != 0)
 		evm_log_return_system_err("pthread_attr_init()\n");

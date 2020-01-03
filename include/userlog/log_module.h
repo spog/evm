@@ -47,7 +47,7 @@ extern unsigned int evmlog_add_header;
 
 #define EVMLOG_MODULE_INIT(name, value)\
 static const char *evmlog_module_name = #name;\
-static const unsigned int evmlog_module_value = value;\
+/*Not yet needed:static const unsigned int evmlog_module_value = value;*/\
 
 #define _5DIGIT_SECS(timespec_x) (timespec_x.tv_sec % 100000)
 #define _6DIGIT_USECS(timespec_x) (timespec_x.tv_nsec / 1000)
