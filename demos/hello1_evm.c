@@ -231,14 +231,15 @@ int main(int argc, char *argv[])
 /*
  * General EVM structure - Provided by evm_init():
  */
-static evmStruct *evs;
+//static evmStruct *evm;
+static evmStruct *evm;
 static evmConsumerStruct *consumer;
 
 /*
  * Signal post-processing callback - optional for evm_init():
  * Covers SIGHUP and SIGCHLD
  */
-static evm_sigpost_struct evs_sigpost = {
+static evm_sigpost_struct evm_sigpost = {
 	.sigpost_handle = signal_processing
 };
 
@@ -285,7 +286,7 @@ static int evHelloMsg(void *msg_ptr)
 			return -1;
 		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
 
-		if ((tmrid_ptr = evm_tmrid_get(evs, EV_ID_HELLO_TMR_IDLE)) == NULL)
+		if ((tmrid_ptr = evm_tmrid_get(evm, EV_ID_HELLO_TMR_IDLE)) == NULL)
 			return -1;
 		helloIdleTmr = hello_start_timer(helloIdleTmr, 10, 0, NULL, tmrid_ptr);
 		evm_log_notice("IDLE timer set: 10 s\n");
@@ -335,16 +336,16 @@ static int hello_evm_init(void)
 	evm_log_info("(entry)\n");
 
 	/* Initialize event machine... */
-	if ((evs = evm_init()) != NULL) {
-		if (evm_sigpost_set(evs, &evs_sigpost) != 0) {
+	if ((evm = evm_init()) != NULL) {
+		if (evm_sigpost_set(evm, &evm_sigpost) != 0) {
 			evm_log_error("evm_sigpost_set() failed!\n");
 			rv = -1;
 		}
-		if ((rv == 0) && ((consumer = evm_consumer_add(evs, EVM_CONSUMER_ID_0)) == NULL)) {
+		if ((rv == 0) && ((consumer = evm_consumer_add(evm, EVM_CONSUMER_ID_0)) == NULL)) {
 			evm_log_error("evm_consumer_add() failed!\n");
 			rv = -1;
 		}
-		if ((rv == 0) && ((msgtype_ptr = evm_msgtype_add(evs, EV_TYPE_HELLO_MSG)) == NULL)) {
+		if ((rv == 0) && ((msgtype_ptr = evm_msgtype_add(evm, EV_TYPE_HELLO_MSG)) == NULL)) {
 			evm_log_error("evm_msgtype_add() failed!\n");
 			rv = -1;
 		}
@@ -377,7 +378,7 @@ static int hello_evm_run(void)
 	evmTmridStruct *tmrid_ptr;
 
 	/* Set initial IDLE timer */
-	if ((tmrid_ptr = evm_tmrid_add(evs, EV_ID_HELLO_TMR_IDLE)) == NULL)
+	if ((tmrid_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_IDLE)) == NULL)
 		return -1;
 	if (evm_tmrid_cb_handle_set(tmrid_ptr, evHelloTmrIdle) < 0)
 		return -1;
@@ -385,7 +386,7 @@ static int hello_evm_run(void)
 	evm_log_notice("IDLE timer set: 0 s\n");
 
 	/* Set initial QUIT timer */
-	if ((tmrid_ptr = evm_tmrid_add(evs, EV_ID_HELLO_TMR_QUIT)) == NULL)
+	if ((tmrid_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_QUIT)) == NULL)
 		return -1;
 	if (evm_tmrid_cb_handle_set(tmrid_ptr, evHelloTmrQuit) < 0)
 		return -1;

@@ -251,15 +251,10 @@ static int count = 0;
 static int sock;
 
 /*
- * File descriptors structure - required by evm_fd_add():
- */
-static evm_fd_struct evs_fd;
-
-/*
  * Signal post-processing callback - optional for evm_init():
  * Covers SIGHUP and SIGCHLD
  */
-static evm_sigpost_struct evs_sigpost = {
+static evm_sigpost_struct evm_sigpost = {
 	.sigpost_handle = signal_processing
 };
 
@@ -484,7 +479,7 @@ static int hello2_evm_init(void)
 
 	/* Initialize event machine... */
 	if ((evm = evm_init()) != NULL) {
-		if (evm_sigpost_set(evm, &evs_sigpost) != 0) {
+		if (evm_sigpost_set(evm, &evm_sigpost) != 0) {
 			evm_log_error("evm_sigpost_set() failed!\n");
 			rv = -1;
 		}
