@@ -43,6 +43,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #include <evm/libevm.h>
 #include "hello2_evm.h"
@@ -67,15 +68,19 @@ enum evm_msg_ids {
 
 enum evm_tmr_ids {
 	EV_ID_HELLO_TMR_IDLE = 0,
+	EV_ID_HELLO_TMR_QUIT
 };
 
-static int hello2_connect(void);
-static int hello2_send_hello(int sock);
-static int hello2_receive(int sock, evm_message_struct *message);
-static int hello2_parse_message(void *ptr);
+static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTimerStruct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evmTmridStruct *tmrid_ptr);
 
-static int evHelloMsg(void *ev_ptr);
-static int evHelloTmrIdle(void *ev_ptr);
+static int hello2_connect(void);
+static int hello2_socket_send_hello(int sock);
+static int hello2_receive(int sock);
+static int hello2_parse(struct iovec *iov_buff);
+
+static int evHelloMsg(void *msg_ptr);
+static int evHelloTmrIdle(void *tmr_ptr);
+static int evHelloTmrQuit(void *tmr_ptr);
 
 static int hello2_evm_init(void);
 static int hello2_evm_run(void);
@@ -90,6 +95,7 @@ unsigned int evmlog_trace = 0;
 unsigned int evmlog_debug = 0;
 unsigned int evmlog_use_syslog = 0;
 unsigned int evmlog_add_header = 1;
+unsigned int demo_liveloop = 0;
 
 static void usage_help(char *argv[])
 {
@@ -98,6 +104,7 @@ static void usage_help(char *argv[])
 	printf("options:\n");
 	printf("\t-q, --quiet              Disable all output.\n");
 	printf("\t-v, --verbose            Enable verbose output.\n");
+	printf("\t-l, --liveloop           Enable liveloop measurement mode.\n");
 #if (EVMLOG_MODULE_TRACE != 0)
 	printf("\t-t, --trace              Enable trace output.\n");
 #endif
@@ -118,6 +125,7 @@ static int usage_check(int argc, char *argv[])
 		static struct option long_options[] = {
 			{"quiet", 0, 0, 'q'},
 			{"verbose", 0, 0, 'v'},
+			{"liveloop", 0, 0, 'l'},
 #if (EVMLOG_MODULE_TRACE != 0)
 			{"trace", 0, 0, 't'},
 #endif
@@ -131,13 +139,13 @@ static int usage_check(int argc, char *argv[])
 		};
 
 #if (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG != 0)
-		c = getopt_long(argc, argv, "qvtgnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvltgnsh", long_options, &option_index);
 #elif (EVMLOG_MODULE_TRACE == 0) && (EVMLOG_MODULE_DEBUG != 0)
-		c = getopt_long(argc, argv, "qvgnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvlgnsh", long_options, &option_index);
 #elif (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG == 0)
-		c = getopt_long(argc, argv, "qvtnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvltnsh", long_options, &option_index);
 #else
-		c = getopt_long(argc, argv, "qvnsh", long_options, &option_index);
+		c = getopt_long(argc, argv, "qvlnsh", long_options, &option_index);
 #endif
 		if (c == -1)
 			break;
@@ -149,6 +157,10 @@ static int usage_check(int argc, char *argv[])
 
 		case 'v':
 			evmlog_verbose = 1;
+			break;
+
+		case 'l':
+			demo_liveloop = 1;
 			break;
 
 #if (EVMLOG_MODULE_TRACE != 0)
@@ -196,6 +208,14 @@ static int usage_check(int argc, char *argv[])
 	return 0;
 }
 
+static evmStruct *evm;
+static evmTmridStruct *tmrid_idle_ptr;
+static evmTmridStruct *tmrid_quit_ptr;
+static evmMsgidStruct *msgid_hello_ptr;
+static evmMsgtypeStruct *msgtype_hello_ptr;
+
+static evmConsumerStruct *consumer;
+
 int main(int argc, char *argv[])
 {
 	usage_check(argc, argv);
@@ -227,13 +247,8 @@ int main(int argc, char *argv[])
  * The EVM part.
  */
 static int child = 0;
-static int hello_count = 0;
+static int count = 0;
 static int sock;
-
-/*
- * General EVM structure - required by evm_init() and evm_run():
- */
-static evm_init_struct evs_init;
 
 /*
  * File descriptors structure - required by evm_fd_add():
@@ -255,49 +270,75 @@ static int signal_processing(int sig, void *ptr)
 }
 
 /* HELLO messages */
-static char send_buff[MAX_BUFF_SIZE] = "";
-static char recv_buff[MAX_BUFF_SIZE] = "";
 static char *hello_str = "HELLO";
-evm_message_struct helloMsg;
+evmMessageStruct *helloMsg;
 
 /* HELLO timers */
-static evm_timer_struct *helloIdleTmr;
+static evmTimerStruct *helloIdleTmr;
+static evmTimerStruct *helloQuitTmr;
 
-static evm_timer_struct * hello_start_timer(evm_timer_struct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evm_evids_list_struct *tmrid_ptr)
+static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTimerStruct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evmTmridStruct *tmrid_ptr)
 {
 	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
 	evm_timer_stop(tmr);
-	return evm_timer_start(&evs_init, tmrid_ptr, tv_sec, tv_nsec, ctx_ptr);
+	return evm_timer_start(consumer_ptr, tmrid_ptr, tv_sec, tv_nsec, ctx_ptr);
 }
 
 /* HELLO event handlers */
-static int evHelloMsg(void *ev_ptr)
+static int evHelloMsg(void *msg_ptr)
 {
-	evm_evids_list_struct *tmrid_ptr;
-	evm_message_struct *msg = (evm_message_struct *)ev_ptr;
+	struct iovec *iov_buff = NULL;
+	evmMessageStruct *msg = (evmMessageStruct *)msg_ptr;
+	evmConsumerStruct *loc_consumer_ptr;
+	evm_log_info("(cb entry) msg_ptr=%p\n", msg_ptr);
 
-	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
-	evm_log_notice("HELLO msg received: \"%s\"\n", (char *)msg->iov_buff.iov_base);
-
-	if ((tmrid_ptr = evm_tmrid_get(&evs_init, EV_ID_HELLO_TMR_IDLE)) == NULL)
+	if (msg == NULL)
 		return -1;
-	helloIdleTmr = hello_start_timer(helloIdleTmr, 10, 0, NULL, tmrid_ptr);
-	evm_log_notice("IDLE timer set: 10 s\n");
+
+	loc_consumer_ptr = evm_message_consumer_get(msg);
+
+	if (demo_liveloop == 0) {
+		if ((iov_buff = evm_message_iovec_get(msg)) == NULL)
+			return -1;
+		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
+
+		helloIdleTmr = hello_start_timer(loc_consumer_ptr, NULL, 10, 0, NULL, tmrid_idle_ptr);
+		evm_log_notice("IDLE timer set: 10 s\n");
+	} else {
+		/* liveloop - 100 %CPU usage */
+		/* Send HELLO message to another thread. */
+		hello2_socket_send_hello(sock);
+	}
 
 	return 0;
 }
 
-static int evHelloTmrIdle(void *ev_ptr)
+static int evHelloTmrIdle(void *tmr_ptr)
 {
-	static unsigned int count;
 	int status = 0;
 
-	evm_log_info("(cb entry) ev_ptr=%p\n", ev_ptr);
+	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+
+	if (tmr_ptr == NULL)
+		return -1;
+
 	evm_log_notice("IDLE timer expired!\n");
 
-	hello2_send_hello(sock);
+	hello2_socket_send_hello(sock);
 
 	return status;
+}
+
+static int evHelloTmrQuit(void *tmr_ptr)
+{
+	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+
+	if (tmr_ptr == NULL)
+		return -1;
+
+	printf("QUIT timer expired (%d messages sent)!\n", count);
+
+	exit(EXIT_SUCCESS);
 }
 
 static int hello2_fork_and_connect(void)
@@ -324,24 +365,28 @@ static int hello2_fork_and_connect(void)
 	return sd[0];
 }
 
-static int hello2_send_hello(int sock)
+static int hello2_socket_send_hello(int sock)
 {
+	struct iovec *iov_buff = NULL;
 	struct msghdr msg;
 	int err_save = EINVAL;
 	int ret;
-
 	evm_log_info("(entry) sockfd=%d\n", sock);
 
+	if ((iov_buff = evm_message_iovec_get(helloMsg)) == NULL) {
+		return -1;
+	}
 	/* Prepare message buffer. */
-	helloMsg.iov_buff.iov_base = (void *)send_buff;
-	sprintf((char *)helloMsg.iov_buff.iov_base, "%s: %d", hello_str, ++hello_count);
-	helloMsg.iov_buff.iov_len = strlen(send_buff);
+	sprintf((char *)iov_buff->iov_base, "%s: %d", hello_str, ++count);
+	iov_buff->iov_len = strlen(iov_buff->iov_base);
 	memset(&msg, 0, sizeof(msg));
-	msg.msg_iov = &helloMsg.iov_buff;
+	msg.msg_iov = iov_buff;
 	msg.msg_iovlen = 1;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
 	/* Send HELLO message. */
+	if (demo_liveloop == 0)
+		evm_log_notice("HELLO msg send: \"%s\"\n", (char *)iov_buff->iov_base);
 	ret = sendmsg(sock, &msg, 0);
 	if (ret == -1) {
 		err_save = errno;
@@ -350,32 +395,64 @@ static int hello2_send_hello(int sock)
 		}
 		return -err_save;
 	}
-	evm_log_notice("HELLO msg sent: \"%s\"\n", (char *)helloMsg.iov_buff.iov_base);
 
 	evm_log_debug("sent=%d\n", ret);
 	return ret;
 }
 
-static int hello2_receive(int sock, evm_message_struct *message)
+/*
+ * Over symplified message parsing:)
+ */
+static int hello2_parse(struct iovec *iov_buff)
 {
+	int rv = 0;
+	evmMessageStruct *msg;
+	evm_log_info("(entry) iov_buff=%p\n", iov_buff);
+
+	evm_log_debug("iov_buff->iov_len=%zd\n", iov_buff->iov_len);
+	if (iov_buff->iov_len == 0) {
+		evm_log_debug("No event decoded (empty receive buffer).\n");
+		return -1;
+	} else {
+		/* Decode the INPUT buffer. */ 
+		((char *)iov_buff->iov_base)[iov_buff->iov_len] = '\0';
+		if (strncmp((char *)iov_buff->iov_base, hello_str, strlen(hello_str)) == 0) {
+			sscanf((char *)iov_buff->iov_base, "HELLO: %d", &count);
+			if ((msg = evm_message_new(msgtype_hello_ptr, msgid_hello_ptr)) == NULL) {
+				evm_log_error("evm_message_new() failed!\n");
+				return -1;
+			}
+			evm_message_iovec_set(msg, iov_buff);
+			rv = evm_message_pass(consumer, msg);
+		} else {
+			evm_log_debug("No event decoded (unknown data: %s).\n", (char *)iov_buff->iov_base);
+			return -1;
+		}
+	}
+
+	return rv;
+}
+
+static int hello2_receive(int sock)
+{
+	struct iovec *iov_buff = NULL;
 	struct msghdr msg;
 	char *recv_ptr;
 	int err_save = EINVAL;
 	int ret;
+	evm_log_info("(cb entry) sock=%d\n", sock);
 
-	evm_log_info("(cb entry) sockfd=%d, message=%p\n", sock, message);
-	if (message == NULL) {
-		errno = err_save;
-		evm_log_error("NULL pointer provided for message structure\n");
-		return -err_save;
+	if ((iov_buff = (struct iovec *)calloc(1, sizeof(struct iovec))) == NULL)
+		return -1;
+	if ((iov_buff->iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL) {
+		free(iov_buff);
+		return -1;
 	}
 
 	/* Prepare receive buffer. */
-	recv_buff[0] = '\0';
-	message->iov_buff.iov_base = recv_buff;
-	message->iov_buff.iov_len = MAX_BUFF_SIZE;
+	iov_buff->iov_len = MAX_BUFF_SIZE;
 	memset(&msg, 0, sizeof(msg));
-	msg.msg_iov = &message->iov_buff;
+	msg.msg_iov = iov_buff;
 	msg.msg_iovlen = 1;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
@@ -384,113 +461,125 @@ static int hello2_receive(int sock, evm_message_struct *message)
 	if (ret == -1) {
 		err_save = errno;
 		if (err_save != EINTR) {
-			evm_log_system_error("recvmsg(): sockfd=%d\n", sock);
+			evm_log_system_error("recvmsg(): sock=%d\n", sock);
 		}
 		return -err_save;
 	}
-	message->iov_buff.iov_len = ret;
-	((char *)message->iov_buff.iov_base)[ret] = '\0';
+	iov_buff->iov_len = ret;
+	((char *)(iov_buff->iov_base))[ret] = '\0';
 
-	evm_log_debug("buffered=%zd, received data: %s\n", message->iov_buff.iov_len, (char *)message->iov_buff.iov_base);
-	return ret;
-}
-
-/*
- * Over symplified message parsing:)
- */
-static int hello2_parse_message(void *ptr)
-{
-	evm_message_struct *message = (evm_message_struct *)ptr;
-
-	evm_log_info("(cb entry) ptr=%p\n", ptr);
-	if (message == NULL)
-		return -EINVAL;
-
-	evm_log_debug("message->iov_buff.iov_len=%zd\n", message->iov_buff.iov_len);
-	if (message->iov_buff.iov_len == 0) {
-		evm_log_debug("No event decoded (empty receive buffer).\n");
-		return -1;
-	} else {
-		/* Decode the INPUT buffer. */ 
-		((char *)message->iov_buff.iov_base)[message->iov_buff.iov_len] = '\0';
-		if (strncmp((char *)message->iov_buff.iov_base, hello_str, strlen(hello_str)) == 0) {
-			message->msgtype_ptr = helloMsg.msgtype_ptr;
-			message->msgid_ptr = helloMsg.msgid_ptr;
-			sscanf((char *)message->iov_buff.iov_base, "HELLO: %d", &hello_count);
-		} else {
-			evm_log_debug("No event decoded (unknown data: %s).\n", (char *)message->iov_buff.iov_base);
-			return -1;
-		}
-	}
-
-//	evm_log_debug("message->msgid_ptr->ev_id=%d\n", message->msg_ids.ev_id);
-	return message->msgid_ptr->ev_id;
+	evm_log_debug("buffered=%zd, received data: %s\n", iov_buff->iov_len, (char *)iov_buff->iov_base);
+	return hello2_parse(iov_buff);
 }
 
 /* EVM initialization */
 static int hello2_evm_init(void)
 {
-	int status = 0;
-	evm_evids_list_struct *tmrid_ptr;
-	evm_evids_list_struct *msgid_ptr;
-	evm_evtypes_list_struct *msgtype_ptr;
+	int rv = 0;
+	struct iovec *iov_buff = NULL;
 
 	evm_log_info("(entry)\n");
 
 	sock = hello2_fork_and_connect();
 
 	/* Initialize event machine... */
-	evs_init.evm_sigpost = &evs_sigpost;;
-	if ((status = evm_init(&evs_init)) < 0) {
-		return status;
+	if ((evm = evm_init()) != NULL) {
+		if (evm_sigpost_set(evm, &evs_sigpost) != 0) {
+			evm_log_error("evm_sigpost_set() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((consumer = evm_consumer_add(evm, EVM_CONSUMER_ID_0)) == NULL)) {
+			evm_log_error("evm_consumer_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgtype_hello_ptr = evm_msgtype_add(evm, EV_TYPE_HELLO_MSG)) == NULL)) {
+			evm_log_error("evm_msgtype_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)) {
+			evm_log_error("evm_msgid_add() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && (evm_msgid_cb_handle_set(msgid_hello_ptr, evHelloMsg) < 0)) {
+			evm_log_error("evm_msgid_cb_handle_set() failed!\n");
+			rv = -1;
+		}
+		if ((rv == 0) && ((helloMsg = evm_message_new(msgtype_hello_ptr, msgid_hello_ptr)) == NULL)) {
+			evm_log_error("evm_message_new() failed!\n");
+			rv = -1;
+		}
+		if (rv == 0) {
+			if ((iov_buff = (struct iovec *)calloc(1, sizeof(struct iovec))) == NULL)
+				return -1;
+			if ((iov_buff->iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL) {
+				free(iov_buff);
+				return -1;
+			}
+			rv = evm_message_iovec_set(helloMsg, iov_buff);
+		}
+		if ((rv == 0) && ((tmrid_idle_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_IDLE)) == NULL)) {
+			evm_log_error("evm_tmrid_add() failed!\n");
+			return -1;
+		}
+		if ((rv == 0) && (evm_tmrid_cb_handle_set(tmrid_idle_ptr, evHelloTmrIdle) < 0)) {
+			evm_log_error("evm_tmrid_cb_handle() failed!\n");
+			return -1;
+		}
+		if ((rv == 0) && ((tmrid_quit_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_QUIT)) == NULL)) {
+			evm_log_error("evm_tmrid_add() failed!\n");
+			return -1;
+		}
+		if ((rv == 0) && (evm_tmrid_cb_handle_set(tmrid_quit_ptr, evHelloTmrQuit) < 0)) {
+			evm_log_error("evm_tmrid_cb_handle() failed!\n");
+			return -1;
+		}
+	} else {
+		evm_log_error("evm_init() failed!\n");
+		rv = -1;
 	}
-
-	if ((msgtype_ptr = evm_msgtype_add(&evs_init, EV_TYPE_HELLO_MSG)) == NULL)
-		return -1;
-	if (evm_msgtype_parse_cb_set(msgtype_ptr, hello2_parse_message) < 0)
-		return -1;
-	if ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)
-		return -1;
-	if (evm_msgid_handle_cb_set(msgid_ptr, evHelloMsg) < 0)
-		return -1;
-	helloMsg.msgtype_ptr = msgtype_ptr;
-	helloMsg.msgid_ptr = msgid_ptr;
-
-	if ((tmrid_ptr = evm_tmrid_add(&evs_init, EV_ID_HELLO_TMR_IDLE)) == NULL)
-		return -1;
-	if (evm_tmrid_handle_cb_set(tmrid_ptr, evHelloTmrIdle) < 0)
-		return -1;
-
-#if 0 /*samo - orig*/
-	/* Prepare socket FD for EVM to operate over internal socket connection. */
-	evs_fd.fd = sock;
-	evs_fd.evtype_ptr = msgtype_ptr;
-	evs_fd.ev_epoll.events = EPOLLIN;
-	evs_fd.ev_epoll.data.ptr = (void *)&evs_fd /*our own address*/;
-	evs_fd.msg_receive = hello2_receive;
-//	evs_fd.msg_send = NULL;
-	if ((status = evm_message_fd_add(&evs_init, &evs_fd)) < 0) {
-		return status;
-	}
-#endif
 
 	evm_log_info("(exit)\n");
-	return 0;
+	return rv;
+}
+
+/* Socker receiver thread processing loop */
+static void * hello2_socket_receiver_thread_start(void *arg)
+{
+	evm_log_info("(entry)\n");
+
+	while (1) {
+		if (hello2_receive(sock) < 0)
+			break;
+	}
+	return NULL;
 }
 
 /* Main core processing (event loop) */
 static int hello2_evm_run(void)
 {
+	int rv = 0;
+	pthread_attr_t attr;
+	pthread_t socket_receiver_thread;
 	evm_log_info("(entry) child=%d\n", child);
 
 	/* Send first HELLO to the child process! */
 	if (!child) {
-		hello2_send_hello(sock);
+		hello2_socket_send_hello(sock);
 	}
 
+	/* Start initial QUIT timer */
+	helloQuitTmr = hello_start_timer(consumer, NULL, 60, 0, NULL, tmrid_quit_ptr);
+	printf("QUIT timer set: 60 s\n");
+
+	if ((rv = pthread_attr_init(&attr)) != 0)
+		evm_log_return_system_err("pthread_attr_init()\n");
+
+	if ((rv = pthread_create(&socket_receiver_thread, &attr, hello2_socket_receiver_thread_start, NULL)) != 0)
+		evm_log_return_system_err("pthread_create()\n");
+
 	/*
-	 * Main EVM processing (event loop)
+	 * Main thread EVM processing (event loop)
 	 */
-	return evm_run(&evs_init);
+	return evm_run(consumer);
 }
 

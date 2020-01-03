@@ -319,7 +319,6 @@ static int evHelloMsg(void *msg_ptr)
 	} else {
 		/* liveloop - 100 %CPU usage */
 		/* Send HELLO message to another thread. */
-//		evm_log_notice("HELLO msg sent: \"%s%d\"\n", "HELLO: ", *(int *)loc_evm_ptr->priv + 1);
 		hello3_send_hello(loc_consumer_ptr, rem_consumer_ptr);
 	}
 
@@ -349,7 +348,6 @@ static int evHelloTmrIdle(void *tmr_ptr)
 
 static int evHelloTmrQuit(void *tmr_ptr)
 {
-	int status = 0;
 	evmTimerStruct *tmr = (evmTimerStruct *)tmr_ptr;
 	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
 
@@ -374,10 +372,10 @@ static int hello3_send_hello(evmConsumerStruct *loc_consumer_ptr, evmConsumerStr
 	sprintf((char *)iov_buff->iov_base, "%s: %u", hello_str, count);
 
 	evm_message_ctx_set(helloMsg, (void *)loc_consumer_ptr);
+
 	/* Send HELLO message to another thread. */
 	if (demo_liveloop == 0)
 		evm_log_notice("HELLO msg send: %s\n", (char *)iov_buff->iov_base);
-
 	evm_message_pass(rem_consumer_ptr, helloMsg);
 
 	return 0;

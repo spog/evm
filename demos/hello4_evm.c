@@ -401,7 +401,7 @@ static int hello4_send_hello(evmConsumerStruct *loc_consumer_ptr, evmConsumerStr
 	evm_message_ctx_set(msg, (void *)loc_consumer_ptr);
 	/* Send HELLO message to another thread. */
 	if (demo_liveloop == 0)
-		evm_log_notice("HELLO msg send: %s\n", iov_buff->iov_base);
+		evm_log_notice("HELLO msg send: %s\n", (char *)iov_buff->iov_base);
 	evm_message_pass(rem_consumer_ptr, msg);
 
 	return 0;
