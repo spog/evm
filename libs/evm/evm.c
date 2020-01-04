@@ -46,9 +46,9 @@
 EVMLOG_MODULE_INIT(EVM_CORE, 1)
 
 /*current project version*/
-unsigned int evm_version_major = EVM_VERSION_MAJOR;
-unsigned int evm_version_minor = EVM_VERSION_MINOR;
-unsigned int evm_version_patch = EVM_VERSION_PATCH;
+unsigned int evmVerMajor = EVM_VERSION_MAJOR;
+unsigned int evmVerMinor = EVM_VERSION_MINOR;
+unsigned int evmVerPatch = EVM_VERSION_PATCH;
 
 static int prepare_msg(evm_msgid_struct *msgid, void *msg);
 static int handle_msg(evm_msgid_struct *msgid, void *msg);
@@ -428,6 +428,7 @@ void * evm_priv_get(evmStruct *evm)
 	return (evm->priv);
 }
 
+#if 0 /*samo - orig*/
 int evm_sigpost_set(evmStruct *evm, evm_sigpost_struct *sigpost)
 {
 	int rv = 0;
@@ -444,6 +445,7 @@ int evm_sigpost_set(evmStruct *evm, evm_sigpost_struct *sigpost)
 	}
 	return rv;
 }
+#endif
 
 /*
  * Public API functions:

@@ -31,13 +31,15 @@
 /*
  * Common
  */
+extern unsigned int evmVerMajor;
+extern unsigned int evmVerMinor;
+extern unsigned int evmVerPatch;
+
 /* Struct aliases */
+#if 0 /*samo - orig*/
 typedef struct evm_sigpost evm_sigpost_struct;
 typedef struct evm_fd evm_fd_struct;
-
-extern unsigned int evm_version_major;
-extern unsigned int evm_version_minor;
-extern unsigned int evm_version_patch;
+#endif
 
 struct evm;
 struct evm_msgtype;
@@ -56,6 +58,7 @@ typedef struct evm_topic evmTopicStruct;
 typedef struct evm_message evmMessageStruct;
 typedef struct evm_timer evmTimerStruct;
 
+#if 0 /*samo - orig*/
 /*User provided signal post-handling EVM callbacks!*/
 struct evm_sigpost {
 	int (*sigpost_handle)(int signum, void *ev_ptr);
@@ -71,6 +74,7 @@ struct evm_fd {
 	int (*msg_send)(int sock, struct sockaddr_in *sockAddr, const char *buffer);
 #endif
 }; /*evm_fd_struct*/
+#endif
 
 /*
  * Public API functions:
@@ -123,7 +127,9 @@ extern evmTopicStruct * evm_topic_del(evmStruct *evm, int id);
 
 extern int evm_priv_set(evmStruct *evm, void *priv);
 extern void * evm_priv_get(evmStruct *evm);
+#if 0 /*samo - orig*/
 extern int evm_sigpost_set(evmStruct *evm, evm_sigpost_struct *sigpost);
+#endif
 
 /*
  * Public API functions:
@@ -173,7 +179,9 @@ extern int evm_msgid_cb_prepare_set(evmMsgidStruct *msgid_ptr, int (*msg_prepare
 extern int evm_msgid_cb_handle_set(evmMsgidStruct *msgid_ptr, int (*msg_handle)(void *ptr));
 extern int evm_msgid_cb_finalize_set(evmMsgidStruct *msgid_ptr, int (*msg_finalize)(void *ptr));
 
+#if 0 /*samo - orig*/
 extern int evm_message_fd_add(evmStruct *evm_ptr, evm_fd_struct *evm_fd_ptr);
+#endif
 
 /*
  * Public API functions:

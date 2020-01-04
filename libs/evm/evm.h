@@ -69,7 +69,9 @@ struct evm {
 	evmlist_head_struct *tmrids_list;
 	evmlist_head_struct *consumers_list;
 	evmlist_head_struct *topics_list;
+#if 0 /*samo - orig*/
 	evm_sigpost_struct *evm_sigpost;
+#endif
 	void *priv; /*private - application specific data*/
 }; /*evm_struct*/
 

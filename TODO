@@ -1,3 +1,1 @@
-- Redesign EVM initialization for many threads (consumers).
-
 - Add event topics.

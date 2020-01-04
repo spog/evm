@@ -45,8 +45,6 @@
 #include <userlog/log_module.h>
 EVMLOG_MODULE_INIT(DEMO1EVM, 2);
 
-static int signal_processing(int sig, void *ptr);
-
 enum evm_consumer_ids {
 	EVM_CONSUMER_ID_0 = 0
 };
@@ -234,20 +232,6 @@ int main(int argc, char *argv[])
 static evmStruct *evm;
 static evmConsumerStruct *consumer;
 
-/*
- * Signal post-processing callback - optional for evm_init():
- * Covers SIGHUP and SIGCHLD
- */
-static evm_sigpost_struct evm_sigpost = {
-	.sigpost_handle = signal_processing
-};
-
-static int signal_processing(int sig, void *ptr)
-{
-	evm_log_info("(entry) sig=%d, ptr=%p\n", sig, ptr);
-	return 0;
-}
-
 /* HELLO messages */
 static char *hello_str = "HELLO";
 static char msg_buff[MAX_BUFF_SIZE];
@@ -333,10 +317,6 @@ static int hello_evm_init(void)
 
 	/* Initialize event machine... */
 	if ((evm = evm_init()) != NULL) {
-		if (evm_sigpost_set(evm, &evm_sigpost) != 0) {
-			evm_log_error("evm_sigpost_set() failed!\n");
-			rv = -1;
-		}
 		if ((rv == 0) && ((consumer = evm_consumer_add(evm, EVM_CONSUMER_ID_0)) == NULL)) {
 			evm_log_error("evm_consumer_add() failed!\n");
 			rv = -1;

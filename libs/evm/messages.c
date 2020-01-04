@@ -40,6 +40,7 @@
 #include "userlog/log_module.h"
 EVMLOG_MODULE_INIT(EVM_MSGS, 1)
 
+#if 0 /*samo - orig*/
 static sigset_t msgs_sigmask; /*actually a constant initialized via sigemptymask()*/
 /* Thread-specific data related. */
 static int msg_thr_keys_created = EVM_FALSE;
@@ -47,7 +48,6 @@ static pthread_key_t msg_thr_signum_key; /*initialized only once - not for each 
 
 static void msgs_sighandler(int signum, siginfo_t *siginfo, void *context);
 static int msgs_sighandler_install(int signum);
-#if 0 /*samo - orig*/
 static int messages_receive(evm_fd_struct *evs_fd_ptr);
 static int messages_parse(evm_fd_struct *evs_fd_ptr);
 static int message_queue_evmfd_read(int efd, evm_message_struct *message);
@@ -55,6 +55,7 @@ static int message_queue_evmfd_read(int efd, evm_message_struct *message);
 static int msg_enqueue(evm_consumer_struct *consumer_ptr, evm_message_struct *msg);
 static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer_ptr);
 
+#if 0 /*samo - orig*/
 static void msgs_sighandler(int signum, siginfo_t *siginfo, void *context)
 {
 	int *thr_signum = (int *)pthread_getspecific(msg_thr_signum_key);
@@ -77,13 +78,16 @@ static int msgs_sighandler_install(int signum)
 
 	return 0;
 }
+#endif
 
 msgs_queue_struct * messages_queue_init(evm_consumer_struct *consumer_ptr)
 {
+#if 0 /*samo - orig*/
 	void *ptr;
 	sigset_t sigmask;
-	msgs_queue_struct *msgs_queue_ptr = NULL;
 	evm_sigpost_struct *evm_sigpost = NULL;
+#endif
+	msgs_queue_struct *msgs_queue_ptr = NULL;
 	evm_log_info("(entry)\n");
 
 	if (consumer_ptr == NULL) {
@@ -91,6 +95,7 @@ msgs_queue_struct * messages_queue_init(evm_consumer_struct *consumer_ptr)
 		return NULL;
 	}
 
+#if 0 /*samo - orig*/
 	if (consumer_ptr->evm != NULL)
 		evm_sigpost = consumer_ptr->evm->evm_sigpost;
 	if (evm_sigpost == NULL)
@@ -146,16 +151,19 @@ msgs_queue_struct * messages_queue_init(evm_consumer_struct *consumer_ptr)
 		ptr = NULL;
 		return NULL;
 	}
+#endif
 
 	/* Setup internal message queue. */
 	if ((msgs_queue_ptr = calloc(1, sizeof(msgs_queue_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): internal message queue\n");
+#if 0 /*samo - orig*/
 		free(ptr);
 		ptr = NULL;
+#endif
 		return NULL;
 	}
-	consumer_ptr->msgs_queue = ptr;
+	consumer_ptr->msgs_queue = msgs_queue_ptr;
 	pthread_mutex_init(&consumer_ptr->msgs_queue->access_mutex, NULL);
 	pthread_mutex_unlock(&consumer_ptr->msgs_queue->access_mutex);
 
