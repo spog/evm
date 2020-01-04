@@ -430,7 +430,7 @@ evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id)
 					/* create new tmrid */
 					if ((tmrid = (evm_tmrid_struct *)calloc(1, sizeof(evm_tmrid_struct))) == NULL) {
 						errno = ENOMEM;
-						evm_log_system_error("calloc(): (evm_tmrid_struct)tmrid\n");
+						evm_log_system_error("calloc(): tmrid\n");
 						free(new);
 						new = NULL;
 					}

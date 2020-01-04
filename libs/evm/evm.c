@@ -72,12 +72,12 @@ evmStruct * evm_init(void)
 
 	if ((evm = calloc(1, sizeof(evmStruct))) == NULL) {
 		errno = ENOMEM;
-		evm_log_system_error("calloc(): (evm_struct)evm\n");
+		evm_log_system_error("calloc(): evm\n");
 	}
 	if (evm != NULL) {
 		if ((evm->msgtypes_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): (evmlist_head_struct)evm->msgtypes_list\n");
+			evm_log_system_error("calloc(): evm->msgtypes_list\n");
 			free(evm);
 			evm = NULL;
 		} else {
@@ -88,7 +88,7 @@ evmStruct * evm_init(void)
 	if (evm != NULL) {
 		if ((evm->tmrids_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): (evmlist_head_struct)evm->tmrids_list\n");
+			evm_log_system_error("calloc(): evm->tmrids_list\n");
 			free(evm->msgtypes_list);
 			evm->msgtypes_list = NULL;
 			free(evm);
@@ -101,7 +101,7 @@ evmStruct * evm_init(void)
 	if (evm != NULL) {
 		if ((evm->consumers_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): (evmlist_head_struct)evm->consumers_list\n");
+			evm_log_system_error("calloc(): evm->consumers_list\n");
 			free(evm->tmrids_list);
 			evm->tmrids_list = NULL;
 			free(evm->msgtypes_list);
@@ -116,7 +116,7 @@ evmStruct * evm_init(void)
 	if (evm != NULL) {
 		if ((evm->topics_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): (evmlist_head_struct)evm->topics_list\n");
+			evm_log_system_error("calloc(): evm->topics_list\n");
 			free(evm->consumers_list);
 			evm->consumers_list = NULL;
 			free(evm->tmrids_list);
@@ -163,7 +163,7 @@ evmlist_el_struct * evm_new_evmlist_el(int id)
 
 	if ((new = calloc(1, sizeof(evmlist_el_struct))) == NULL) {
 		errno = ENOMEM;
-		evm_log_system_error("calloc(): (evmlist_el_struct)new\n");
+		evm_log_system_error("calloc(): new\n");
 	} else {
 		new->id = id;
 		new->next = NULL;
@@ -197,7 +197,7 @@ evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id)
 					/* create new consumer */
 					if ((consumer = (evm_consumer_struct *)calloc(1, sizeof(evm_consumer_struct))) == NULL) {
 						errno = ENOMEM;
-						evm_log_system_error("calloc(): (evm_consumer_struct)consumer\n");
+						evm_log_system_error("calloc(): consumer\n");
 						free(new);
 						new = NULL;
 					}
@@ -320,7 +320,7 @@ evmTopicStruct * evm_topic_add(evmStruct *evm, int id)
 					/* create new topic */
 					if ((topic = (evm_topic_struct *)calloc(1, sizeof(evm_topic_struct))) == NULL) {
 						errno = ENOMEM;
-						evm_log_system_error("calloc(): (evm_topic_struct)topic\n");
+						evm_log_system_error("calloc(): topic\n");
 						free(new);
 						new = NULL;
 					}

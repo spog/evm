@@ -452,7 +452,7 @@ evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int id)
 					/* create new msgtype */
 					if ((msgtype = (evm_msgtype_struct *)calloc(1, sizeof(evm_msgtype_struct))) == NULL) {
 						errno = ENOMEM;
-						evm_log_system_error("calloc(): (evm_msgtype_struct)msgtype\n");
+						evm_log_system_error("calloc(): msgtype\n");
 						free(new);
 						new = NULL;
 					}
@@ -462,7 +462,7 @@ evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int id)
 						msgtype->msgtype_parse = NULL;
 						if ((msgtype->msgids_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 							errno = ENOMEM;
-							evm_log_system_error("calloc(): (evmlist_head_struct)msgtype->msgids_list\n");
+							evm_log_system_error("calloc(): msgtype->msgids_list\n");
 							free(msgtype);
 							msgtype = NULL;
 							free(new);
@@ -582,7 +582,7 @@ evmMsgidStruct * evm_msgid_add(evmMsgtypeStruct *msgtype, int id)
 					/* create new msgid */
 					if ((msgid = (evm_msgid_struct *)calloc(1, sizeof(evm_msgid_struct))) == NULL) {
 						errno = ENOMEM;
-						evm_log_system_error("calloc(): (evm_msgid_struct)msgid\n");
+						evm_log_system_error("calloc(): msgid\n");
 						free(new);
 						new = NULL;
 					}
@@ -732,7 +732,7 @@ evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *ms
 
 	if ((msg = (evmMessageStruct *)calloc(1, sizeof(evmMessageStruct))) == NULL) {
 		errno = ENOMEM;
-		evm_log_system_error("calloc(): (evmMessageStruct)msg\n");
+		evm_log_system_error("calloc(): msg\n");
 		return NULL;
 	}
 	msg->msgtype = msgtype;
