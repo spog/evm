@@ -87,15 +87,15 @@ struct evm_consumer {
 	sem_t blocking_sem;
 	msgs_queue_struct *msgs_queue; /*internal messages queue*/
 	tmrs_queue_struct *tmrs_queue; /*internal timers queue*/
+	evmlist_head_struct *topics_list;
 	void *priv; /*private - consumer specific data*/
 }; /*evm_consumer_struct*/
 
 struct evm_topic {
 	evm_struct *evm;
 	int id;
-	sem_t blocking_sem;
 	msgs_queue_struct *msgs_queue; /*internal messages queue*/
-}; /*evm_consumer_struct*/
+}; /*evm_topic_struct*/
 
 /*
  * Messages
@@ -154,13 +154,13 @@ struct evm_timer {
  * Internally global "evmlist" helper functions:
  */
 /*
- * evm_walk_evmlist()
+ * evm_search_evmlist()
  * Returns:
  * - NULL, if list is empty (head->first == NULL)
  * - element with required id, if already existing
  * - last element, if required id not existing
  */
-EXTERN evmlist_el_struct * evm_walk_evmlist(evmlist_head_struct *head, int id);
+EXTERN evmlist_el_struct * evm_search_evmlist(evmlist_head_struct *head, int id);
 /*
  * evm_new_evmlist_el()
  * Returns:

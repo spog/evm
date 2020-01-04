@@ -420,7 +420,7 @@ evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->tmrids_list != NULL) {
 			pthread_mutex_lock(&evm->tmrids_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->tmrids_list, id);
+			tmp = evm_search_evmlist(evm->tmrids_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				tmrid = (evm_tmrid_struct *)tmp->el;
@@ -467,7 +467,7 @@ evmTmridStruct * evm_tmrid_get(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->tmrids_list != NULL) {
 			pthread_mutex_lock(&evm->tmrids_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->tmrids_list, id);
+			tmp = evm_search_evmlist(evm->tmrids_list, id);
 			evm_log_debug("tmp=%p\n", tmp);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
@@ -489,7 +489,7 @@ evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->tmrids_list != NULL) {
 			pthread_mutex_lock(&evm->tmrids_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->tmrids_list, id);
+			tmp = evm_search_evmlist(evm->tmrids_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				tmrid = (evm_tmrid_struct *)tmp->el;

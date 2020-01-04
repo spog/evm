@@ -136,7 +136,7 @@ evmStruct * evm_init(void)
 /*
  * Internally global "evmlist" helper function
  */
-evmlist_el_struct * evm_walk_evmlist(evmlist_head_struct *head, int id)
+evmlist_el_struct * evm_search_evmlist(evmlist_head_struct *head, int id)
 {
 	evmlist_el_struct *tmp = NULL;
 	evm_log_info("(entry) head=%p\n", head);
@@ -187,7 +187,7 @@ evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->consumers_list != NULL) {
 			pthread_mutex_lock(&evm->consumers_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->consumers_list, id);
+			tmp = evm_search_evmlist(evm->consumers_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				consumer = (evm_consumer_struct *)tmp->el;
@@ -223,7 +223,7 @@ evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id)
 					}
 					if (consumer != NULL) {
 						/* Initialize EVM messages infrastructure... */
-						if (messages_queue_init(consumer) == NULL) {
+						if (messages_consumer_queue_init(consumer) == NULL) {
 							free(consumer);
 							consumer = NULL;
 							free(new);
@@ -256,7 +256,7 @@ evmConsumerStruct * evm_consumer_get(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->consumers_list != NULL) {
 			pthread_mutex_lock(&evm->consumers_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->consumers_list, id);
+			tmp = evm_search_evmlist(evm->consumers_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				consumer = (evm_consumer_struct *)tmp->el;
@@ -276,7 +276,7 @@ evmConsumerStruct * evm_consumer_del(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->consumers_list != NULL) {
 			pthread_mutex_lock(&evm->consumers_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->consumers_list, id);
+			tmp = evm_search_evmlist(evm->consumers_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				consumer = (evm_consumer_struct *)tmp->el;
@@ -310,7 +310,7 @@ evmTopicStruct * evm_topic_add(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->topics_list != NULL) {
 			pthread_mutex_lock(&evm->topics_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->topics_list, id);
+			tmp = evm_search_evmlist(evm->topics_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				topic = (evm_topic_struct *)tmp->el;
@@ -327,8 +327,14 @@ evmTopicStruct * evm_topic_add(evmStruct *evm, int id)
 					if (topic != NULL) {
 						topic->evm = evm;
 						topic->id = id;
-						sem_init(&topic->blocking_sem, 0, 0);
-						/*prepare per topic msgs queue here*/
+
+						/* Initialize topic's message queue... */
+						if (messages_topic_queue_init(topic) == NULL) {
+							free(topic);
+							topic = NULL;
+							free(new);
+							new = NULL;
+						}
 					}
 				}
 				if (new != NULL) {
@@ -356,7 +362,7 @@ evmTopicStruct * evm_topic_get(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->topics_list != NULL) {
 			pthread_mutex_lock(&evm->topics_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->topics_list, id);
+			tmp = evm_search_evmlist(evm->topics_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				topic = (evm_topic_struct *)tmp->el;
@@ -376,7 +382,7 @@ evmTopicStruct * evm_topic_del(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->topics_list != NULL) {
 			pthread_mutex_lock(&evm->topics_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->topics_list, id);
+			tmp = evm_search_evmlist(evm->topics_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				topic = (evm_topic_struct *)tmp->el;

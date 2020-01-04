@@ -80,7 +80,7 @@ static int msgs_sighandler_install(int signum)
 }
 #endif
 
-msgs_queue_struct * messages_queue_init(evm_consumer_struct *consumer_ptr)
+msgs_queue_struct * messages_consumer_queue_init(evm_consumer_struct *consumer_ptr)
 {
 #if 0 /*samo - orig*/
 	void *ptr;
@@ -166,6 +166,29 @@ msgs_queue_struct * messages_queue_init(evm_consumer_struct *consumer_ptr)
 	consumer_ptr->msgs_queue = msgs_queue_ptr;
 	pthread_mutex_init(&consumer_ptr->msgs_queue->access_mutex, NULL);
 	pthread_mutex_unlock(&consumer_ptr->msgs_queue->access_mutex);
+
+	return msgs_queue_ptr;
+}
+
+msgs_queue_struct * messages_topic_queue_init(evm_topic_struct *topic_ptr)
+{
+	msgs_queue_struct *msgs_queue_ptr = NULL;
+	evm_log_info("(entry)\n");
+
+	if (topic_ptr == NULL) {
+		evm_log_error("Event machine topic object undefined!\n");
+		return NULL;
+	}
+
+	/* Setup internal message queue. */
+	if ((msgs_queue_ptr = calloc(1, sizeof(msgs_queue_struct))) == NULL) {
+		errno = ENOMEM;
+		evm_log_system_error("calloc(): internal message queue\n");
+		return NULL;
+	}
+	topic_ptr->msgs_queue = msgs_queue_ptr;
+	pthread_mutex_init(&topic_ptr->msgs_queue->access_mutex, NULL);
+	pthread_mutex_unlock(&topic_ptr->msgs_queue->access_mutex);
 
 	return msgs_queue_ptr;
 }
@@ -311,16 +334,12 @@ evm_message_struct * messages_check(evm_consumer_struct *consumer_ptr)
 	int status = 0;
 	evm_fd_struct *evs_fd_ptr = NULL;
 #endif
-	msgs_queue_struct *msgs_queue;
 	evm_log_info("(entry)\n");
 
 	if (consumer_ptr == NULL) {
 		evm_log_error("Event machine consumer object undefined!\n");
 		abort();
 	}
-
-	msgs_queue = consumer_ptr->msgs_queue;
-	evm_log_info("queue->first=%p\n", msgs_queue->first_hanger);
 
 	/* Poll the internal message queue first (THE ONLY POTENTIALLY BLOCKING POINT). */
 	return msg_dequeue(consumer_ptr);
@@ -423,7 +442,7 @@ evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->msgtypes_list != NULL) {
 			pthread_mutex_lock(&evm->msgtypes_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->msgtypes_list, id);
+			tmp = evm_search_evmlist(evm->msgtypes_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				msgtype = (evm_msgtype_struct *)tmp->el;
@@ -479,7 +498,7 @@ evmMsgtypeStruct * evm_msgtype_get(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->msgtypes_list != NULL) {
 			pthread_mutex_lock(&evm->msgtypes_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->msgtypes_list, id);
+			tmp = evm_search_evmlist(evm->msgtypes_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				msgtype = (evm_msgtype_struct *)tmp->el;
@@ -498,7 +517,7 @@ evmMsgtypeStruct * evm_msgtype_del(evmStruct *evm, int id)
 	if (evm != NULL) {
 		if (evm->msgtypes_list != NULL) {
 			pthread_mutex_lock(&evm->msgtypes_list->access_mutex);
-			tmp = evm_walk_evmlist(evm->msgtypes_list, id);
+			tmp = evm_search_evmlist(evm->msgtypes_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				msgtype = (evm_msgtype_struct *)tmp->el;
@@ -553,7 +572,7 @@ evmMsgidStruct * evm_msgid_add(evmMsgtypeStruct *msgtype, int id)
 	if (msgtype != NULL) {
 		if (msgtype->msgids_list != NULL) {
 			pthread_mutex_lock(&msgtype->msgids_list->access_mutex);
-			tmp = evm_walk_evmlist(msgtype->msgids_list, id);
+			tmp = evm_search_evmlist(msgtype->msgids_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				msgid = (evm_msgid_struct *)tmp->el;
@@ -601,7 +620,7 @@ evmMsgidStruct * evm_msgid_get(evmMsgtypeStruct *msgtype, int id)
 	if (msgtype != NULL) {
 		if (msgtype->msgids_list != NULL) {
 			pthread_mutex_lock(&msgtype->msgids_list->access_mutex);
-			tmp = evm_walk_evmlist(msgtype->msgids_list, id);
+			tmp = evm_search_evmlist(msgtype->msgids_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				msgid = (evm_msgid_struct *)tmp->el;
@@ -620,7 +639,7 @@ evmMsgidStruct * evm_msgid_del(evmMsgtypeStruct *msgtype, int id)
 	if (msgtype != NULL) {
 		if (msgtype->msgids_list != NULL) {
 			pthread_mutex_lock(&msgtype->msgids_list->access_mutex);
-			tmp = evm_walk_evmlist(msgtype->msgids_list, id);
+			tmp = evm_search_evmlist(msgtype->msgids_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				msgid = (evm_msgid_struct *)tmp->el;
