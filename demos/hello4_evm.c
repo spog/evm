@@ -72,10 +72,10 @@ enum evm_tmr_ids {
 
 static int hello4_send_hello(evmConsumerStruct *loc_evm_ptr, evmConsumerStruct *rem_evm_ptr);
 
-static int evHelloMsg(void *msg_ptr);
-static int evHelloTmrIdle(void *tmr_ptr);
-static int evHelloTmrQuit(void *tmr_ptr);
-static int evHelloMsgFree(void *msg_ptr);
+static int evHelloMsg(evmMessageStruct *msg_ptr);
+static int evHelloTmrIdle(evmTimerStruct *tmr);
+static int evHelloTmrQuit(evmTimerStruct *tmr);
+static int evHelloMsgFree(evmMessageStruct *msg);
 
 static int hello4_evm_init(void);
 static int hello4_evm_run(void);
@@ -266,7 +266,7 @@ static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTi
 }
 
 /* HELLO event handlers */
-static int evHelloMsg(void *msg_ptr)
+static int evHelloMsg(evmMessageStruct *msg_ptr)
 {
 	struct iovec *iov_buff = NULL;
 	evmMessageStruct *msg = (evmMessageStruct *)msg_ptr;
@@ -297,11 +297,10 @@ static int evHelloMsg(void *msg_ptr)
 	return 0;
 }
 
-static int evHelloMsgFree(void *msg_ptr)
+static int evHelloMsgFree(evmMessageStruct *msg)
 {
-	evmMessageStruct *msg = (evmMessageStruct *)msg_ptr;
 	struct iovec *iov_buff = NULL;
-	evm_log_info("(cb entry) msg_ptr=%p\n", msg_ptr);
+	evm_log_info("(cb entry) msg=%p\n", msg);
 
 	if (msg != NULL) {
 		if ((iov_buff = evm_message_iovec_get(msg)) != NULL) {
@@ -318,14 +317,13 @@ static int evHelloMsgFree(void *msg_ptr)
 	return 0;
 }
 
-static int evHelloTmrIdle(void *tmr_ptr)
+static int evHelloTmrIdle(evmTimerStruct *tmr)
 {
 	int status = 0;
-	evmTimerStruct *tmr = (evmTimerStruct *)tmr_ptr;
 	evmConsumerStruct *loc_consumer;
 	evmConsumerStruct *rem_consumer;
 
-	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+	evm_log_info("(cb entry) tmr=%p\n", tmr);
 
 	if (tmr == NULL)
 		return -1;
@@ -339,11 +337,10 @@ static int evHelloTmrIdle(void *tmr_ptr)
 	return status;
 }
 
-static int evHelloTmrQuit(void *tmr_ptr)
+static int evHelloTmrQuit(evmTimerStruct *tmr)
 {
-	evmTimerStruct *tmr = (evmTimerStruct *)tmr_ptr;
 	int *count = (int*)evm_consumer_priv_get(consumers[0]);
-	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+	evm_log_info("(cb entry) tmr=%p\n", tmr);
 
 	if (tmr == NULL)
 		return -1;

@@ -76,9 +76,9 @@ static int hello2_socket_send_hello(int sock);
 static int hello2_receive(int sock);
 static int hello2_parse(struct iovec *iov_buff);
 
-static int evHelloMsg(void *msg_ptr);
-static int evHelloTmrIdle(void *tmr_ptr);
-static int evHelloTmrQuit(void *tmr_ptr);
+static int evHelloMsg(evmMessageStruct *msg);
+static int evHelloTmrIdle(evmTimerStruct *tmr);
+static int evHelloTmrQuit(evmTimerStruct *tmr);
 
 static int hello2_evm_init(void);
 static int hello2_evm_run(void);
@@ -264,12 +264,11 @@ static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTi
 }
 
 /* HELLO event handlers */
-static int evHelloMsg(void *msg_ptr)
+static int evHelloMsg(evmMessageStruct *msg)
 {
 	struct iovec *iov_buff = NULL;
-	evmMessageStruct *msg = (evmMessageStruct *)msg_ptr;
 	evmConsumerStruct *loc_consumer_ptr;
-	evm_log_info("(cb entry) msg_ptr=%p\n", msg_ptr);
+	evm_log_info("(cb entry) msg=%p\n", msg);
 
 	if (msg == NULL)
 		return -1;
@@ -292,13 +291,13 @@ static int evHelloMsg(void *msg_ptr)
 	return 0;
 }
 
-static int evHelloTmrIdle(void *tmr_ptr)
+static int evHelloTmrIdle(evmTimerStruct *tmr)
 {
 	int status = 0;
 
-	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+	evm_log_info("(cb entry) tmr=%p\n", tmr);
 
-	if (tmr_ptr == NULL)
+	if (tmr == NULL)
 		return -1;
 
 	evm_log_notice("IDLE timer expired!\n");
@@ -308,11 +307,11 @@ static int evHelloTmrIdle(void *tmr_ptr)
 	return status;
 }
 
-static int evHelloTmrQuit(void *tmr_ptr)
+static int evHelloTmrQuit(evmTimerStruct *tmr)
 {
-	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+	evm_log_info("(cb entry) tmr=%p\n", tmr);
 
-	if (tmr_ptr == NULL)
+	if (tmr == NULL)
 		return -1;
 
 	evm_log_notice("QUIT timer expired (%d messages sent)!\n", count);

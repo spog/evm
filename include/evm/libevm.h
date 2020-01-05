@@ -175,9 +175,9 @@ extern int evm_msgtype_cb_parse_set(evmMsgtypeStruct *msgtype, int (*msgtype_par
  * - evm_msgid_cb_handle_set()
  * - evm_msgid_cb_finalize_set()
  */
-extern int evm_msgid_cb_prepare_set(evmMsgidStruct *msgid_ptr, int (*msg_prepare)(void *ptr));
-extern int evm_msgid_cb_handle_set(evmMsgidStruct *msgid_ptr, int (*msg_handle)(void *ptr));
-extern int evm_msgid_cb_finalize_set(evmMsgidStruct *msgid_ptr, int (*msg_finalize)(void *ptr));
+extern int evm_msgid_cb_prepare_set(evmMsgidStruct *msgid_ptr, int (*msg_prepare)(evmMessageStruct *msg));
+extern int evm_msgid_cb_handle_set(evmMsgidStruct *msgid_ptr, int (*msg_handle)(evmMessageStruct *msg));
+extern int evm_msgid_cb_finalize_set(evmMsgidStruct *msgid_ptr, int (*msg_finalize)(evmMessageStruct *msg));
 
 #if 0 /*samo - orig*/
 extern int evm_message_fd_add(evmStruct *evm_ptr, evm_fd_struct *evm_fd_ptr);
@@ -228,8 +228,8 @@ extern evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id);
  * - evm_tmrid_cb_handle_set()
  * - evm_tmrid_cb_finalize_set()
  */
-extern int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(void *ptr));
-extern int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(void *ptr));
+extern int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(evmTimerStruct *tmr));
+extern int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(evmTimerStruct *tmr));
 
 /*
  * Public API functions:
@@ -250,6 +250,6 @@ extern void * evm_timer_ctx_get(evmTimerStruct *timer);
  * Automatically free expired timer, if specific "timerid_finalize_cb" not set!
  * Requires the "ptr" argument to be the timer_ptr itself!
  */
-extern int evm_timer_finalize(void *ptr);
+extern int evm_timer_finalize(evmTimerStruct *tmr);
 
 #endif /*EVM_FILE_libevm_h*/

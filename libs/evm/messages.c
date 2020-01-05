@@ -52,8 +52,8 @@ static int messages_receive(evm_fd_struct *evs_fd_ptr);
 static int messages_parse(evm_fd_struct *evs_fd_ptr);
 static int message_queue_evmfd_read(int efd, evm_message_struct *message);
 #endif
-static int msg_enqueue(evm_consumer_struct *consumer_ptr, evm_message_struct *msg);
-static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer_ptr);
+static int msg_enqueue(evm_consumer_struct *consumer, evm_message_struct *msg);
+static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer);
 
 #if 0 /*samo - orig*/
 static void msgs_sighandler(int signum, siginfo_t *siginfo, void *context)
@@ -80,24 +80,24 @@ static int msgs_sighandler_install(int signum)
 }
 #endif
 
-msgs_queue_struct * messages_consumer_queue_init(evm_consumer_struct *consumer_ptr)
+msgs_queue_struct * messages_consumer_queue_init(evm_consumer_struct *consumer)
 {
 #if 0 /*samo - orig*/
 	void *ptr;
 	sigset_t sigmask;
 	evm_sigpost_struct *evm_sigpost = NULL;
 #endif
-	msgs_queue_struct *msgs_queue_ptr = NULL;
+	msgs_queue_struct *msgs_queue = NULL;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr == NULL) {
+	if (consumer == NULL) {
 		evm_log_error("Event machine consumer object undefined!\n");
 		return NULL;
 	}
 
 #if 0 /*samo - orig*/
-	if (consumer_ptr->evm != NULL)
-		evm_sigpost = consumer_ptr->evm->evm_sigpost;
+	if (consumer->evm != NULL)
+		evm_sigpost = consumer->evm->evm_sigpost;
 	if (evm_sigpost == NULL)
 		evm_log_debug("Signal post-processing handler undefined!\n");
 
@@ -154,7 +154,7 @@ msgs_queue_struct * messages_consumer_queue_init(evm_consumer_struct *consumer_p
 #endif
 
 	/* Setup internal message queue. */
-	if ((msgs_queue_ptr = calloc(1, sizeof(msgs_queue_struct))) == NULL) {
+	if ((msgs_queue = calloc(1, sizeof(msgs_queue_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): internal message queue\n");
 #if 0 /*samo - orig*/
@@ -163,34 +163,34 @@ msgs_queue_struct * messages_consumer_queue_init(evm_consumer_struct *consumer_p
 #endif
 		return NULL;
 	}
-	consumer_ptr->msgs_queue = msgs_queue_ptr;
-	pthread_mutex_init(&consumer_ptr->msgs_queue->access_mutex, NULL);
-	pthread_mutex_unlock(&consumer_ptr->msgs_queue->access_mutex);
+	consumer->msgs_queue = msgs_queue;
+	pthread_mutex_init(&consumer->msgs_queue->access_mutex, NULL);
+	pthread_mutex_unlock(&consumer->msgs_queue->access_mutex);
 
-	return msgs_queue_ptr;
+	return msgs_queue;
 }
 
-msgs_queue_struct * messages_topic_queue_init(evm_topic_struct *topic_ptr)
+msgs_queue_struct * messages_topic_queue_init(evm_topic_struct *topic)
 {
-	msgs_queue_struct *msgs_queue_ptr = NULL;
+	msgs_queue_struct *msgs_queue = NULL;
 	evm_log_info("(entry)\n");
 
-	if (topic_ptr == NULL) {
+	if (topic == NULL) {
 		evm_log_error("Event machine topic object undefined!\n");
 		return NULL;
 	}
 
 	/* Setup internal message queue. */
-	if ((msgs_queue_ptr = calloc(1, sizeof(msgs_queue_struct))) == NULL) {
+	if ((msgs_queue = calloc(1, sizeof(msgs_queue_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): internal message queue\n");
 		return NULL;
 	}
-	topic_ptr->msgs_queue = msgs_queue_ptr;
-	pthread_mutex_init(&topic_ptr->msgs_queue->access_mutex, NULL);
-	pthread_mutex_unlock(&topic_ptr->msgs_queue->access_mutex);
+	topic->msgs_queue = msgs_queue;
+	pthread_mutex_init(&topic->msgs_queue->access_mutex, NULL);
+	pthread_mutex_unlock(&topic->msgs_queue->access_mutex);
 
-	return msgs_queue_ptr;
+	return msgs_queue;
 }
 
 #if 0 /*samo - orig*/
@@ -243,7 +243,7 @@ static int messages_parse(evm_fd_struct *evs_fd_ptr)
 }
 #endif
 
-static int msg_enqueue(evm_consumer_struct *consumer_ptr, evm_message_struct *msg)
+static int msg_enqueue(evm_consumer_struct *consumer, evm_message_struct *msg)
 {
 	int rv = 0;
 	msgs_queue_struct *msgs_queue;
@@ -252,9 +252,9 @@ static int msg_enqueue(evm_consumer_struct *consumer_ptr, evm_message_struct *ms
 	pthread_mutex_t *amtx;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr != NULL) {
-		msgs_queue = consumer_ptr->msgs_queue;
-		bsem = &consumer_ptr->blocking_sem;
+	if (consumer != NULL) {
+		msgs_queue = consumer->msgs_queue;
+		bsem = &consumer->blocking_sem;
 		if (msgs_queue != NULL)
 			amtx = &msgs_queue->access_mutex;
 		else
@@ -285,7 +285,7 @@ static int msg_enqueue(evm_consumer_struct *consumer_ptr, evm_message_struct *ms
 	return rv;
 }
 
-static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer_ptr)
+static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer)
 {
 	evm_message_struct *msg;
 	msgs_queue_struct *msgs_queue;
@@ -294,9 +294,9 @@ static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer_ptr)
 	pthread_mutex_t *amtx;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr != NULL) {
-		msgs_queue = (msgs_queue_struct *)consumer_ptr->msgs_queue;
-		bsem = &consumer_ptr->blocking_sem;
+	if (consumer != NULL) {
+		msgs_queue = (msgs_queue_struct *)consumer->msgs_queue;
+		bsem = &consumer->blocking_sem;
 		if (msgs_queue != NULL)
 			amtx = &msgs_queue->access_mutex;
 		else
@@ -321,28 +321,91 @@ static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer_ptr)
 		msgs_queue->first_hanger = msg_hanger->next;
 
 	msg = msg_hanger->msg;
-	msg->consumer = consumer_ptr; /*set dequeueing consumer*/
+	msg->consumer = consumer; /*set dequeueing consumer*/
 	free(msg_hanger);
 	msg_hanger = NULL;
 	pthread_mutex_unlock(amtx);
 	return msg;
 }
 
-evm_message_struct * messages_check(evm_consumer_struct *consumer_ptr)
+#if 0 /*samo - added*/
+static evm_message_struct * msg_dequeue_topic(evm_consumer_struct *consumer, evm_topic_struct *topic)
+{
+	evm_message_struct *msg;
+	msgs_queue_struct *msgs_queue;
+	msg_hanger_struct *msg_hanger;
+	pthread_mutex_t *amtx;
+	evm_log_info("(entry)\n");
+
+	if (topic != NULL) {
+		msgs_queue = (msgs_queue_struct *)topic->msgs_queue;
+		if (msgs_queue != NULL)
+			amtx = &msgs_queue->access_mutex;
+		else
+			return NULL;
+	} else
+		return NULL;
+
+
+	evm_log_info("Wait blocking semaphore (BLOCK, IF LOCKED)\n");
+	pthread_mutex_lock(amtx);
+	msg_hanger = msgs_queue->first_hanger;
+	if (msg_hanger == NULL) {
+		pthread_mutex_unlock(amtx);
+		return NULL;
+	}
+
+	if (msg_hanger->next == NULL) {
+		msgs_queue->first_hanger = NULL;
+		msgs_queue->last_hanger = NULL;
+	} else
+		msgs_queue->first_hanger = msg_hanger->next;
+
+	msg = msg_hanger->msg;
+	msg->consumer = consumer; /*set dequeueing consumer*/
+	free(msg_hanger);
+	msg_hanger = NULL;
+	pthread_mutex_unlock(amtx);
+	return msg;
+}
+#endif
+
+evm_message_struct * messages_check(evm_consumer_struct *consumer)
 {
 #if 0 /*samo - orig*/
 	int status = 0;
 	evm_fd_struct *evs_fd_ptr = NULL;
 #endif
+#if 0 /*samo - added*/
+	evmlist_el_struct *tmp;
+	evm_topic_struct *topic;
+	evm_message_struct *msg;
+#endif
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr == NULL) {
+	if (consumer == NULL) {
 		evm_log_error("Event machine consumer object undefined!\n");
 		abort();
 	}
 
+#if 0 /*samo - added*/
+	/* Poll the registerd topics message queues of the consumer (NON-BLOCKING). */
+	pthread_mutex_lock(&consumer->topics_list->access_mutex);
+	for (
+		tmp = consumer->topics_list->first;
+		tmp != NULL;
+		tmp = tmp->next
+	) {
+		topic = (evm_topic_struct *)tmp->el;
+		msg = msg_dequeue_topic(consumer, topic);
+	}
+	pthread_mutex_unlock(&consumer->topics_list->access_mutex);
+	if (msg != NULL)
+		return msg;
+#endif
+
 	/* Poll the internal message queue first (THE ONLY POTENTIALLY BLOCKING POINT). */
-	return msg_dequeue(consumer_ptr);
+	return msg_dequeue(consumer);
 
 #if 0 /*samo - orig*/
 	/* Receive any data. */
@@ -351,11 +414,11 @@ evm_message_struct * messages_check(evm_consumer_struct *consumer_ptr)
 		return NULL;
 	}
 
-	if (evs_fd_ptr == ((msgs_queue_struct *)consumer_ptr->msgs_queue)->evmfd) {
+	if (evs_fd_ptr == ((msgs_queue_struct *)consumer->msgs_queue)->evmfd) {
 		evm_log_debug("Internal queue receive triggered!\n");
 #if 0 /*test*/
 		if (msgs_queue->first_hanger != NULL) {
-			return msg_dequeue(consumer_ptr);
+			return msg_dequeue(consumer);
 		}
 #endif
 		return NULL;
@@ -664,7 +727,7 @@ evmMsgidStruct * evm_msgid_del(evmMsgtypeStruct *msgtype, int id)
  * - evm_msgid_cb_handle_set()
  * - evm_msgid_cb_finalize_set()
  */
-int evm_msgid_cb_prepare_set(evmMsgidStruct *msgid, int (*msg_prepare)(void *ptr))
+int evm_msgid_cb_prepare_set(evmMsgidStruct *msgid, int (*msg_prepare)(evmMessageStruct *msg))
 {
 	int rv = 0;
 	evm_log_info("(entry)\n");
@@ -681,7 +744,7 @@ int evm_msgid_cb_prepare_set(evmMsgidStruct *msgid, int (*msg_prepare)(void *ptr
 	return rv;
 }
 
-int evm_msgid_cb_handle_set(evmMsgidStruct *msgid, int (*msg_handle)(void *ptr))
+int evm_msgid_cb_handle_set(evmMsgidStruct *msgid, int (*msg_handle)(evmMessageStruct *msg))
 {
 	int rv = 0;
 	evm_log_info("(entry)\n");
@@ -698,7 +761,7 @@ int evm_msgid_cb_handle_set(evmMsgidStruct *msgid, int (*msg_handle)(void *ptr))
 	return rv;
 }
 
-int evm_msgid_cb_finalize_set(evmMsgidStruct *msgid, int (*msg_finalize)(void *ptr))
+int evm_msgid_cb_finalize_set(evmMsgidStruct *msgid, int (*msg_finalize)(evmMessageStruct *msg))
 {
 	int rv = 0;
 	evm_log_info("(entry)\n");

@@ -65,9 +65,9 @@ enum evm_tmr_ids {
 
 static evmTimerStruct * hello_start_timer(evmTimerStruct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evmTmridStruct *tmrid_ptr);
 
-static int evHelloMsg(void *msg_ptr);
-static int evHelloTmrIdle(void *tmr_ptr);
-static int evHelloTmrQuit(void *tmr_ptr);
+static int evHelloMsg(evmMessageStruct *msg);
+static int evHelloTmrIdle(evmTimerStruct *tmr);
+static int evHelloTmrQuit(evmTimerStruct *tmr);
 
 static int hello_evm_init(void);
 static int hello_evm_run(void);
@@ -254,12 +254,11 @@ static evmTimerStruct * hello_start_timer(evmTimerStruct *tmr, time_t tv_sec, lo
 static unsigned int count;
 
 /* HELLO event handlers */
-static int evHelloMsg(void *msg_ptr)
+static int evHelloMsg(evmMessageStruct *msg)
 {
 	evmTmridStruct *tmrid_ptr;
 	struct iovec *iov_buff = NULL;
-	evmMessageStruct *msg = (evmMessageStruct *)msg_ptr;
-	evm_log_info("(cb entry) msg_ptr=%p\n", msg_ptr);
+	evm_log_info("(cb entry) msg_ptr=%p\n", msg);
 
 	if (msg == NULL)
 		return -1;
@@ -282,10 +281,10 @@ static int evHelloMsg(void *msg_ptr)
 	return 0;
 }
 
-static int evHelloTmrIdle(void *tmr_ptr)
+static int evHelloTmrIdle(evmTimerStruct *tmr)
 {
 	int rv = 0;
-	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+	evm_log_info("(cb entry) tmr=%p\n", tmr);
 
 	evm_log_notice("IDLE timer expired!\n");
 
@@ -297,9 +296,9 @@ static int evHelloTmrIdle(void *tmr_ptr)
 	return rv;
 }
 
-static int evHelloTmrQuit(void *tmr_ptr)
+static int evHelloTmrQuit(evmTimerStruct *tmr)
 {
-	evm_log_info("(cb entry) tmr_ptr=%p\n", tmr_ptr);
+	evm_log_info("(cb entry) tmr=%p\n", tmr);
 
 	evm_log_notice("QUIT timer expired (%d messages sent)!\n", count);
 

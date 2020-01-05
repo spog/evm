@@ -52,13 +52,13 @@ unsigned int evmVerPatch = EVM_VERSION_PATCH;
 
 static int prepare_msg(evm_msgid_struct *msgid, void *msg);
 static int handle_msg(evm_msgid_struct *msgid, void *msg);
-static int finalize_msg(evm_msgid_struct *msgid, void *msg);
+static int finalize_msg(evm_msgid_struct *msgid, evm_message_struct *msg);
 
 static int handle_tmr(evm_tmrid_struct *tmrid, void *tmr);
 static int finalize_tmr(evm_tmrid_struct *tmrid, void *tmr);
 
-static int handle_timer(evm_timer_struct *expdTmr);
-static int handle_message(evm_message_struct *recvdMsg);
+static int handle_timer(evm_timer_struct *expd_tmr);
+static int handle_message(evm_message_struct *rcvd_msg);
 
 /*
  * Public API function:
@@ -464,8 +464,8 @@ int evm_sigpost_set(evmStruct *evm, evm_sigpost_struct *sigpost)
 int evm_run_once(evmConsumerStruct *consumer)
 {
 	int status = 0;
-	evm_timer_struct *expdTmr;
-	evm_message_struct *recvdMsg;
+	evm_timer_struct *expd_tmr;
+	evm_message_struct *rcvd_msg;
 	evm_log_info("(entry)\n");
 
 	if (consumer == NULL) {
@@ -477,16 +477,16 @@ int evm_run_once(evmConsumerStruct *consumer)
 	for (;;) {
 		evm_log_info("(main loop entry)\n");
 		/* Handle expired timer (NON-BLOCKING). */
-		if ((expdTmr = timers_check(consumer)) != NULL) {
-			if ((status = handle_timer(expdTmr)) < 0)
+		if ((expd_tmr = timers_check(consumer)) != NULL) {
+			if ((status = handle_timer(expd_tmr)) < 0)
 				evm_log_debug("handle_timer() returned %d\n", status);
 		} else
 			break;
 	}
 
 	/* Handle handle received message (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
-	if ((recvdMsg = messages_check(consumer)) != NULL) {
-		if ((status = handle_message(recvdMsg)) < 0)
+	if ((rcvd_msg = messages_check(consumer)) != NULL) {
+		if ((status = handle_message(rcvd_msg)) < 0)
 			evm_log_debug("handle_message() returned %d\n", status);
 	}
 
@@ -518,8 +518,8 @@ int evm_run_async(evmConsumerStruct *consumer)
 int evm_run(evmConsumerStruct *consumer)
 {
 	int status = 0;
-	evm_timer_struct *expdTmr;
-	evm_message_struct *recvdMsg;
+	evm_timer_struct *expd_tmr;
+	evm_message_struct *rcvd_msg;
 	evm_log_info("(entry)\n");
 
 	if (consumer == NULL) {
@@ -531,15 +531,15 @@ int evm_run(evmConsumerStruct *consumer)
 	for (;;) {
 		evm_log_info("(main loop entry)\n");
 		/* Handle expired timer (NON-BLOCKING). */
-		if ((expdTmr = timers_check(consumer)) != NULL) {
-			if ((status = handle_timer(expdTmr)) < 0)
+		if ((expd_tmr = timers_check(consumer)) != NULL) {
+			if ((status = handle_timer(expd_tmr)) < 0)
 				evm_log_debug("handle_timer() returned %d\n", status);
 			continue;
 		}
 
-		/* Handle handle received message (WAIT - THE ONLY BLOCKING POINT). */
-		if ((recvdMsg = messages_check(consumer)) != NULL) {
-			if ((status = handle_message(recvdMsg)) < 0)
+		/* Handle handle received message (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
+		if ((rcvd_msg = messages_check(consumer)) != NULL) {
+			if ((status = handle_message(rcvd_msg)) < 0)
 				evm_log_debug("handle_message() returned %d\n", status);
 		}
 	}
@@ -598,7 +598,7 @@ static int handle_msg(evm_msgid_struct *msgid, void *msg)
 	return -1;
 }
 
-static int finalize_msg(evm_msgid_struct *msgid, void *msg)
+static int finalize_msg(evm_msgid_struct *msgid, evm_message_struct *msg)
 {
 	if (msgid != NULL)
 		if (msgid->msg_finalize != NULL)
@@ -606,21 +606,21 @@ static int finalize_msg(evm_msgid_struct *msgid, void *msg)
 	return -1;
 }
 
-static int handle_message(evm_message_struct *recvdMsg)
+static int handle_message(evm_message_struct *msg)
 {
 	int status0 = 0;
 	int status1 = 0;
 	int status2 = 0;
 
-	status0 = prepare_msg(recvdMsg->msgid, recvdMsg);
+	status0 = prepare_msg(msg->msgid, msg);
 	if (status0 < 0)
 		evm_log_debug("prepare_msg() returned %d\n", status0);
 
-	status1 = handle_msg(recvdMsg->msgid, recvdMsg);
+	status1 = handle_msg(msg->msgid, msg);
 	if (status1 < 0)
 		evm_log_debug("handle_msg() returned %d\n", status1);
 
-	status2 = finalize_msg(recvdMsg->msgid, recvdMsg);
+	status2 = finalize_msg(msg->msgid, msg);
 	if (status2 < 0)
 		evm_log_debug("finalize_msg() returned %d\n", status2);
 
@@ -643,21 +643,21 @@ static int finalize_tmr(evm_tmrid_struct *tmrid, void *tmr)
 	return -1;
 }
 
-static int handle_timer(evm_timer_struct *expdTmr)
+static int handle_timer(evm_timer_struct *tmr)
 {
 	int status1 = 0;
 	int status2 = 0;
 
-	if (expdTmr == NULL)
+	if (tmr == NULL)
 		return -1;
 
-	if (expdTmr->stopped == 0) {
-		status1 = handle_tmr(expdTmr->tmrid, expdTmr);
+	if (tmr->stopped == 0) {
+		status1 = handle_tmr(tmr->tmrid, tmr);
 		if (status1 < 0)
 			evm_log_debug("handle_tmr() returned %d\n", status1);
 	}
 
-	status2 = finalize_tmr(expdTmr->tmrid, expdTmr);
+	status2 = finalize_tmr(tmr->tmrid, tmr);
 	if (status2 < 0)
 		evm_log_debug("finalize_tmr() returned %d\n", status2);
 

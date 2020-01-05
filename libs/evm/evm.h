@@ -111,15 +111,16 @@ struct evm_msgid {
 	evm_struct *evm;
 	evm_msgtype_struct *msgtype;
 	int id;
-	int (*msg_prepare)(void *ptr);
-	int (*msg_handle)(void *ptr);
-	int (*msg_finalize)(void *ptr);
+	int (*msg_prepare)(evm_message_struct *ptr);
+	int (*msg_handle)(evm_message_struct *ptr);
+	int (*msg_finalize)(evm_message_struct *ptr);
 }; /*evm_msgid_struct*/
 
 struct evm_message {
 	evm_msgtype_struct *msgtype;
 	evm_msgid_struct *msgid;
 	evm_consumer_struct *consumer;
+	evm_topic_struct *topic;
 	int saved;
 	void *ctx;
 	int rval_decode;
@@ -136,8 +137,8 @@ struct evm_message {
 struct evm_tmrid {
 	evm_struct *evm;
 	int id;
-	int (*tmr_handle)(void *ptr);
-	int (*tmr_finalize)(void *ptr);
+	int (*tmr_handle)(evm_timer_struct *ptr);
+	int (*tmr_finalize)(evm_timer_struct *ptr);
 }; /*evm_tmrid_struct*/
 
 struct evm_timer {

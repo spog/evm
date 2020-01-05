@@ -55,17 +55,17 @@ static int tmr_thr_keys_created = EVM_FALSE;
 static pthread_key_t tmr_thr_overruns_key; /*initialized only once - not for each call to evm_init() within a process*/
 
 static void timer_sighandler(int signum, siginfo_t *siginfo, void *context);
-static int tmr_enqueue(evm_consumer_struct *consumer_ptr, evm_timer_struct *tmr);
-static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer_ptr);
-static int timer_pass(evm_consumer_struct *consumer_ptr, evm_timer_struct *tmr);
+static int tmr_enqueue(evm_consumer_struct *consumer, evm_timer_struct *tmr);
+static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer);
+static int timer_pass(evm_consumer_struct *consumer, evm_timer_struct *tmr);
 
 static void timer_sighandler(int signum, siginfo_t *siginfo, void *context)
 {
 	if (signum == SIG) {
 		int *thr_overruns = (int *)pthread_getspecific(tmr_thr_overruns_key);
-		timer_t *timerid_ptr = siginfo->si_value.sival_ptr;
+		timer_t *timerid = siginfo->si_value.sival_ptr;
 
-		*thr_overruns = timer_getoverrun(*timerid_ptr);
+		*thr_overruns = timer_getoverrun(*timerid);
 #if 0
 		*thr_overruns = 15434654;
 #endif
@@ -78,16 +78,16 @@ static void timer_sighandler(int signum, siginfo_t *siginfo, void *context)
  * - Pointer to initialized tmrs_queue
  * - NULL on failure
  */
-tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer_ptr)
+tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer)
 {
 	void *ptr = NULL;
-	tmrs_queue_struct *tmrs_queue_ptr = NULL;
+	tmrs_queue_struct *tmrs_queue = NULL;
 	struct sigaction sact;
 	struct sigevent sev;
 	sigset_t sigmask;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr == NULL) {
+	if (consumer == NULL) {
 		evm_log_error("Event machine consumer undefined!\n");
 		return NULL;
 	}
@@ -115,18 +115,18 @@ tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer_ptr)
 	*(int *)ptr = -2; /*initialize*/
 
 	/* Setup consumer internal timer queue. */
-	if ((tmrs_queue_ptr = (tmrs_queue_struct *)calloc(1, sizeof(tmrs_queue_struct))) == NULL) {
+	if ((tmrs_queue = (tmrs_queue_struct *)calloc(1, sizeof(tmrs_queue_struct))) == NULL) {
 		errno = ENOMEM;
 		evm_log_system_error("calloc(): internal timer queue\n");
 		free(ptr);
 		ptr = NULL;
 		return NULL;
 	}
-	consumer_ptr->tmrs_queue = tmrs_queue_ptr;
-	consumer_ptr->tmrs_queue->first_tmr = NULL;
-	consumer_ptr->tmrs_queue->last_tmr = NULL;
-	pthread_mutex_init(&consumer_ptr->tmrs_queue->access_mutex, NULL);
-	pthread_mutex_unlock(&consumer_ptr->tmrs_queue->access_mutex);
+	consumer->tmrs_queue = tmrs_queue;
+	consumer->tmrs_queue->first_tmr = NULL;
+	consumer->tmrs_queue->last_tmr = NULL;
+	pthread_mutex_init(&consumer->tmrs_queue->access_mutex, NULL);
+	pthread_mutex_unlock(&consumer->tmrs_queue->access_mutex);
 
 	pthread_mutex_lock(&global_timer_mutex);
 	evm_log_debug("global_timer_created=%d\n", global_timer_created);
@@ -138,8 +138,8 @@ tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer_ptr)
 		if (pthread_sigmask(SIG_BLOCK, &sigmask, NULL) < 0) {
 			evm_log_system_error("pthread_sigmask() SIG_BLOCK\n");
 			pthread_mutex_unlock(&global_timer_mutex);
-			free(tmrs_queue_ptr);
-			tmrs_queue_ptr = NULL;
+			free(tmrs_queue);
+			tmrs_queue = NULL;
 			free(ptr);
 			ptr = NULL;
 			return NULL;
@@ -153,8 +153,8 @@ tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer_ptr)
 		if (sigaction(SIG, &sact, NULL) == -1) {
 			evm_log_system_error("sigaction()\n");
 			pthread_mutex_unlock(&global_timer_mutex);
-			free(tmrs_queue_ptr);
-			tmrs_queue_ptr = NULL;
+			free(tmrs_queue);
+			tmrs_queue = NULL;
 			free(ptr);
 			ptr = NULL;
 			return NULL;
@@ -170,8 +170,8 @@ tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer_ptr)
 		if (timer_create(CLOCKID, &sev, &global_timerid) == -1) {
 			evm_log_system_error("timer_create() timer ID=%p\n", (void *)global_timerid);
 			pthread_mutex_unlock(&global_timer_mutex);
-			free(tmrs_queue_ptr);
-			tmrs_queue_ptr = NULL;
+			free(tmrs_queue);
+			tmrs_queue = NULL;
 			free(ptr);
 			ptr = NULL;
 			return NULL;
@@ -183,8 +183,8 @@ tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer_ptr)
 		if (pthread_sigmask(SIG_UNBLOCK, &sigmask, NULL) < 0) {
 			evm_log_system_error("pthread_sigmask() SIG_UNBLOCK\n");
 			pthread_mutex_unlock(&global_timer_mutex);
-			free(tmrs_queue_ptr);
-			tmrs_queue_ptr = NULL;
+			free(tmrs_queue);
+			tmrs_queue = NULL;
 			free(ptr);
 			ptr = NULL;
 			return NULL;
@@ -193,10 +193,10 @@ tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer_ptr)
 	}
 	pthread_mutex_unlock(&global_timer_mutex);
 
-	return tmrs_queue_ptr;
+	return tmrs_queue;
 }
 
-static int tmr_enqueue(evm_consumer_struct *consumer_ptr, evm_timer_struct *tmr)
+static int tmr_enqueue(evm_consumer_struct *consumer, evm_timer_struct *tmr)
 {
 	int rv = 0;
 	tmrs_queue_struct *tmrs_queue;
@@ -204,9 +204,9 @@ static int tmr_enqueue(evm_consumer_struct *consumer_ptr, evm_timer_struct *tmr)
 	pthread_mutex_t *amtx;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr != NULL) {
-		tmrs_queue = consumer_ptr->tmrs_queue;
-		bsem = &consumer_ptr->blocking_sem;
+	if (consumer != NULL) {
+		tmrs_queue = consumer->tmrs_queue;
+		bsem = &consumer->blocking_sem;
 		if (tmrs_queue != NULL)
 			amtx = &tmrs_queue->access_mutex;
 		else
@@ -230,15 +230,15 @@ static int tmr_enqueue(evm_consumer_struct *consumer_ptr, evm_timer_struct *tmr)
 	return rv;
 }
 
-static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer_ptr)
+static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer)
 {
 	evm_timer_struct *tmr;
 	tmrs_queue_struct *tmrs_queue;
 	pthread_mutex_t *amtx;
-	evm_log_info("(entry) consumer_ptr=%p\n", consumer_ptr);
+	evm_log_info("(entry) consumer=%p\n", consumer);
 
-	if (consumer_ptr != NULL) {
-		tmrs_queue = consumer_ptr->tmrs_queue;
+	if (consumer != NULL) {
+		tmrs_queue = consumer->tmrs_queue;
 		if (tmrs_queue != NULL)
 			amtx = &tmrs_queue->access_mutex;
 		else
@@ -261,7 +261,7 @@ static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer_ptr)
 	} else
 		tmrs_queue->first_tmr = tmr->next;
 
-	tmr->consumer = consumer_ptr; /*just in case:)*/
+	tmr->consumer = consumer; /*just in case:)*/
 	pthread_mutex_unlock(amtx);
 	return tmr;
 }
@@ -269,13 +269,13 @@ static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer_ptr)
 /*
  * Internal passing of expired timers from global queue
  * to its internal tmrs_queue when expired time doesn't belong
- * to running evn_timers_check() (different consumer_ptr).
+ * to running evn_timers_check() (different consumer).
  */
-static int timer_pass(evm_consumer_struct *consumer_ptr, evm_timer_struct *tmr)
+static int timer_pass(evm_consumer_struct *consumer, evm_timer_struct *tmr)
 {
-	evm_log_info("(entry) consumer_ptr=%p, msg=%p\n", consumer_ptr, tmr);
-	if (consumer_ptr != NULL) {
-		if (tmr_enqueue(consumer_ptr, tmr) != 0) {
+	evm_log_info("(entry) consumer=%p, msg=%p\n", consumer, tmr);
+	if (consumer != NULL) {
+		if (tmr_enqueue(consumer, tmr) != 0) {
 			evm_log_error("Timer enqueuing failed!\n");
 			return -1;
 		}
@@ -284,7 +284,7 @@ static int timer_pass(evm_consumer_struct *consumer_ptr, evm_timer_struct *tmr)
 	return -1;
 }
 
-evm_timer_struct * timers_check(evm_consumer_struct *consumer_ptr)
+evm_timer_struct * timers_check(evm_consumer_struct *consumer)
 {
 	evm_timer_struct *tmr_return = NULL;
 	evm_timer_struct *tmr;
@@ -293,17 +293,17 @@ evm_timer_struct * timers_check(evm_consumer_struct *consumer_ptr)
 	int *thr_overruns;
 	evm_log_info("(entry)\n");
 
-	if (consumer_ptr == NULL)
+	if (consumer == NULL)
 		return NULL;
-	evm_log_info("(entry) consumer_ptr=%p\n",consumer_ptr);
+	evm_log_info("(entry) consumer=%p\n",consumer);
 
-	if (consumer_ptr->tmrs_queue == NULL)
+	if (consumer->tmrs_queue == NULL)
 		return NULL;
 
-	tmr = consumer_ptr->tmrs_queue->first_tmr;
+	tmr = consumer->tmrs_queue->first_tmr;
 	evm_log_debug("(entry) tmr=%p\n", tmr);
 	if (tmr != NULL)
-		return tmr_dequeue(consumer_ptr); /*first consume already prepared expired timers*/
+		return tmr_dequeue(consumer); /*first consume already prepared expired timers*/
 
 	/*Check the global timers queue for the newly expired timers.*/
 	pthread_mutex_lock(&global_timer_mutex);
@@ -394,7 +394,7 @@ evm_timer_struct * timers_check(evm_consumer_struct *consumer_ptr)
 	pthread_mutex_unlock(&global_timer_mutex);
 
 	if (tmr_return != NULL) {
-		if (tmr_return->consumer == consumer_ptr)
+		if (tmr_return->consumer == consumer)
 			return tmr_return;
 
 		if (timer_pass(tmr_return->consumer, tmr_return) < 0) {
@@ -513,7 +513,7 @@ evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id)
  * - evm_tmrid_cb_handle_set()
  * - evm_tmrid_cb_finalize_set()
  */
-int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(void *ptr))
+int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(evmTimerStruct *tmr))
 {
 	int rv = 0;
 	evm_log_info("(entry)\n");
@@ -530,7 +530,7 @@ int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(void *ptr))
 	return rv;
 }
 
-int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(void *ptr))
+int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(evmTimerStruct *tmr))
 {
 	int rv = 0;
 	evm_log_info("(entry)\n");
@@ -554,7 +554,7 @@ int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(void *p
  * - evm_timer_consumer_get()
  * - evm_timer_ctx_get()
  */
-evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tmrid, time_t tv_sec, long tv_nsec, void *ctx_ptr)
+evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tmrid, time_t tv_sec, long tv_nsec, void *ctx)
 {
 	struct itimerspec its;
 	evmTimerStruct *new;
@@ -583,7 +583,7 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 	new->consumer = consumer;
 	new->saved = 0;
 	new->stopped = 0;
-	new->ctx = ctx_ptr;
+	new->ctx = ctx;
 
 	if (clock_gettime(CLOCK_MONOTONIC, &new->tm_stamp) == -1) {
 		evm_log_system_error("clock_gettime()\n");
@@ -691,17 +691,16 @@ void * evm_timer_ctx_get(evmTimerStruct *tmr)
  * Public API function:
  * - evm_timer_finalize()
  */
-int evm_timer_finalize(void *ptr)
+int evm_timer_finalize(evmTimerStruct *tmr)
 {
-	evm_timer_struct *timer = (evm_timer_struct *)ptr;
-	evm_log_info("(cb entry) ptr=%p\n", ptr);
+	evm_log_info("(cb entry) tmr=%p\n", tmr);
 
-	if (timer == NULL)
+	if (tmr == NULL)
 		return -1;
 
-	if (timer->saved == 0) {
-		free(timer);
-		timer = NULL;
+	if (tmr->saved == 0) {
+		free(tmr);
+		tmr = NULL;
 	}
 
 	return 0;
