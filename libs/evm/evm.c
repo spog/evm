@@ -154,6 +154,27 @@ evmlist_el_struct * evm_search_evmlist(evmlist_head_struct *head, int id)
 	return tmp;
 }
 
+evmlist_el_struct * evm_check_evmlist(evmlist_head_struct *head, void *el)
+{
+	evmlist_el_struct *tmp = NULL;
+	evm_log_info("(entry) head=%p\n", head);
+
+	if (el == NULL)
+		return NULL;
+
+	if (head != NULL) {
+		tmp = head->first;
+		while (tmp != NULL) {
+			if (tmp->next == NULL)
+				break;
+			if (tmp->el == el)
+				break;
+			tmp = tmp->next;
+		}
+	}
+	return tmp;
+}
+
 /*
  * Internally global "evmlist" helper function
  */
@@ -278,7 +299,7 @@ evmConsumerStruct * evm_consumer_del(evmStruct *evm, int id)
 			pthread_mutex_lock(&evm->consumers_list->access_mutex);
 			tmp = evm_search_evmlist(evm->consumers_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
-				/* required id already exists - return existing element */
+				/* required id already exists - delete existing element */
 				consumer = (evm_consumer_struct *)tmp->el;
 				if (consumer != NULL) {
 					free(consumer);
@@ -384,7 +405,7 @@ evmTopicStruct * evm_topic_del(evmStruct *evm, int id)
 			pthread_mutex_lock(&evm->topics_list->access_mutex);
 			tmp = evm_search_evmlist(evm->topics_list, id);
 			if ((tmp != NULL) && (tmp->id == id)) {
-				/* required id already exists - return existing element */
+				/* required id already exists - delete existing element */
 				topic = (evm_topic_struct *)tmp->el;
 				if (topic != NULL) {
 					free(topic);
@@ -398,6 +419,254 @@ evmTopicStruct * evm_topic_del(evmStruct *evm, int id)
 			pthread_mutex_unlock(&evm->topics_list->access_mutex);
 		}	
 	}
+	return topic;
+}
+
+/*
+ * Internal consumer topic addition and removal funstions:
+ * consumer_topic_add()
+ * consumer_topic_del()
+ * topic_consumer_add()
+ * topic_consumer_del()
+ */
+/*
+ * Function: consumer_topic_add()
+ * Returns:
+ * - NULL, if:
+ *   - any of parameters is NULL
+ *   - consumer's topic unsuccessfully added
+ * - Same topic pointer as provided in parameter, when:
+ *   - consumer's topic successully added
+ *   - consumer's topic already added
+ */
+static evm_topic_struct * consumer_topic_add(evm_consumer_struct *consumer, evm_topic_struct *topic)
+{
+	evmlist_el_struct *tmp, *new;
+	evm_log_info("(entry)\n");
+
+	if ((consumer != NULL) && (topic != NULL)) {
+		if (consumer->topics_list != NULL) {
+			pthread_mutex_lock(&consumer->topics_list->access_mutex);
+			tmp = evm_check_evmlist(consumer->topics_list, (void *)topic);
+			if ((tmp == NULL) || (tmp->el != (void *)topic)) {
+				/* List is empty or element not yet present */
+				/* create and new evmlist element with id */
+				if ((new = evm_new_evmlist_el(topic->id)) != NULL) {
+					/* add supplied topic */
+					new->el = (void *)topic;
+					new->prev = tmp;
+					new->next = NULL;
+					if (tmp != NULL)
+						tmp->next = new;
+					else
+						consumer->topics_list->first = new;
+				} else
+					topic = NULL;
+			}
+			pthread_mutex_unlock(&consumer->topics_list->access_mutex);
+		}
+	} else
+		topic = NULL;
+
+	return topic;
+}
+
+/*
+ * Function: topic_consumer_add()
+ * Returns:
+ * - NULL, if:
+ *   - any of parameters is NULL
+ *   - topic's consumer unsuccessfully added
+ * - Same consumer pointer provided as parameter, when:
+ *   - topic's consumer successully added
+ *   - topic's consumer already added
+ *
+ *   If really added, then per topic consumers_list size increments!
+ */
+static evm_consumer_struct * topic_consumer_add(evm_topic_struct *topic, evm_consumer_struct *consumer)
+{
+	evmlist_el_struct *tmp, *new;
+	evm_log_info("(entry)\n");
+
+	if ((topic != NULL) && (consumer != NULL)) {
+		if (topic->consumers_list != NULL) {
+			pthread_mutex_lock(&topic->consumers_list->access_mutex);
+			tmp = evm_check_evmlist(topic->consumers_list, (void *)consumer);
+			if ((tmp == NULL) || (tmp->el != (void *)consumer)) {
+				/* List is empty or element not yet present */
+				/* create new evmlist element with id */
+				if ((new = evm_new_evmlist_el(consumer->id)) != NULL) {
+					/* add supplied consumer */
+					new->el = (void *)consumer;
+					new->prev = tmp;
+					new->next = NULL;
+					if (tmp != NULL)
+						tmp->next = new;
+					else
+						topic->consumers_list->first = new;
+					topic->consumers_list->size++;
+				} else
+					consumer = NULL;
+			}
+			pthread_mutex_unlock(&topic->consumers_list->access_mutex);
+		}
+	} else
+		consumer = NULL;
+
+	return consumer;
+}
+
+/*
+ * Function: consumer_topic_del()
+ * Returns:
+ * - NULL, if;
+ *   - any of parameters is NULL
+ * - Same topic pointer as provided in parameter, when:
+ *   - consumer's topic successully removed
+ *   - consumer's topic not found (already removed)
+ */
+static evm_topic_struct * consumer_topic_del(evm_consumer_struct *consumer, evm_topic_struct *topic)
+{
+	evmlist_el_struct *tmp;
+	evm_log_info("(entry)\n");
+
+	if ((consumer != NULL) && (topic != NULL)) {
+		if (consumer->topics_list != NULL) {
+			pthread_mutex_lock(&consumer->topics_list->access_mutex);
+			tmp = evm_check_evmlist(consumer->topics_list, (void *)topic);
+			if ((tmp != NULL) && (tmp->el == (void *)topic)) {
+				/* List is not empty and element present */
+				/* Delete evmlist element */
+				tmp->prev->next = tmp->next;
+				if (tmp->next != NULL)
+					tmp->next->prev = tmp->prev;
+				free(tmp);
+				tmp = NULL;
+			}
+			pthread_mutex_unlock(&consumer->topics_list->access_mutex);
+		}
+	} else
+		topic = NULL;
+
+	return topic;
+}
+
+/*
+ * Function: topic_consumer_del()
+ * Returns:
+ * - NULL, if;
+ *   - any of parameters is NULL
+ * - Same consumer pointer as provided in parameter, when:
+ *   - topic's consumer successully removed
+ *   - topic's consumer not found (already removed)
+ *
+ * If really removed, then per topic consumers_list size decrements until zero!
+ * Topic's consumers_list size set to zero if empty!
+ */
+static evm_consumer_struct * topic_consumer_del(evm_topic_struct *topic, evm_consumer_struct *consumer)
+{
+	evmlist_el_struct *tmp;
+	evm_log_info("(entry)\n");
+
+	if ((topic != NULL) && (consumer != NULL)) {
+		if (topic->consumers_list != NULL) {
+			pthread_mutex_lock(&topic->consumers_list->access_mutex);
+			tmp = evm_check_evmlist(topic->consumers_list, (void *)consumer);
+			if ((tmp != NULL) && (tmp->el == (void *)consumer)) {
+				/* List is not empty and element present */
+				/* Delete evmlist element */
+				tmp->prev->next = tmp->next;
+				if (tmp->next != NULL)
+					tmp->next->prev = tmp->prev;
+				free(tmp);
+				tmp = NULL;
+				if (topic->consumers_list->size > 0)
+					topic->consumers_list->size--;
+			} else {
+				if (tmp == NULL)
+					topic->consumers_list->size = 0;
+			}
+			pthread_mutex_unlock(&topic->consumers_list->access_mutex);
+		}
+	} else
+		consumer = NULL;
+
+	return consumer;
+}
+
+/*
+ * Public API functions:
+ * - evm_topic_subscribe()
+ * - evm_topic_unsubscribe()
+ */
+evmTopicStruct * evm_topic_subscribe(evmConsumerStruct *consumer, int topic_id)
+{
+	evmStruct *evm = NULL;
+	evmTopicStruct *topic = NULL;
+	evmlist_el_struct *tmp;
+	evm_log_info("(entry)\n");
+
+	if (consumer == NULL)
+		return NULL;
+
+	evm = consumer->evm;
+	if (evm == NULL)
+		return NULL;
+
+	if (evm->topics_list == NULL)
+		return NULL;
+
+	pthread_mutex_lock(&evm->topics_list->access_mutex);
+	tmp = evm_search_evmlist(evm->topics_list, topic_id);
+	if ((tmp != NULL) && (tmp->id == topic_id)) {
+		/* required id found - register topic element */
+		topic = (evm_topic_struct *)tmp->el;
+	} else
+		topic = NULL;
+	if (topic != NULL) {
+		if ((topic = consumer_topic_add(consumer, topic)) != NULL)
+			if ((consumer = topic_consumer_add(topic, consumer)) == NULL) {
+				consumer_topic_del(consumer, topic);
+				topic = NULL;
+			}
+	}
+
+	pthread_mutex_unlock(&evm->topics_list->access_mutex);
+
+	return topic;
+}
+
+evmTopicStruct * evm_topic_unsubscribe(evmConsumerStruct *consumer, int id)
+{
+	evmStruct *evm = NULL;
+	evmTopicStruct *topic = NULL;
+	evmlist_el_struct *tmp;
+	evm_log_info("(entry)\n");
+
+	if (consumer == NULL)
+		return NULL;
+
+	evm = consumer->evm;
+	if (evm == NULL)
+		return NULL;
+
+	if (evm->topics_list == NULL)
+		return NULL;
+
+	pthread_mutex_lock(&evm->topics_list->access_mutex);
+	tmp = evm_search_evmlist(evm->topics_list, id);
+	if ((tmp != NULL) && (tmp->id == id)) {
+		/* required id found - unregister topic element */
+		topic = (evm_topic_struct *)tmp->el;
+	} else
+		topic = NULL;
+	if (topic != NULL) {
+		consumer_topic_del(consumer, topic);
+		topic_consumer_del(topic, consumer);
+	}
+
+	pthread_mutex_unlock(&evm->topics_list->access_mutex);
+
 	return topic;
 }
 

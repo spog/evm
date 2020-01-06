@@ -43,6 +43,7 @@ typedef struct evmlist_el evmlist_el_struct;
 struct evmlist_head {
 	pthread_mutex_t access_mutex;
 	evmlist_el_struct *first;
+	int size;
 }; /*evmlist_head_struct*/
 
 /*Generic EVM list element structure*/
@@ -94,6 +95,7 @@ struct evm_consumer {
 struct evm_topic {
 	evm_struct *evm;
 	int id;
+	evmlist_head_struct *consumers_list;
 	msgs_queue_struct *msgs_queue; /*internal messages queue*/
 }; /*evm_topic_struct*/
 
@@ -162,6 +164,14 @@ struct evm_timer {
  * - last element, if required id not existing
  */
 EXTERN evmlist_el_struct * evm_search_evmlist(evmlist_head_struct *head, int id);
+/*
+ * evm_check_evmlist()
+ * Returns:
+ * - NULL, if list is empty (head->first == NULL)
+ * - element with required id, if already existing
+ * - last element, if required id not existing
+ */
+EXTERN evmlist_el_struct * evm_check_evmlist(evmlist_head_struct *head, void *el);
 /*
  * evm_new_evmlist_el()
  * Returns:

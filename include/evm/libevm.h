@@ -95,11 +95,11 @@ extern evmStruct * evm_init(void);
  * - pointer to the existing object with required id
  * - pointer to the new object with required id
  */
-extern evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int id);
-extern evmMsgidStruct * evm_msgid_add(evmMsgtypeStruct *msgtype, int id);
-extern evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id);
-extern evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id);
-extern evmTopicStruct * evm_topic_add(evmStruct *evm, int id);
+extern evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int message_type_id);
+extern evmMsgidStruct * evm_msgid_add(evmMsgtypeStruct *msgtype, int message_id);
+extern evmTmridStruct * evm_tmrid_add(evmStruct *evm, int timer_id);
+extern evmConsumerStruct * evm_consumer_add(evmStruct *evm, int consumer_id);
+extern evmTopicStruct * evm_topic_add(evmStruct *evm, int topic_id);
 
 /*
  * Functions: evm_objectX_get()
@@ -107,11 +107,11 @@ extern evmTopicStruct * evm_topic_add(evmStruct *evm, int id);
  * - NULL, if objectX with required id wasn't found or (evm == NULL)
  * - pointer to the existing objectX with required id
  */
-extern evmMsgtypeStruct * evm_msgtype_get(evmStruct *evm, int id);
-extern evmMsgidStruct * evm_msgid_get(evmMsgtypeStruct *msgtype, int id);
-extern evmTmridStruct * evm_tmrid_get(evmStruct *evm, int id);
-extern evmConsumerStruct * evm_consumer_get(evmStruct *evm, int id);
-extern evmTopicStruct * evm_topic_get(evmStruct *evm, int id);
+extern evmMsgtypeStruct * evm_msgtype_get(evmStruct *evm, int message_type_id);
+extern evmMsgidStruct * evm_msgid_get(evmMsgtypeStruct *msgtype, int messsage_id);
+extern evmTmridStruct * evm_tmrid_get(evmStruct *evm, int timer_id);
+extern evmConsumerStruct * evm_consumer_get(evmStruct *evm, int consumer_id);
+extern evmTopicStruct * evm_topic_get(evmStruct *evm, int topic_id);
 
 /*
  * Function: evm_objectX_del()
@@ -119,11 +119,45 @@ extern evmTopicStruct * evm_topic_get(evmStruct *evm, int id);
  * - NULL, if objectX with required id wasn't found or (evm == NULL)
  * - pointer to the deleted (freed) objectX with required id
  */
-extern evmMsgtypeStruct * evm_msgtype_del(evmStruct *evm, int id);
-extern evmMsgidStruct * evm_msgid_del(evmMsgtypeStruct *msgtype, int id);
-extern evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id);
-extern evmConsumerStruct * evm_consumer_del(evmStruct *evm, int id);
-extern evmTopicStruct * evm_topic_del(evmStruct *evm, int id);
+extern evmMsgtypeStruct * evm_msgtype_del(evmStruct *evm, int message_type_id);
+extern evmMsgidStruct * evm_msgid_del(evmMsgtypeStruct *msgtype, int message_id);
+extern evmTmridStruct * evm_tmrid_del(evmStruct *evm, int timer_id);
+extern evmConsumerStruct * evm_consumer_del(evmStruct *evm, int consumer_id);
+extern evmTopicStruct * evm_topic_del(evmStruct *evm, int topic_id);
+
+/*
+ * Public API functions:
+ * - evm_topic_subscribe()
+ * - evm_topic_unsubscribe()
+ */
+/*
+ * Function: evm_topic_subscribe()
+ * Returns:
+ * - NULL, if;
+ *   - consumer is NULL
+ *   - "evm" is not correctly initialized
+ *   - topic with topic_id is not found
+ *   - topic is not successfully added into consumer's topics_list and
+ *     consumer is not successfully added into topic's consumers_list
+ * - Topic pointer, if:
+ *   - topic is successfully subscribed by consumer
+ *   - topic already subscribed by consumer
+ */
+evmTopicStruct * evm_topic_subscribe(evmConsumerStruct *consumer, int topic_id);
+/*
+ * Function: evm_topic_unsubscribe()
+ * Returns:
+ * - NULL, if;
+ *   - consumer is NULL
+ *   - "evm" is not correctly initialized
+ *   - topic with topic_id is not found
+ *   - topic is not successfully added into consumer's topics_list and
+ *     consumer is not successfully added into topic's consumers_list
+ * - Topic pointer, if:
+ *   - topic is successfully unsubscribed by consumer
+ *   - topic already unsubscribed by consumer
+ */
+evmTopicStruct * evm_topic_unsubscribe(evmConsumerStruct *consumer, int topic_id);
 
 extern int evm_priv_set(evmStruct *evm, void *priv);
 extern void * evm_priv_get(evmStruct *evm);
