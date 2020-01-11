@@ -137,8 +137,6 @@ extern evmTopicStruct * evm_topic_del(evmStruct *evm, int topic_id);
  *   - consumer is NULL
  *   - "evm" is not correctly initialized
  *   - topic with topic_id is not found
- *   - topic is not successfully added into consumer's topics_list and
- *     consumer is not successfully added into topic's consumers_list
  * - Topic pointer, if:
  *   - topic is successfully subscribed by consumer
  *   - topic already subscribed by consumer
@@ -151,8 +149,6 @@ evmTopicStruct * evm_topic_subscribe(evmConsumerStruct *consumer, int topic_id);
  *   - consumer is NULL
  *   - "evm" is not correctly initialized
  *   - topic with topic_id is not found
- *   - topic is not successfully added into consumer's topics_list and
- *     consumer is not successfully added into topic's consumers_list
  * - Topic pointer, if:
  *   - topic is successfully unsubscribed by consumer
  *   - topic already unsubscribed by consumer
@@ -205,13 +201,9 @@ extern int evm_msgtype_cb_parse_set(evmMsgtypeStruct *msgtype, int (*msgtype_par
 
 /*
  * Public API functions:
- * - evm_msgid_cb_prepare_set()
  * - evm_msgid_cb_handle_set()
- * - evm_msgid_cb_finalize_set()
  */
-extern int evm_msgid_cb_prepare_set(evmMsgidStruct *msgid_ptr, int (*msg_prepare)(evmMessageStruct *msg));
-extern int evm_msgid_cb_handle_set(evmMsgidStruct *msgid_ptr, int (*msg_handle)(evmMessageStruct *msg));
-extern int evm_msgid_cb_finalize_set(evmMsgidStruct *msgid_ptr, int (*msg_finalize)(evmMessageStruct *msg));
+extern int evm_msgid_cb_handle_set(evmMsgidStruct *msgid_ptr, int (*msg_handle)(evmConsumerStruct *consumer, evmMessageStruct *msg));
 
 #if 0 /*samo - orig*/
 extern int evm_message_fd_add(evmStruct *evm_ptr, evm_fd_struct *evm_fd_ptr);
@@ -221,27 +213,29 @@ extern int evm_message_fd_add(evmStruct *evm_ptr, evm_fd_struct *evm_fd_ptr);
  * Public API functions:
  * - evm_message_new()
  * - evm_message_delete()
- * - evm_message_consumer_get()
+ * - evm_message_persistent_set()
  * - evm_message_ctx_set()
  * - evm_message_ctx_get()
- * - evm_message_iovec_set()
- * - evm_message_iovec_get()
+ * - evm_message_data_get()
+ * - evm_message_data_takeover()
+ * - evm_message_lock()
+ * - evm_message_unlock()
  */
-extern evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *msgid);
+extern evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *msgid, size_t size);
 extern void evm_message_delete(evmMessageStruct *msg);
-extern evmConsumerStruct * evm_message_consumer_get(evmMessageStruct *msg);
+extern int evm_message_persistent_set(evmMessageStruct *msg);
 extern int evm_message_ctx_set(evmMessageStruct *msg, void *ctx);
 extern void * evm_message_ctx_get(evmMessageStruct *msg);
-extern int evm_message_iovec_set(evmMessageStruct *msg, struct iovec *iov_buff);
-extern struct iovec * evm_message_iovec_get(evmMessageStruct *msg);
+extern void * evm_message_data_get(evmMessageStruct *msg);
+extern void * evm_message_data_takeover(evmMessageStruct *msg);
 
 /*
  * Public API functions:
  * - evm_message_pass()
- * - evm_message_concatenate()
+ * - evm_message_post()
  */
 extern int evm_message_pass(evmConsumerStruct *consumer, evmMessageStruct *msg);
-extern int evm_message_concatenate(const void *buffer, size_t size, void *msgBuf);
+extern int evm_message_post(evmTopicStruct *topic, evmMessageStruct *msg);
 
 /*
  * Timers
@@ -260,30 +254,28 @@ extern evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id);
 /*
  * Public API functions:
  * - evm_tmrid_cb_handle_set()
- * - evm_tmrid_cb_finalize_set()
  */
-extern int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(evmTimerStruct *tmr));
-extern int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(evmTimerStruct *tmr));
+extern int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(evmConsumerStruct *consumer, evmTimerStruct *tmr));
 
 /*
  * Public API functions:
  * - evm_timer_start()
  * - evm_timer_stop()
- * - evm_timer_consumer_get()
+ * - evm_timer_ctx_set()
  * - evm_timer_ctx_get()
  */
 extern evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tmrid, time_t tv_sec, long tv_nsec, void *ctx);
 extern int evm_timer_stop(evmTimerStruct *timer);
-extern evmConsumerStruct * evm_timer_consumer_get(evmTimerStruct *timer);
+extern int evm_timer_ctx_set(evmTimerStruct *timer, void *ctx);
 extern void * evm_timer_ctx_get(evmTimerStruct *timer);
 
 /*
  * Public API function:
- * - evm_timer_finalize()
+ * - evm_timer_delete()
  *
- * Automatically free expired timer, if specific "timerid_finalize_cb" not set!
+ * Automatically free expired timer after it has been handled!
  * Requires the "ptr" argument to be the timer_ptr itself!
  */
-extern int evm_timer_finalize(evmTimerStruct *tmr);
+extern int evm_timer_delete(evmTimerStruct *tmr);
 
 #endif /*EVM_FILE_libevm_h*/

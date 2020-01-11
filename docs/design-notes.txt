@@ -1,0 +1,14 @@
+Evm message life:
+-----------------
+Created messages are being automatically freed, after the last consumer
+handler for this message finished its execution, unless message being
+set as persistent (evm_message_persistent_set()).
+
+Evm message access:
+-------------------
+You do not have exclusive access to message, while in the registered
+callback message handler. More consumers may read message values in
+parallel if, message passed to many consumers or if posted to a topic.
+
+To gain exclusive access to message content, use "evm_message_(un)lock()"
+in message handler callback functions.

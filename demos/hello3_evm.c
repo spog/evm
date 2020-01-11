@@ -93,9 +93,9 @@ enum evm_tmr_ids {
 static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTimerStruct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evmTmridStruct *tmrid_ptr);
 static int hello3_send_hello(evmConsumerStruct *loc_evm_ptr, evmConsumerStruct *rem_evm_ptr);
 
-static int evHelloMsg(evmMessageStruct *msg);
-static int evHelloTmrIdle(evmTimerStruct *tmr);
-static int evHelloTmrQuit(evmTimerStruct *tmr);
+static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg);
+static int evHelloTmrIdle(evmConsumerStruct *consumer, evmTimerStruct *tmr);
+static int evHelloTmrQuit(evmConsumerStruct *consumer, evmTimerStruct *tmr);
 
 static int hello3_evm_init(void);
 static int hello3_evm_run(void);
@@ -279,7 +279,7 @@ static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTi
 }
 
 /* HELLO event handlers */
-static int evHelloMsg(evmMessageStruct *msg)
+static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg)
 {
 	struct iovec *iov_buff = NULL;
 	evmConsumerStruct *loc_consumer_ptr;
@@ -289,11 +289,11 @@ static int evHelloMsg(evmMessageStruct *msg)
 	if (msg == NULL)
 		return -1;
 
-	loc_consumer_ptr = evm_message_consumer_get(msg);
+	loc_consumer_ptr = consumer;
 	rem_consumer_ptr = (evmConsumerStruct *)evm_message_ctx_get(msg);
 
 	if (demo_liveloop == 0) {
-		if ((iov_buff = evm_message_iovec_get(msg)) == NULL)
+		if ((iov_buff = (struct iovec *)evm_message_data_get(msg)) == NULL)
 			return -1;
 		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
 
@@ -308,10 +308,9 @@ static int evHelloMsg(evmMessageStruct *msg)
 	return 0;
 }
 
-static int evHelloTmrIdle(evmTimerStruct *tmr)
+static int evHelloTmrIdle(evmConsumerStruct *consumer, evmTimerStruct *tmr)
 {
 	int status = 0;
-	evmConsumerStruct *loc_consumer;
 	evmConsumerStruct *rem_consumer;
 
 	evm_log_info("(cb entry) tmr=%p\n", tmr);
@@ -320,15 +319,14 @@ static int evHelloTmrIdle(evmTimerStruct *tmr)
 		return -1;
 
 	evm_log_notice("IDLE timer expired!\n");
-	loc_consumer = evm_timer_consumer_get(tmr);
 	rem_consumer = (evmConsumerStruct *)evm_timer_ctx_get(tmr);
 
-	hello3_send_hello(loc_consumer, rem_consumer);
+	hello3_send_hello(consumer, rem_consumer);
 
 	return status;
 }
 
-static int evHelloTmrQuit(evmTimerStruct *tmr)
+static int evHelloTmrQuit(evmConsumerStruct *consumer, evmTimerStruct *tmr)
 {
 	evm_log_info("(cb entry) tmr=%p\n", tmr);
 
@@ -346,7 +344,7 @@ static int hello3_send_hello(evmConsumerStruct *loc_consumer_ptr, evmConsumerStr
 
 	evm_log_info("(entry) loc_consumer_ptr=%p, rem_consumer_ptr=%p\n", loc_consumer_ptr, rem_consumer_ptr);
 
-	if ((iov_buff = evm_message_iovec_get(helloMsg)) == NULL) {
+	if ((iov_buff = (struct iovec *)evm_message_data_get(helloMsg)) == NULL) {
 		return -1;
 	}
 	count++;
@@ -470,18 +468,18 @@ static int hello3_evm_init(void)
 			evm_log_error("evm_msgid_cb_handle() failed!\n");
 			rv = -1;
 		}
-		if ((rv == 0) && ((helloMsg = evm_message_new(msgtype_hello_ptr, msgid_hello_ptr)) == NULL)) {
+		if ((rv == 0) && ((helloMsg = evm_message_new(msgtype_hello_ptr, msgid_hello_ptr, sizeof(struct iovec))) == NULL)) {
 			evm_log_error("evm_message_new() failed!\n");
 			rv = -1;
 		}
 		if (rv == 0) {
-			if ((iov_buff = (struct iovec *)calloc(1, sizeof(struct iovec))) == NULL)
-				return -1;
-			if ((iov_buff->iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL) {
-				free(iov_buff);
-				return -1;
+			evm_message_persistent_set(helloMsg);
+			if ((iov_buff = (struct iovec *)evm_message_data_get(helloMsg)) == NULL)
+				rv = -1;
+			else {
+				if ((iov_buff->iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL)
+					return -1;
 			}
-			rv = evm_message_iovec_set(helloMsg, iov_buff);
 		}
 		if ((rv == 0) && ((tmrid_idle_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_IDLE)) == NULL)) {
 			evm_log_error("evm_tmrid_add() failed!\n");

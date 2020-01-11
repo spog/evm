@@ -50,15 +50,8 @@ unsigned int evmVerMajor = EVM_VERSION_MAJOR;
 unsigned int evmVerMinor = EVM_VERSION_MINOR;
 unsigned int evmVerPatch = EVM_VERSION_PATCH;
 
-static int prepare_msg(evm_msgid_struct *msgid, void *msg);
-static int handle_msg(evm_msgid_struct *msgid, void *msg);
-static int finalize_msg(evm_msgid_struct *msgid, evm_message_struct *msg);
-
-static int handle_tmr(evm_tmrid_struct *tmrid, void *tmr);
-static int finalize_tmr(evm_tmrid_struct *tmrid, void *tmr);
-
-static int handle_timer(evm_timer_struct *expd_tmr);
-static int handle_message(evm_message_struct *rcvd_msg);
+static int handle_timer(evm_consumer_struct *consumer, evm_timer_struct *expd_tmr);
+static int handle_message(evm_consumer_struct *consumer, evm_message_struct *rcvd_msg);
 
 /*
  * Public API function:
@@ -348,13 +341,16 @@ evmTopicStruct * evm_topic_add(evmStruct *evm, int id)
 					if (topic != NULL) {
 						topic->evm = evm;
 						topic->id = id;
-
-						/* Initialize topic's message queue... */
-						if (messages_topic_queue_init(topic) == NULL) {
+					}
+					if (topic != NULL) {
+						if ((topic->consumers_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 							free(topic);
 							topic = NULL;
 							free(new);
 							new = NULL;
+						} else {
+							pthread_mutex_init(&topic->consumers_list->access_mutex, NULL);
+							pthread_mutex_unlock(&topic->consumers_list->access_mutex);
 						}
 					}
 				}
@@ -424,53 +420,9 @@ evmTopicStruct * evm_topic_del(evmStruct *evm, int id)
 
 /*
  * Internal consumer topic addition and removal funstions:
- * consumer_topic_add()
- * consumer_topic_del()
  * topic_consumer_add()
  * topic_consumer_del()
  */
-/*
- * Function: consumer_topic_add()
- * Returns:
- * - NULL, if:
- *   - any of parameters is NULL
- *   - consumer's topic unsuccessfully added
- * - Same topic pointer as provided in parameter, when:
- *   - consumer's topic successully added
- *   - consumer's topic already added
- */
-static evm_topic_struct * consumer_topic_add(evm_consumer_struct *consumer, evm_topic_struct *topic)
-{
-	evmlist_el_struct *tmp, *new;
-	evm_log_info("(entry)\n");
-
-	if ((consumer != NULL) && (topic != NULL)) {
-		if (consumer->topics_list != NULL) {
-			pthread_mutex_lock(&consumer->topics_list->access_mutex);
-			tmp = evm_check_evmlist(consumer->topics_list, (void *)topic);
-			if ((tmp == NULL) || (tmp->el != (void *)topic)) {
-				/* List is empty or element not yet present */
-				/* create and new evmlist element with id */
-				if ((new = evm_new_evmlist_el(topic->id)) != NULL) {
-					/* add supplied topic */
-					new->el = (void *)topic;
-					new->prev = tmp;
-					new->next = NULL;
-					if (tmp != NULL)
-						tmp->next = new;
-					else
-						consumer->topics_list->first = new;
-				} else
-					topic = NULL;
-			}
-			pthread_mutex_unlock(&consumer->topics_list->access_mutex);
-		}
-	} else
-		topic = NULL;
-
-	return topic;
-}
-
 /*
  * Function: topic_consumer_add()
  * Returns:
@@ -504,7 +456,6 @@ static evm_consumer_struct * topic_consumer_add(evm_topic_struct *topic, evm_con
 						tmp->next = new;
 					else
 						topic->consumers_list->first = new;
-					topic->consumers_list->size++;
 				} else
 					consumer = NULL;
 			}
@@ -517,41 +468,6 @@ static evm_consumer_struct * topic_consumer_add(evm_topic_struct *topic, evm_con
 }
 
 /*
- * Function: consumer_topic_del()
- * Returns:
- * - NULL, if;
- *   - any of parameters is NULL
- * - Same topic pointer as provided in parameter, when:
- *   - consumer's topic successully removed
- *   - consumer's topic not found (already removed)
- */
-static evm_topic_struct * consumer_topic_del(evm_consumer_struct *consumer, evm_topic_struct *topic)
-{
-	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
-
-	if ((consumer != NULL) && (topic != NULL)) {
-		if (consumer->topics_list != NULL) {
-			pthread_mutex_lock(&consumer->topics_list->access_mutex);
-			tmp = evm_check_evmlist(consumer->topics_list, (void *)topic);
-			if ((tmp != NULL) && (tmp->el == (void *)topic)) {
-				/* List is not empty and element present */
-				/* Delete evmlist element */
-				tmp->prev->next = tmp->next;
-				if (tmp->next != NULL)
-					tmp->next->prev = tmp->prev;
-				free(tmp);
-				tmp = NULL;
-			}
-			pthread_mutex_unlock(&consumer->topics_list->access_mutex);
-		}
-	} else
-		topic = NULL;
-
-	return topic;
-}
-
-/*
  * Function: topic_consumer_del()
  * Returns:
  * - NULL, if;
@@ -559,9 +475,6 @@ static evm_topic_struct * consumer_topic_del(evm_consumer_struct *consumer, evm_
  * - Same consumer pointer as provided in parameter, when:
  *   - topic's consumer successully removed
  *   - topic's consumer not found (already removed)
- *
- * If really removed, then per topic consumers_list size decrements until zero!
- * Topic's consumers_list size set to zero if empty!
  */
 static evm_consumer_struct * topic_consumer_del(evm_topic_struct *topic, evm_consumer_struct *consumer)
 {
@@ -580,11 +493,6 @@ static evm_consumer_struct * topic_consumer_del(evm_topic_struct *topic, evm_con
 					tmp->next->prev = tmp->prev;
 				free(tmp);
 				tmp = NULL;
-				if (topic->consumers_list->size > 0)
-					topic->consumers_list->size--;
-			} else {
-				if (tmp == NULL)
-					topic->consumers_list->size = 0;
 			}
 			pthread_mutex_unlock(&topic->consumers_list->access_mutex);
 		}
@@ -624,11 +532,9 @@ evmTopicStruct * evm_topic_subscribe(evmConsumerStruct *consumer, int topic_id)
 	} else
 		topic = NULL;
 	if (topic != NULL) {
-		if ((topic = consumer_topic_add(consumer, topic)) != NULL)
-			if ((consumer = topic_consumer_add(topic, consumer)) == NULL) {
-				consumer_topic_del(consumer, topic);
-				topic = NULL;
-			}
+		if ((consumer = topic_consumer_add(topic, consumer)) == NULL) {
+			topic = NULL;
+		}
 	}
 
 	pthread_mutex_unlock(&evm->topics_list->access_mutex);
@@ -661,7 +567,6 @@ evmTopicStruct * evm_topic_unsubscribe(evmConsumerStruct *consumer, int id)
 	} else
 		topic = NULL;
 	if (topic != NULL) {
-		consumer_topic_del(consumer, topic);
 		topic_consumer_del(topic, consumer);
 	}
 
@@ -732,7 +637,7 @@ int evm_sigpost_set(evmStruct *evm, evm_sigpost_struct *sigpost)
  */
 int evm_run_once(evmConsumerStruct *consumer)
 {
-	int status = 0;
+	int rv = 0;
 	evm_timer_struct *expd_tmr;
 	evm_message_struct *rcvd_msg;
 	evm_log_info("(entry)\n");
@@ -744,19 +649,19 @@ int evm_run_once(evmConsumerStruct *consumer)
 
 	/* Loop exclusively over expired timers (non-blocking already)! */
 	for (;;) {
-		evm_log_info("(main loop entry)\n");
+		evm_log_info("(loop entry) check and handle all expired timers\n");
 		/* Handle expired timer (NON-BLOCKING). */
 		if ((expd_tmr = timers_check(consumer)) != NULL) {
-			if ((status = handle_timer(expd_tmr)) < 0)
-				evm_log_debug("handle_timer() returned %d\n", status);
+			if ((rv = handle_timer(consumer, expd_tmr)) < 0)
+				evm_log_debug("handle_timer() returned %d\n", rv);
 		} else
 			break;
 	}
 
 	/* Handle handle received message (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
 	if ((rcvd_msg = messages_check(consumer)) != NULL) {
-		if ((status = handle_message(rcvd_msg)) < 0)
-			evm_log_debug("handle_message() returned %d\n", status);
+		if ((rv = handle_message(consumer, rcvd_msg)) < 0)
+			evm_log_debug("handle_message() returned %d\n", rv);
 	}
 
 	return 0;
@@ -786,9 +691,6 @@ int evm_run_async(evmConsumerStruct *consumer)
  */
 int evm_run(evmConsumerStruct *consumer)
 {
-	int status = 0;
-	evm_timer_struct *expd_tmr;
-	evm_message_struct *rcvd_msg;
 	evm_log_info("(entry)\n");
 
 	if (consumer == NULL) {
@@ -799,18 +701,7 @@ int evm_run(evmConsumerStruct *consumer)
 	/* Main protocol loop! */
 	for (;;) {
 		evm_log_info("(main loop entry)\n");
-		/* Handle expired timer (NON-BLOCKING). */
-		if ((expd_tmr = timers_check(consumer)) != NULL) {
-			if ((status = handle_timer(expd_tmr)) < 0)
-				evm_log_debug("handle_timer() returned %d\n", status);
-			continue;
-		}
-
-		/* Handle handle received message (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
-		if ((rcvd_msg = messages_check(consumer)) != NULL) {
-			if ((status = handle_message(rcvd_msg)) < 0)
-				evm_log_debug("handle_message() returned %d\n", status);
-		}
+		evm_run_once(consumer);
 	}
 
 	return 0;
@@ -848,88 +739,63 @@ void * evm_consumer_priv_get(evmConsumerStruct *consumer)
 	return (consumer->priv);
 }
 
-static int prepare_msg(evm_msgid_struct *msgid, void *msg)
+static int handle_message(evm_consumer_struct *consumer, evm_message_struct *msg)
 {
-	if (msgid != NULL) {
-		if (msgid->msg_prepare != NULL)
-			return msgid->msg_prepare(msg);
-		else
-			return 0;
-	}
-	return -1;
-}
+	int rv = 0;
+	evm_log_info("(entry)\n");
 
-static int handle_msg(evm_msgid_struct *msgid, void *msg)
-{
-	if (msgid != NULL)
-		if (msgid->msg_handle != NULL)
-			return msgid->msg_handle(msg);
-	return -1;
-}
-
-static int finalize_msg(evm_msgid_struct *msgid, evm_message_struct *msg)
-{
-	if (msgid != NULL)
-		if (msgid->msg_finalize != NULL)
-			return msgid->msg_finalize(msg);
-	return -1;
-}
-
-static int handle_message(evm_message_struct *msg)
-{
-	int status0 = 0;
-	int status1 = 0;
-	int status2 = 0;
-
-	status0 = prepare_msg(msg->msgid, msg);
-	if (status0 < 0)
-		evm_log_debug("prepare_msg() returned %d\n", status0);
-
-	status1 = handle_msg(msg->msgid, msg);
-	if (status1 < 0)
-		evm_log_debug("handle_msg() returned %d\n", status1);
-
-	status2 = finalize_msg(msg->msgid, msg);
-	if (status2 < 0)
-		evm_log_debug("finalize_msg() returned %d\n", status2);
-
-	return (status0 | status1 | status2);
-}
-
-static int handle_tmr(evm_tmrid_struct *tmrid, void *tmr)
-{
-	if (tmrid != NULL)
-		if (tmrid->tmr_handle != NULL)
-			return tmrid->tmr_handle(tmr);
-	return -1;
-}
-
-static int finalize_tmr(evm_tmrid_struct *tmrid, void *tmr)
-{
-	if (tmrid != NULL)
-		if (tmrid->tmr_finalize != NULL)
-			return tmrid->tmr_finalize(tmr);
-	return -1;
-}
-
-static int handle_timer(evm_timer_struct *tmr)
-{
-	int status1 = 0;
-	int status2 = 0;
-
-	if (tmr == NULL)
+	if (consumer == NULL) {
+		evm_log_debug("consumer == NULL\n");
 		return -1;
+	}
+	if (msg == NULL) {
+		evm_log_debug("msg == NULL\n");
+		return -1;
+	}
+	if (msg->msgid == NULL) {
+		evm_log_debug("msgid == NULL\n");
+		return -1;
+	}
+	if (msg->msgid->msg_handle == NULL) {
+		evm_log_debug("msg_handle == NULL\n");
+		return -1;
+	}
+	if ((rv = msg->msgid->msg_handle(consumer, msg)) < 0)
+		evm_log_debug("msg_handle returned %d\n", rv);
 
+	evm_message_delete(msg);
+
+	return rv;
+}
+
+static int handle_timer(evm_consumer_struct *consumer, evm_timer_struct *tmr)
+{
+	int rv = 0;
+	evm_log_info("(entry)\n");
+
+	if (consumer == NULL) {
+		evm_log_debug("consumer == NULL\n");
+		return -1;
+	}
+	if (tmr == NULL) {
+		evm_log_debug("tmr == NULL\n");
+		return -1;
+	}
+	if (tmr->tmrid == NULL) {
+		evm_log_debug("tmrid == NULL\n");
+		return -1;
+	}
+	if (tmr->tmrid->tmr_handle == NULL) {
+		evm_log_debug("tmr_handle == NULL\n");
+		return -1;
+	}
 	if (tmr->stopped == 0) {
-		status1 = handle_tmr(tmr->tmrid, tmr);
-		if (status1 < 0)
-			evm_log_debug("handle_tmr() returned %d\n", status1);
+		if ((rv = tmr->tmrid->tmr_handle(consumer, tmr)) < 0)
+			evm_log_debug("tmr_handle returned %d\n", rv);
 	}
 
-	status2 = finalize_tmr(tmr->tmrid, tmr);
-	if (status2 < 0)
-		evm_log_debug("finalize_tmr() returned %d\n", status2);
+	evm_timer_delete(tmr);
 
-	return (status1 | status2);
+	return rv;
 }
 

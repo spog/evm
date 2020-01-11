@@ -43,7 +43,6 @@ typedef struct evmlist_el evmlist_el_struct;
 struct evmlist_head {
 	pthread_mutex_t access_mutex;
 	evmlist_el_struct *first;
-	int size;
 }; /*evmlist_head_struct*/
 
 /*Generic EVM list element structure*/
@@ -88,7 +87,6 @@ struct evm_consumer {
 	sem_t blocking_sem;
 	msgs_queue_struct *msgs_queue; /*internal messages queue*/
 	tmrs_queue_struct *tmrs_queue; /*internal timers queue*/
-	evmlist_head_struct *topics_list;
 	void *priv; /*private - consumer specific data*/
 }; /*evm_consumer_struct*/
 
@@ -96,7 +94,6 @@ struct evm_topic {
 	evm_struct *evm;
 	int id;
 	evmlist_head_struct *consumers_list;
-	msgs_queue_struct *msgs_queue; /*internal messages queue*/
 }; /*evm_topic_struct*/
 
 /*
@@ -113,24 +110,17 @@ struct evm_msgid {
 	evm_struct *evm;
 	evm_msgtype_struct *msgtype;
 	int id;
-	int (*msg_prepare)(evm_message_struct *ptr);
-	int (*msg_handle)(evm_message_struct *ptr);
-	int (*msg_finalize)(evm_message_struct *ptr);
+	int (*msg_handle)(evm_consumer_struct *consumer, evm_message_struct *ptr);
 }; /*evm_msgid_struct*/
 
 struct evm_message {
 	evm_msgtype_struct *msgtype;
 	evm_msgid_struct *msgid;
-	evm_consumer_struct *consumer;
-	evm_topic_struct *topic;
+	pthread_mutex_t amtx;
+	int consumers;
 	int saved;
 	void *ctx;
-	int rval_decode;
-	void *msg_decode;
-#if 0
-	struct sockaddr_in msg_addr;
-#endif
-	struct iovec *iov_buff;
+	void *data;
 }; /*evm_message_struct*/
 
 /*
@@ -139,8 +129,7 @@ struct evm_message {
 struct evm_tmrid {
 	evm_struct *evm;
 	int id;
-	int (*tmr_handle)(evm_timer_struct *ptr);
-	int (*tmr_finalize)(evm_timer_struct *ptr);
+	int (*tmr_handle)(evm_consumer_struct *consumer, evm_timer_struct *ptr);
 }; /*evm_tmrid_struct*/
 
 struct evm_timer {

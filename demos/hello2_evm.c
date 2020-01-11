@@ -74,11 +74,11 @@ static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTi
 static int hello2_fork_and_connect(void);
 static int hello2_socket_send_hello(int sock);
 static int hello2_receive(int sock);
-static int hello2_parse(struct iovec *iov_buff);
+static int hello2_parse(evmMessageStruct *msg);
 
-static int evHelloMsg(evmMessageStruct *msg);
-static int evHelloTmrIdle(evmTimerStruct *tmr);
-static int evHelloTmrQuit(evmTimerStruct *tmr);
+static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg);
+static int evHelloTmrIdle(evmConsumerStruct *consumer, evmTimerStruct *tmr);
+static int evHelloTmrQuit(evmConsumerStruct *consumer, evmTimerStruct *tmr);
 
 static int hello2_evm_init(void);
 static int hello2_evm_run(void);
@@ -264,23 +264,20 @@ static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTi
 }
 
 /* HELLO event handlers */
-static int evHelloMsg(evmMessageStruct *msg)
+static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg)
 {
 	struct iovec *iov_buff = NULL;
-	evmConsumerStruct *loc_consumer_ptr;
 	evm_log_info("(cb entry) msg=%p\n", msg);
 
 	if (msg == NULL)
 		return -1;
 
-	loc_consumer_ptr = evm_message_consumer_get(msg);
-
 	if (demo_liveloop == 0) {
-		if ((iov_buff = evm_message_iovec_get(msg)) == NULL)
+		if ((iov_buff = (struct iovec *)evm_message_data_get(msg)) == NULL)
 			return -1;
 		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
 
-		helloIdleTmr = hello_start_timer(loc_consumer_ptr, NULL, 10, 0, NULL, tmrid_idle_ptr);
+		helloIdleTmr = hello_start_timer(consumer, NULL, 10, 0, NULL, tmrid_idle_ptr);
 		evm_log_notice("IDLE timer set: 10 s\n");
 	} else {
 		/* liveloop - 100 %CPU usage */
@@ -291,7 +288,7 @@ static int evHelloMsg(evmMessageStruct *msg)
 	return 0;
 }
 
-static int evHelloTmrIdle(evmTimerStruct *tmr)
+static int evHelloTmrIdle(evmConsumerStruct *consumer, evmTimerStruct *tmr)
 {
 	int status = 0;
 
@@ -307,7 +304,7 @@ static int evHelloTmrIdle(evmTimerStruct *tmr)
 	return status;
 }
 
-static int evHelloTmrQuit(evmTimerStruct *tmr)
+static int evHelloTmrQuit(evmConsumerStruct *consumer, evmTimerStruct *tmr)
 {
 	evm_log_info("(cb entry) tmr=%p\n", tmr);
 
@@ -351,7 +348,7 @@ static int hello2_socket_send_hello(int sock)
 	int ret;
 	evm_log_info("(entry) sockfd=%d\n", sock);
 
-	if ((iov_buff = evm_message_iovec_get(helloMsg)) == NULL) {
+	if ((iov_buff = (struct iovec *)evm_message_data_get(helloMsg)) == NULL) {
 		return -1;
 	}
 	/* Prepare message buffer. */
@@ -381,12 +378,17 @@ static int hello2_socket_send_hello(int sock)
 /*
  * Over symplified message parsing:)
  */
-static int hello2_parse(struct iovec *iov_buff)
+static int hello2_parse(evmMessageStruct *msg)
 {
 	int rv = 0;
-	evmMessageStruct *msg;
+	struct iovec *iov_buff = NULL;
 	evm_log_info("(entry) iov_buff=%p\n", iov_buff);
 
+	iov_buff = (struct iovec*)evm_message_data_get(msg);
+	if (iov_buff == NULL) {
+		evm_log_debug("Receive buffer is NULL.\n");
+		return -1;
+	}
 	evm_log_debug("iov_buff->iov_len=%zd\n", iov_buff->iov_len);
 	if (iov_buff->iov_len == 0) {
 		evm_log_debug("No event decoded (empty receive buffer).\n");
@@ -396,11 +398,6 @@ static int hello2_parse(struct iovec *iov_buff)
 		((char *)iov_buff->iov_base)[iov_buff->iov_len] = '\0';
 		if (strncmp((char *)iov_buff->iov_base, hello_str, strlen(hello_str)) == 0) {
 			sscanf((char *)iov_buff->iov_base, "HELLO: %d", &count);
-			if ((msg = evm_message_new(msgtype_hello_ptr, msgid_hello_ptr)) == NULL) {
-				evm_log_error("evm_message_new() failed!\n");
-				return -1;
-			}
-			evm_message_iovec_set(msg, iov_buff);
 			rv = evm_message_pass(consumer, msg);
 		} else {
 			evm_log_debug("No event decoded (unknown data: %s).\n", (char *)iov_buff->iov_base);
@@ -415,15 +412,20 @@ static int hello2_receive(int sock)
 {
 	struct iovec *iov_buff = NULL;
 	struct msghdr msg;
+	evmMessageStruct *evm_msg;
 	int err_save = EINVAL;
 	int ret;
 	evm_log_info("(cb entry) sock=%d\n", sock);
 
-	if ((iov_buff = (struct iovec *)calloc(1, sizeof(struct iovec))) == NULL)
+	if ((evm_msg = evm_message_new(msgtype_hello_ptr, msgid_hello_ptr, sizeof(struct iovec))) == NULL) {
+		evm_log_error("evm_message_new() failed!\n");
 		return -1;
-	if ((iov_buff->iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL) {
-		free(iov_buff);
+	}
+	if ((iov_buff = (struct iovec *)evm_message_data_get(evm_msg)) == NULL)
 		return -1;
+	else {
+		if ((iov_buff->iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL)
+			return -1;
 	}
 
 	/* Prepare receive buffer. */
@@ -446,7 +448,7 @@ static int hello2_receive(int sock)
 	((char *)(iov_buff->iov_base))[ret] = '\0';
 
 	evm_log_debug("buffered=%zd, received data: %s\n", iov_buff->iov_len, (char *)iov_buff->iov_base);
-	return hello2_parse(iov_buff);
+	return hello2_parse(evm_msg);
 }
 
 /* EVM initialization */
@@ -477,18 +479,18 @@ static int hello2_evm_init(void)
 			evm_log_error("evm_msgid_cb_handle_set() failed!\n");
 			rv = -1;
 		}
-		if ((rv == 0) && ((helloMsg = evm_message_new(msgtype_hello_ptr, msgid_hello_ptr)) == NULL)) {
+		if ((rv == 0) && ((helloMsg = evm_message_new(msgtype_hello_ptr, msgid_hello_ptr, sizeof(struct iovec))) == NULL)) {
 			evm_log_error("evm_message_new() failed!\n");
 			rv = -1;
 		}
 		if (rv == 0) {
-			if ((iov_buff = (struct iovec *)calloc(1, sizeof(struct iovec))) == NULL)
-				return -1;
-			if ((iov_buff->iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL) {
-				free(iov_buff);
-				return -1;
+			evm_message_persistent_set(helloMsg);
+			if ((iov_buff = (struct iovec *)evm_message_data_get(helloMsg)) == NULL)
+				rv = -1;
+			else {
+				if ((iov_buff->iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL)
+					return -1;
 			}
-			rv = evm_message_iovec_set(helloMsg, iov_buff);
 		}
 		if ((rv == 0) && ((tmrid_idle_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_IDLE)) == NULL)) {
 			evm_log_error("evm_tmrid_add() failed!\n");

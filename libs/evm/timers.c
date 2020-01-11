@@ -438,7 +438,6 @@ evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id)
 						tmrid->evm = evm;
 						tmrid->id = id;
 						tmrid->tmr_handle = NULL;
-						tmrid->tmr_finalize = evm_timer_finalize;
 					}
 				}
 				if (new != NULL) {
@@ -511,9 +510,8 @@ evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id)
 /*
  * Public API functions:
  * - evm_tmrid_cb_handle_set()
- * - evm_tmrid_cb_finalize_set()
  */
-int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(evmTimerStruct *tmr))
+int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(evmConsumerStruct *consumer, evmTimerStruct *tmr))
 {
 	int rv = 0;
 	evm_log_info("(entry)\n");
@@ -530,28 +528,11 @@ int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(evmTimerStr
 	return rv;
 }
 
-int evm_tmrid_cb_finalize_set(evmTmridStruct *tmrid, int (*tmr_finalize)(evmTimerStruct *tmr))
-{
-	int rv = 0;
-	evm_log_info("(entry)\n");
-
-	if (tmrid == NULL)
-		return -1;
-
-	if (tmr_finalize == NULL)
-		return -1;
-
-	if (rv == 0) {
-		tmrid->tmr_finalize = tmr_finalize;
-	}
-	return rv;
-}
-
 /*
  * Public API functions:
  * - evm_timer_start()
  * - evm_timer_stop()
- * - evm_timer_consumer_get()
+ * - evm_timer_ctx_set()
  * - evm_timer_ctx_get()
  */
 evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tmrid, time_t tv_sec, long tv_nsec, void *ctx)
@@ -667,14 +648,18 @@ int evm_timer_stop(evmTimerStruct *timer)
 	return 0;
 }
 
-evmConsumerStruct * evm_timer_consumer_get(evmTimerStruct *tmr)
+int evm_timer_ctx_set(evmTimerStruct *tmr, void *ctx)
 {
 	evm_log_info("(entry)\n");
 
 	if (tmr == NULL)
-		return NULL;
+		return -1;
 
-	return tmr->consumer;
+	if (ctx == NULL)
+		return -1;
+
+	tmr->ctx = ctx;
+	return 0;
 }
 
 void * evm_timer_ctx_get(evmTimerStruct *tmr)
@@ -689,9 +674,9 @@ void * evm_timer_ctx_get(evmTimerStruct *tmr)
 
 /*
  * Public API function:
- * - evm_timer_finalize()
+ * - evm_timer_delete()
  */
-int evm_timer_finalize(evmTimerStruct *tmr)
+int evm_timer_delete(evmTimerStruct *tmr)
 {
 	evm_log_info("(cb entry) tmr=%p\n", tmr);
 
