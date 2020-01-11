@@ -275,12 +275,14 @@ static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg_ptr)
 	if (msg == NULL)
 		return -1;
 
+	if ((iov_buff = (struct iovec *)evm_message_data_get(msg)) == NULL)
+		return -1;
+
 	rem_consumer_ptr = (evmConsumerStruct *)evm_message_ctx_get(msg);
 
 	if (demo_liveloop == 0) {
-		if ((iov_buff = (struct iovec *)evm_message_data_get(msg)) == NULL)
-			return -1;
 		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
+		free(iov_buff->iov_base);
 
 		helloIdleTmr = hello_start_timer(consumer, NULL, 10, 0, (void *)rem_consumer_ptr, tmrid_idle_ptr);
 		evm_log_notice("IDLE timer set: 10 s\n");
@@ -288,6 +290,7 @@ static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg_ptr)
 		/* liveloop - 100 %CPU usage */
 		/* Send HELLO message to another thread. */
 //		evm_log_notice("HELLO msg sent: \"%s%d\"\n", "HELLO: ", *(int *)loc_evm_ptr->priv + 1);
+		free(iov_buff->iov_base);
 		hello4_send_hello(consumer, rem_consumer_ptr);
 	}
 
