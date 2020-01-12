@@ -301,9 +301,14 @@ static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg_ptr)
 		evm_log_notice("IDLE timer set: 10 s\n");
 	} else {
 		/* liveloop - 100 %CPU usage */
-		/* Send HELLO message to another thread. */
-//		evm_log_notice("HELLO msg sent: \"%s%d\"\n", "HELLO: ", *(int *)loc_evm_ptr->priv + 1);
-		free(iov_buff->iov_base);
+		if (consumer == consumers[0]) {
+			consumer0_count++;
+			if (consumer0_count < num_additional_threads)
+				return 0;
+			else
+				consumer0_count = 0;
+		}
+		/* Send (pass / post) HELLO message to another thread. */
 		hello5_send_hello(consumer, rem_consumer_ptr);
 	}
 
