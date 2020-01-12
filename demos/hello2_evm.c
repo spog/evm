@@ -427,6 +427,10 @@ static int hello2_receive(int sock)
 		if ((iov_buff->iov_base = calloc(MAX_BUFF_SIZE, sizeof(char))) == NULL)
 			return -1;
 	}
+	if (evm_message_alloc_add(evm_msg, iov_buff->iov_base) != 0) {
+		free(iov_buff);
+		return -1;
+	}
 
 	/* Prepare receive buffer. */
 	iov_buff->iov_len = MAX_BUFF_SIZE;
