@@ -839,6 +839,7 @@ int evm_message_alloc_add(evmMessageStruct *msg, void *alloc)
 			msg->allocs_list->first = new;
 			new->prev = msg->allocs_list->first;
 			new->next = tmp;
+			new->el = alloc;
 			pthread_mutex_unlock(&msg->allocs_list->access_mutex);
 		} else
 			return -1;
