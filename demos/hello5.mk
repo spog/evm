@@ -19,9 +19,31 @@
 #  limitations under the License.
 #
 
-##
-# Submakes to handle:
-##
-SUBMAKES := hello1.mk hello2.mk hello3.mk hello4.mk hello5.mk
-export SUBMAKES
+TARGET := hello5_evm
+_INSTDIR_ := $(_INSTALL_PREFIX_)/bin
+
+# Files to be compiled:
+SRCS := $(TARGET).c
+
+# include automatic _OBJS_ compilation and SRCSx dependencies generation
+include $(_SRCDIR_)/automk/objs.mk
+
+.PHONY: all
+all: $(_OBJDIR_)/$(TARGET)
+
+$(_OBJDIR_)/$(TARGET): $(_OBJS_)
+	$(CC) $(_OBJS_) -o $@ $(LDFLAGS) -levm -lrt -lpthread -Wl,-rpath=../lib -Wl,-rpath=../libs/evm
+
+.PHONY: clean
+clean:
+	rm -f $(_OBJDIR_)/$(TARGET) $(_OBJDIR_)/$(TARGET).o $(_OBJDIR_)/$(TARGET).d
+
+.PHONY: install
+install: $(_INSTDIR_) $(_INSTDIR_)/$(TARGET)
+
+$(_INSTDIR_):
+	install -d $@
+
+$(_INSTDIR_)/$(TARGET): $(_OBJDIR_)/$(TARGET)
+	install $(_OBJDIR_)/$(TARGET) $@
 
