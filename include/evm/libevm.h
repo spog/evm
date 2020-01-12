@@ -213,6 +213,7 @@ extern int evm_message_fd_add(evmStruct *evm_ptr, evm_fd_struct *evm_fd_ptr);
  * Public API functions:
  * - evm_message_new()
  * - evm_message_delete()
+ * - evm_message_alloc_add()
  * - evm_message_persistent_set()
  * - evm_message_ctx_set()
  * - evm_message_ctx_get()
@@ -223,6 +224,7 @@ extern int evm_message_fd_add(evmStruct *evm_ptr, evm_fd_struct *evm_fd_ptr);
  */
 extern evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *msgid, size_t size);
 extern void evm_message_delete(evmMessageStruct *msg);
+extern int evm_message_alloc_add(evmMessageStruct *msg, void *alloc);
 extern int evm_message_persistent_set(evmMessageStruct *msg);
 extern int evm_message_ctx_set(evmMessageStruct *msg, void *ctx);
 extern void * evm_message_ctx_get(evmMessageStruct *msg);

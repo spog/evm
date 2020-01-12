@@ -738,6 +738,7 @@ int evm_msgid_cb_handle_set(evmMsgidStruct *msgid, int (*msg_handle)(evmConsumer
  * Public API functions:
  * - evm_message_new()
  * - evm_message_delete()
+ * - evm_message_alloc_add()
  * - evm_message_persistent_set()
  * - evm_message_ctx_set()
  * - evm_message_ctx_get()
@@ -756,6 +757,13 @@ evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *ms
 		evm_log_system_error("calloc(): msg\n");
 		return NULL;
 	}
+	if ((msg->allocs_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
+		free(msg);
+		msg = NULL;
+		return NULL;
+	}
+	pthread_mutex_init(&msg->allocs_list->access_mutex, NULL);
+	pthread_mutex_unlock(&msg->allocs_list->access_mutex);
 	msg->msgtype = msgtype;
 	msg->msgid = msgid;
 	pthread_mutex_init(&msg->amtx, NULL);
@@ -773,6 +781,7 @@ evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *ms
 
 void evm_message_delete(evmMessageStruct *msg)
 {
+	evmlist_el_struct *tmp;
 	evm_log_info("(entry)\n");
 
 	if (msg != NULL) {
@@ -786,9 +795,56 @@ void evm_message_delete(evmMessageStruct *msg)
 				free(msg->data);
 				msg->data = NULL;
 			}
+			if (msg->allocs_list != NULL) {
+				pthread_mutex_lock(&msg->allocs_list->access_mutex);
+				tmp = msg->allocs_list->first;
+				while (tmp != NULL) {
+					if (tmp->el != NULL) {
+						free(tmp->el);
+						tmp->el = NULL;
+					}
+					if (tmp->next != NULL) {
+						tmp = tmp->next;
+						free(tmp->prev);
+						tmp->prev = NULL;
+					} else {
+						free(tmp);
+						tmp = NULL;
+					}
+				}
+				pthread_mutex_unlock(&msg->allocs_list->access_mutex);
+				free(msg->allocs_list);
+				msg->allocs_list = NULL;
+			}
 			free(msg);
 		}
 	}
+}
+
+int evm_message_alloc_add(evmMessageStruct *msg, void *alloc)
+{
+	evmlist_el_struct *new, *tmp;
+	evm_log_info("(entry)\n");
+
+	if ((msg == NULL) || (alloc == NULL))
+		return -1;
+
+	if (msg->allocs_list != NULL) {
+		/* create new evmlist element with dummy id (0) */
+		if ((new = evm_new_evmlist_el(0)) != NULL) {
+			pthread_mutex_lock(&msg->allocs_list->access_mutex);
+			tmp = msg->allocs_list->first;
+			if (tmp != NULL)
+				tmp->prev = new;
+			msg->allocs_list->first = new;
+			new->prev = msg->allocs_list->first;
+			new->next = tmp;
+			pthread_mutex_unlock(&msg->allocs_list->access_mutex);
+		} else
+			return -1;
+	}
+
+	return 0;
 }
 
 int evm_message_persistent_set(evmMessageStruct *msg)

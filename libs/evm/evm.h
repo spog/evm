@@ -114,6 +114,7 @@ struct evm_msgid {
 }; /*evm_msgid_struct*/
 
 struct evm_message {
+	evmlist_head_struct *allocs_list;
 	evm_msgtype_struct *msgtype;
 	evm_msgid_struct *msgid;
 	pthread_mutex_t amtx;
