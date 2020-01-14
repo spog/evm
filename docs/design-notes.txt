@@ -1,3 +1,19 @@
+Synchronous and Asynchronous operation:
+---------------------------------------
+- Synchronous operation assumes that application code initializes EVM
+(messages, timers, topics, handlers, ...) and then hands-over
+processing to EVM by calling "evm_run()". Afterwards your code runs
+(exclusivelly) in callbacks from EVM, which endlessly scans its
+message and timer queues. EVM blocks on a pthread mutex, if there
+is nothing to process.
+
+- Asynchronous operation requires that application code itself takes
+responsibility to periodically call "evm_run_async()" (a non-blocking
+scanning of EVM events). 
+
+- A middle-ground one-time blocking scan is implemented as
+"evm_run_once()".
+
 Evm message life:
 -----------------
 Created messages are being automatically freed, after the last consumer
@@ -8,7 +24,7 @@ Evm message access:
 -------------------
 You do not have exclusive access to message, while in the registered
 callback message handler. More consumers may read message values in
-parallel if, message passed to many consumers or if posted to a topic.
+parallel, if message passed to many consumers or if posted to a topic.
 
 To gain exclusive access to message content, use "evm_message_(un)lock()"
 in message handler callback functions.
