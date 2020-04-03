@@ -135,6 +135,7 @@ struct evm_tmrid {
 
 struct evm_timer {
 	evm_tmrid_struct *tmrid;
+	pthread_mutex_t amtx;
 	evm_consumer_struct *consumer;
 	int saved;
 	int stopped;

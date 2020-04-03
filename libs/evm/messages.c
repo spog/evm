@@ -782,7 +782,7 @@ evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *ms
 void evm_message_delete(evmMessageStruct *msg)
 {
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
+	evm_log_info("(entry) msg=%p\n", msg);
 
 	if (msg != NULL) {
 		pthread_mutex_lock(&msg->amtx);

@@ -560,6 +560,9 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 
 	evm_log_debug("New timer ptr=%p\n", (void *)new);
 
+	pthread_mutex_init(&new->amtx, NULL);
+	pthread_mutex_unlock(&new->amtx);
+	pthread_mutex_lock(&new->amtx);
 	new->tmrid = tmrid;
 	new->consumer = consumer;
 	new->saved = 0;
@@ -595,6 +598,7 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 
 		global_tmrs_queue.first_tmr = new;
 		pthread_mutex_unlock(&global_timer_mutex);
+		pthread_mutex_unlock(&new->amtx);
 		return new;
 	}
 
@@ -622,6 +626,7 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 				prev->next = new;
 
 			pthread_mutex_unlock(&global_timer_mutex);
+			pthread_mutex_unlock(&new->amtx);
 			return new;
 		}
 
@@ -632,20 +637,44 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 	/* The last in the list! */
 	prev->next = new;
 	pthread_mutex_unlock(&global_timer_mutex);
+	pthread_mutex_unlock(&new->amtx);
 
 	return new;
 }
 
-int evm_timer_stop(evmTimerStruct *timer)
+int evm_timer_stop(evmTimerStruct *tmr)
 {
+	evmTimerStruct *curr_tmr = NULL;
+	evmTimerStruct *prev_tmr = NULL;
 	evm_log_info("(entry)\n");
 
-	if (timer == NULL)
+	if (tmr == NULL)
 		return -1;
 
-	timer->stopped = 1;
+	pthread_mutex_lock(&global_timer_mutex);
+	curr_tmr = global_tmrs_queue.first_tmr;
+	while (curr_tmr != NULL) {
+		if (curr_tmr == tmr) {
+			/* started timer "tmr" found - remove it from the global timers list */
+			pthread_mutex_lock(&tmr->amtx);
+			tmr->stopped = 1;
 
-	return 0;
+			if (prev_tmr == NULL)
+				global_tmrs_queue.first_tmr = tmr->next;
+			else
+				prev_tmr = tmr->next;
+
+			tmr->next = NULL;
+			pthread_mutex_unlock(&tmr->amtx);
+			pthread_mutex_unlock(&global_timer_mutex);
+			return 0;
+		}
+		prev_tmr = curr_tmr;
+		curr_tmr = curr_tmr->next;
+	}
+
+	pthread_mutex_unlock(&global_timer_mutex);
+	return -1;
 }
 
 int evm_timer_ctx_set(evmTimerStruct *tmr, void *ctx)
@@ -658,36 +687,42 @@ int evm_timer_ctx_set(evmTimerStruct *tmr, void *ctx)
 	if (ctx == NULL)
 		return -1;
 
+	pthread_mutex_lock(&tmr->amtx);
 	tmr->ctx = ctx;
+	pthread_mutex_unlock(&tmr->amtx);
 	return 0;
 }
 
 void * evm_timer_ctx_get(evmTimerStruct *tmr)
 {
+	void *ctx;
 	evm_log_info("(entry)\n");
 
 	if (tmr == NULL)
 		return NULL;
 
-	return tmr->ctx;
+	pthread_mutex_lock(&tmr->amtx);
+	ctx = tmr->ctx;
+	pthread_mutex_unlock(&tmr->amtx);
+	return ctx;
 }
 
 /*
  * Public API function:
  * - evm_timer_delete()
  */
-int evm_timer_delete(evmTimerStruct *tmr)
+void evm_timer_delete(evmTimerStruct *tmr)
 {
-	evm_log_info("(cb entry) tmr=%p\n", tmr);
+	evm_log_info("(entry) tmr=%p\n", tmr);
 
-	if (tmr == NULL)
-		return -1;
-
-	if (tmr->saved == 0) {
-		free(tmr);
-		tmr = NULL;
+	if (tmr != NULL) {
+		pthread_mutex_lock(&tmr->amtx);
+		if (tmr->saved == 0) {
+			free(tmr);
+			tmr = NULL; /*required only, if to be used below in this function*/
+		} else {
+			pthread_mutex_unlock(&tmr->amtx);
+		}
 	}
-
-	return 0;
 }
 

@@ -275,9 +275,11 @@ extern void * evm_timer_ctx_get(evmTimerStruct *timer);
  * Public API function:
  * - evm_timer_delete()
  *
- * Automatically free expired timer after it has been handled!
- * Requires the "ptr" argument to be the timer_ptr itself!
+ * Automatically frees expired timer after it has been handled!
+ *  (OR)
+ * Manually free previously stopped timer!
+ * Requires the "timer_ptr" argument returned from "evm_timer_start()"!
  */
-extern int evm_timer_delete(evmTimerStruct *tmr);
+extern void evm_timer_delete(evmTimerStruct *tmr);
 
 #endif /*EVM_FILE_libevm_h*/
