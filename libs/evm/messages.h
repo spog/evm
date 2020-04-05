@@ -37,7 +37,6 @@ typedef struct msg_hanger msg_hanger_struct;
 struct msgs_queue {
 	msg_hanger_struct *first_hanger;
 	msg_hanger_struct *last_hanger;
-//samo - orig:	evm_fd_struct *evmfd; /*internal message queue FD binding - eventfd()*/
 	pthread_mutex_t access_mutex;
 }; /*msgs_queue_struct*/
 

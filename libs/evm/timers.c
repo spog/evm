@@ -351,14 +351,14 @@ evm_timer_struct * timers_check(evm_consumer_struct *consumer)
 		)
 	) {
 		global_tmrs_queue.first_tmr = tmr->next;
-//		evm_log_debug("timer expired: tmr=%p, stopped=%d\n", (void *)tmr, tmr->stopped);
+		evm_log_debug("timer expired: tmr=%p, stopped=%d\n", (void *)tmr, tmr->stopped);
 
 		tmr_return = tmr;
 		tmr = global_tmrs_queue.first_tmr;
 	}
 
 	if (tmr != NULL) {
-//		evm_log_debug("next(sec)=%ld, stamp(sec)=%ld, next(nsec)=%ld, stamp(nsec)=%ld\n", tmr->tm_stamp.tv_sec, time_stamp.tv_sec, tmr->tm_stamp.tv_nsec, time_stamp.tv_nsec);
+		evm_log_debug("next(sec)=%ld, stamp(sec)=%ld, next(nsec)=%ld, stamp(nsec)=%ld\n", tmr->tm_stamp.tv_sec, time_stamp.tv_sec, tmr->tm_stamp.tv_nsec, time_stamp.tv_nsec);
 		if (tmr->tm_stamp.tv_sec > time_stamp.tv_sec) {
 			its.it_value.tv_sec = tmr->tm_stamp.tv_sec - time_stamp.tv_sec;
 			if (tmr->tm_stamp.tv_nsec > time_stamp.tv_nsec)
@@ -393,7 +393,9 @@ evm_timer_struct * timers_check(evm_consumer_struct *consumer)
 	}
 	pthread_mutex_unlock(&global_timer_mutex);
 
+	evm_log_debug("timer expired: tmr_return=%p\n", (void *)tmr_return);
 	if (tmr_return != NULL) {
+		evm_log_debug("timer expired: tmr_return->consumer=%p, consumer=%p\n", tmr_return->consumer, consumer);
 		if (tmr_return->consumer == consumer)
 			return tmr_return;
 
@@ -562,7 +564,6 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 
 	pthread_mutex_init(&new->amtx, NULL);
 	pthread_mutex_unlock(&new->amtx);
-	pthread_mutex_lock(&new->amtx);
 	new->tmrid = tmrid;
 	new->consumer = consumer;
 	new->saved = 0;
@@ -584,27 +585,13 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 	new->tm_stamp.tv_sec += its.it_value.tv_sec;
 	new->tm_stamp.tv_nsec += its.it_value.tv_nsec;
 
-	/* If no timers set, we are the first to expire -> start it!*/
 	pthread_mutex_lock(&global_timer_mutex);
+	pthread_mutex_lock(&new->amtx);
 	tmr = global_tmrs_queue.first_tmr;
-	if (tmr == NULL) {
-		if (timer_settime(global_timerid, 0, &its, NULL) == -1) {
-			evm_log_system_error("timer_settime timer ID=%p\n", (void *)global_timerid);
-			free(new);
-			new = NULL;
-			pthread_mutex_unlock(&global_timer_mutex);
-			return NULL;
-		}
-
-		global_tmrs_queue.first_tmr = new;
-		pthread_mutex_unlock(&global_timer_mutex);
-		pthread_mutex_unlock(&new->amtx);
-		return new;
-	}
-
-	prev = tmr;
-	while (tmr != NULL) {
+	prev = NULL;
+	do {
 		if (
+			(tmr == NULL) ||
 			(new->tm_stamp.tv_sec < tmr->tm_stamp.tv_sec) ||
 			(
 				(new->tm_stamp.tv_sec == tmr->tm_stamp.tv_sec) &&
@@ -613,7 +600,7 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 		) {
 			new->next = tmr;
 			/* If first in the list, we are the first to expire -> start it!*/
-			if (tmr == global_tmrs_queue.first_tmr) {
+			if (prev == NULL) {
 				if (timer_settime(global_timerid, 0, &its, NULL) == -1) {
 					evm_log_system_error("timer_settime timer ID=%p\n", (void *)global_timerid);
 					free(new);
@@ -622,22 +609,23 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 					return NULL;
 				}
 				global_tmrs_queue.first_tmr = new;
-			} else
-				prev->next = new;
-
-			pthread_mutex_unlock(&global_timer_mutex);
-			pthread_mutex_unlock(&new->amtx);
-			return new;
+				evm_log_debug("New timer start: ptr=%p (first to expire at setup)\n", (void *)new);
+				pthread_mutex_unlock(&new->amtx);
+				pthread_mutex_unlock(&global_timer_mutex);
+				return new;
+			}
+			break;
 		}
 
 		prev = tmr;
 		tmr = tmr->next;
-	}
+	} while (tmr != NULL);
 
 	/* The last in the list! */
 	prev->next = new;
-	pthread_mutex_unlock(&global_timer_mutex);
+	evm_log_debug("New timer start: ptr=%p (not the first to expire at setup)\n", (void *)new);
 	pthread_mutex_unlock(&new->amtx);
+	pthread_mutex_unlock(&global_timer_mutex);
 
 	return new;
 }

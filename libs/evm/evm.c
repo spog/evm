@@ -28,12 +28,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <string.h>
 #include <sys/types.h>
-#include <arpa/inet.h>
 #include <pthread.h>
 
 #include "evm/libevm.h"
@@ -607,25 +603,6 @@ void * evm_priv_get(evmStruct *evm)
 
 	return (evm->priv);
 }
-
-#if 0 /*samo - orig*/
-int evm_sigpost_set(evmStruct *evm, evm_sigpost_struct *sigpost)
-{
-	int rv = 0;
-	evm_log_info("(entry)\n");
-
-	if (evm == NULL)
-		return -1;
-
-	if (sigpost == NULL)
-		return -1;
-
-	if (rv == 0) {
-		evm->evm_sigpost = sigpost;
-	}
-	return rv;
-}
-#endif
 
 /*
  * Public API functions:
