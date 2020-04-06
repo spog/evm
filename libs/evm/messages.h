@@ -48,6 +48,6 @@ struct msg_hanger {
 
 EXTERN msgs_queue_struct * messages_consumer_queue_init(evm_consumer_struct *consumer_ptr);
 EXTERN msgs_queue_struct * messages_topic_queue_init(evm_topic_struct *topic_ptr);
-EXTERN evm_message_struct * messages_check(evm_consumer_struct *consumer_ptr);
+EXTERN evm_message_struct * messages_check(evm_consumer_struct *consumer_ptr, const struct timespec *ts);
 
 #endif /*EVM_FILE_messages_h*/

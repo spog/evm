@@ -34,7 +34,6 @@
 
 struct tmrs_queue {
 	evm_timer_struct *first_tmr;
-	evm_timer_struct *last_tmr;
 	pthread_mutex_t access_mutex;
 }; /*tmrs_queue_struct*/
 
@@ -46,5 +45,6 @@ struct tmrs_queue {
  */
 EXTERN tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer_ptr);
 EXTERN evm_timer_struct * timers_check(evm_consumer_struct *consumer_ptr);
+EXTERN struct timespec * timers_next_ts(evm_consumer_struct *consumer_ptr);
 
 #endif /*EVM_FILE_timers_h*/

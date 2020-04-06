@@ -41,36 +41,7 @@
 #include "userlog/log_module.h"
 EVMLOG_MODULE_INIT(EVM_TMRS, 1)
 
-#define CLOCKID CLOCK_REALTIME
-#define SIG SIGRTMIN
-
-/* global timer ID */
-static timer_t global_timerid;
-static tmrs_queue_struct global_tmrs_queue;
-static int global_timer_created = EVM_FALSE;
-static pthread_mutex_t global_timer_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-/* Thread-specific data related. */
-static int tmr_thr_keys_created = EVM_FALSE;
-static pthread_key_t tmr_thr_overruns_key; /*initialized only once - not for each call to evm_init() within a process*/
-
-static void timer_sighandler(int signum, siginfo_t *siginfo, void *context);
-static int tmr_enqueue(evm_consumer_struct *consumer, evm_timer_struct *tmr);
 static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer);
-static int timer_pass(evm_consumer_struct *consumer, evm_timer_struct *tmr);
-
-static void timer_sighandler(int signum, siginfo_t *siginfo, void *context)
-{
-	if (signum == SIG) {
-		int *thr_overruns = (int *)pthread_getspecific(tmr_thr_overruns_key);
-		timer_t *timerid = siginfo->si_value.sival_ptr;
-
-		*thr_overruns = timer_getoverrun(*timerid);
-#if 0
-		*thr_overruns = 15434654;
-#endif
-	}
-}
 
 /*
  * Per consumer timers initialization.
@@ -82,37 +53,12 @@ tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer)
 {
 	void *ptr = NULL;
 	tmrs_queue_struct *tmrs_queue = NULL;
-	struct sigaction sact;
-	struct sigevent sev;
-	sigset_t sigmask;
 	evm_log_info("(entry)\n");
 
 	if (consumer == NULL) {
 		evm_log_error("Event machine consumer undefined!\n");
 		return NULL;
 	}
-
-	/* Prepare thread-specific integer for thread related signal post-handling. */
-	evm_log_debug("tmr_thr_keys_created=%d\n", (int)tmr_thr_keys_created);
-	if (!tmr_thr_keys_created) {
-		if ((errno = pthread_key_create(&tmr_thr_overruns_key, NULL)) != 0) {
-			evm_log_system_error("pthread_key_create() - tmr_thr_overruns_key\n");
-			return NULL;
-		}
-		tmr_thr_keys_created = EVM_TRUE;
-	}
-	if ((ptr = calloc(1, sizeof(int))) == NULL) {
-		errno = ENOMEM;
-		evm_log_system_error("calloc(): thread-specific data\n");
-		return NULL;
-	}
-	if ((errno = pthread_setspecific(tmr_thr_overruns_key, ptr)) != 0) {
-		evm_log_system_error("pthread_setspecific()\n");
-		free(ptr);
-		ptr = NULL;
-		return NULL;
-	}
-	*(int *)ptr = -2; /*initialize*/
 
 	/* Setup consumer internal timer queue. */
 	if ((tmrs_queue = (tmrs_queue_struct *)calloc(1, sizeof(tmrs_queue_struct))) == NULL) {
@@ -124,110 +70,10 @@ tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer)
 	}
 	consumer->tmrs_queue = tmrs_queue;
 	consumer->tmrs_queue->first_tmr = NULL;
-	consumer->tmrs_queue->last_tmr = NULL;
 	pthread_mutex_init(&consumer->tmrs_queue->access_mutex, NULL);
 	pthread_mutex_unlock(&consumer->tmrs_queue->access_mutex);
 
-	pthread_mutex_lock(&global_timer_mutex);
-	evm_log_debug("global_timer_created=%d\n", global_timer_created);
-	if (!global_timer_created) {
-		/* Block timer signal temporarily */
-		evm_log_debug("Blocking signal %d\n", SIG);
-		sigemptyset(&sigmask);
-		sigaddset(&sigmask, SIG);
-		if (pthread_sigmask(SIG_BLOCK, &sigmask, NULL) < 0) {
-			evm_log_system_error("pthread_sigmask() SIG_BLOCK\n");
-			pthread_mutex_unlock(&global_timer_mutex);
-			free(tmrs_queue);
-			tmrs_queue = NULL;
-			free(ptr);
-			ptr = NULL;
-			return NULL;
-		}
-
-		/* Establish handler for timer signal */
-		evm_log_debug("Establishing handler for signal %d\n", SIG);
-		sact.sa_flags = SA_SIGINFO;
-		sact.sa_sigaction = timer_sighandler;
-		sigemptyset(&sact.sa_mask);
-		if (sigaction(SIG, &sact, NULL) == -1) {
-			evm_log_system_error("sigaction()\n");
-			pthread_mutex_unlock(&global_timer_mutex);
-			free(tmrs_queue);
-			tmrs_queue = NULL;
-			free(ptr);
-			ptr = NULL;
-			return NULL;
-		}
-
-		/* Create the timer */
-//		sev.sigev_notify = SIGEV_SIGNAL;
-		sev.sigev_notify = SIGEV_THREAD_ID;
-//		sev.sigev_notify_thread_id = syscall(SYS_gettid);
-		sev._sigev_un._tid = syscall(SYS_gettid);
-		sev.sigev_signo = SIG;
-		sev.sigev_value.sival_ptr = &global_timerid;
-		if (timer_create(CLOCKID, &sev, &global_timerid) == -1) {
-			evm_log_system_error("timer_create() timer ID=%p\n", (void *)global_timerid);
-			pthread_mutex_unlock(&global_timer_mutex);
-			free(tmrs_queue);
-			tmrs_queue = NULL;
-			free(ptr);
-			ptr = NULL;
-			return NULL;
-		}
-
-		evm_log_debug("Internal timers ID is %p\n", (void *)global_timerid);
-
-		evm_log_debug("Unblocking signal %d\n", SIG);
-		if (pthread_sigmask(SIG_UNBLOCK, &sigmask, NULL) < 0) {
-			evm_log_system_error("pthread_sigmask() SIG_UNBLOCK\n");
-			pthread_mutex_unlock(&global_timer_mutex);
-			free(tmrs_queue);
-			tmrs_queue = NULL;
-			free(ptr);
-			ptr = NULL;
-			return NULL;
-		}
-		global_timer_created = EVM_TRUE;
-	}
-	pthread_mutex_unlock(&global_timer_mutex);
-
 	return tmrs_queue;
-}
-
-static int tmr_enqueue(evm_consumer_struct *consumer, evm_timer_struct *tmr)
-{
-	int rv = 0;
-	tmrs_queue_struct *tmrs_queue;
-	sem_t *bsem;
-	pthread_mutex_t *amtx;
-	evm_log_info("(entry)\n");
-
-	if (consumer != NULL) {
-		tmrs_queue = consumer->tmrs_queue;
-		bsem = &consumer->blocking_sem;
-		if (tmrs_queue != NULL)
-			amtx = &tmrs_queue->access_mutex;
-		else
-			rv = -1;
-	} else
-		rv = -1;
-
-	if (rv == 0) {
-		pthread_mutex_lock(amtx);
-		if (tmrs_queue->last_tmr == NULL)
-			tmrs_queue->first_tmr = tmr;
-		else
-			tmrs_queue->last_tmr->next = tmr;
-
-		tmrs_queue->last_tmr = tmr;
-		tmr->next = NULL;
-		pthread_mutex_unlock(amtx);
-		evm_log_info("Post blocking semaphore (UNBLOCK)\n");
-		sem_post(bsem);
-	}
-	return rv;
 }
 
 static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer)
@@ -255,42 +101,17 @@ static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer)
 	}
 
 	evm_log_debug("tmr=%p\n", tmr);
-	if (tmr->next == NULL) {
-		tmrs_queue->first_tmr = NULL;
-		tmrs_queue->last_tmr = NULL;
-	} else
-		tmrs_queue->first_tmr = tmr->next;
+	tmrs_queue->first_tmr = tmr->next;
 
 	tmr->consumer = consumer; /*just in case:)*/
 	pthread_mutex_unlock(amtx);
 	return tmr;
 }
 
-/*
- * Internal passing of expired timers from global queue
- * to its internal tmrs_queue when expired time doesn't belong
- * to running evn_timers_check() (different consumer).
- */
-static int timer_pass(evm_consumer_struct *consumer, evm_timer_struct *tmr)
-{
-	evm_log_info("(entry) consumer=%p, msg=%p\n", consumer, tmr);
-	if (consumer != NULL) {
-		if (tmr_enqueue(consumer, tmr) != 0) {
-			evm_log_error("Timer enqueuing failed!\n");
-			return -1;
-		}
-		return 0;
-	}
-	return -1;
-}
-
 evm_timer_struct * timers_check(evm_consumer_struct *consumer)
 {
-	evm_timer_struct *tmr_return = NULL;
 	evm_timer_struct *tmr;
 	struct timespec time_stamp;
-	struct itimerspec its;
-	int *thr_overruns;
 	evm_log_info("(entry)\n");
 
 	if (consumer == NULL)
@@ -302,109 +123,60 @@ evm_timer_struct * timers_check(evm_consumer_struct *consumer)
 
 	tmr = consumer->tmrs_queue->first_tmr;
 	evm_log_debug("(entry) tmr=%p\n", tmr);
-	if (tmr != NULL)
-		return tmr_dequeue(consumer); /*first consume already prepared expired timers*/
-
-	/*Check the global timers queue for the newly expired timers.*/
-	pthread_mutex_lock(&global_timer_mutex);
-	tmr = global_tmrs_queue.first_tmr;
-	if (tmr == NULL) {
-		pthread_mutex_unlock(&global_timer_mutex);
-		return NULL; /*no timers set*/
-	}
-
-	thr_overruns = (int *)pthread_getspecific(tmr_thr_overruns_key);
-	if (thr_overruns != NULL) {
-		if (*thr_overruns < 0) {
-			if (*thr_overruns == -1) {
-				evm_log_debug("Error getting timer thread overruns!\n");
-			}
-		} else {
-			if (*thr_overruns > 0) {
-				evm_log_debug("timer thread overruns=%d\n", *thr_overruns);
-			}
-		}
-		*thr_overruns = -2;
-	}
-
-	its.it_value.tv_sec = 0;
-	its.it_value.tv_nsec = 0;
-	its.it_interval.tv_sec = 0;
-	its.it_interval.tv_nsec = 0;
-
-	if (clock_gettime(CLOCK_MONOTONIC, &time_stamp) == -1) {
-		evm_log_system_error("clock_gettime()\n");
-		/* on clock_gettime() failure reschedule timers_check() to next second */
-		its.it_value.tv_sec = 1;
-		if (timer_settime(global_timerid, 0, &its, NULL) == -1) {
-			evm_log_system_error("timer_settime timer ID=%p\n", (void *)global_timerid);
-		}
-		pthread_mutex_unlock(&global_timer_mutex);
-		return NULL;
-	}
-
-	if (
-		(time_stamp.tv_sec > tmr->tm_stamp.tv_sec) ||
-		(
-			(time_stamp.tv_sec == tmr->tm_stamp.tv_sec) &&
-			(time_stamp.tv_nsec >= tmr->tm_stamp.tv_nsec)
-		)
-	) {
-		global_tmrs_queue.first_tmr = tmr->next;
-		evm_log_debug("timer expired: tmr=%p, stopped=%d\n", (void *)tmr, tmr->stopped);
-
-		tmr_return = tmr;
-		tmr = global_tmrs_queue.first_tmr;
-	}
-
 	if (tmr != NULL) {
-		evm_log_debug("next(sec)=%ld, stamp(sec)=%ld, next(nsec)=%ld, stamp(nsec)=%ld\n", tmr->tm_stamp.tv_sec, time_stamp.tv_sec, tmr->tm_stamp.tv_nsec, time_stamp.tv_nsec);
-		if (tmr->tm_stamp.tv_sec > time_stamp.tv_sec) {
-			its.it_value.tv_sec = tmr->tm_stamp.tv_sec - time_stamp.tv_sec;
-			if (tmr->tm_stamp.tv_nsec > time_stamp.tv_nsec)
-				its.it_value.tv_nsec = tmr->tm_stamp.tv_nsec - time_stamp.tv_nsec;
-			else {
-				its.it_value.tv_nsec = (long)1000000000 + tmr->tm_stamp.tv_nsec - time_stamp.tv_nsec;
-				its.it_value.tv_sec--;
-			}
-		} else if (tmr->tm_stamp.tv_sec == time_stamp.tv_sec) {
-			if (tmr->tm_stamp.tv_nsec > time_stamp.tv_nsec)
-				its.it_value.tv_nsec = tmr->tm_stamp.tv_nsec - time_stamp.tv_nsec;
-#if 0 /* This part is already provided via "its" initialization. */
-			else {
-				its.it_value.tv_sec = 0;
-				its.it_value.tv_nsec = 0;
-			}
-		} else {
-			its.it_value.tv_sec = 0;
-			its.it_value.tv_nsec = 0;
-#endif
+		pthread_mutex_lock(&tmr->amtx);
+		if (clock_gettime(CLOCK_REALTIME, &time_stamp) == -1) {
+			evm_log_system_error("clock_gettime()\n");
+			pthread_mutex_unlock(&tmr->amtx);
+			return NULL;
 		}
-
-//		evm_log_debug("its(sec)=%ld, its(nsec)=%ld\n", its.it_value.tv_sec, its.it_value.tv_nsec);
-		if ((its.it_value.tv_sec != 0) || (its.it_value.tv_nsec != 0)) {
-			if (timer_settime(global_timerid, 0, &its, NULL) == -1) {
-				evm_log_system_error("timer_settime timer ID=%p\n", (void *)global_timerid);
-			}
-		} else {
-			evm_log_debug("its(sec)=%ld, its(nsec)=%ld, tmr_return=%p\n", its.it_value.tv_sec, its.it_value.tv_nsec, tmr_return);
-//			abort();
+		if (
+			(time_stamp.tv_sec > tmr->tm_stamp.tv_sec) ||
+			(
+				(time_stamp.tv_sec == tmr->tm_stamp.tv_sec) &&
+				(time_stamp.tv_nsec >= tmr->tm_stamp.tv_nsec)
+			)
+		) {
+			evm_log_debug("next(sec)=%ld, stamp(sec)=%ld, next(nsec)=%ld, stamp(nsec)=%ld\n", tmr->tm_stamp.tv_sec, time_stamp.tv_sec, tmr->tm_stamp.tv_nsec, time_stamp.tv_nsec);
+			pthread_mutex_unlock(&tmr->amtx);
+			return tmr_dequeue(consumer); /* Timer expired! */
 		}
-	}
-	pthread_mutex_unlock(&global_timer_mutex);
-
-	evm_log_debug("timer expired: tmr_return=%p\n", (void *)tmr_return);
-	if (tmr_return != NULL) {
-		evm_log_debug("timer expired: tmr_return->consumer=%p, consumer=%p\n", tmr_return->consumer, consumer);
-		if (tmr_return->consumer == consumer)
-			return tmr_return;
-
-		if (timer_pass(tmr_return->consumer, tmr_return) < 0) {
-			evm_log_error("Timer passing failed!\n");
-		}
+		pthread_mutex_unlock(&tmr->amtx);
 	}
 
 	return NULL;
+}
+
+struct timespec * timers_next_ts(evm_consumer_struct *consumer)
+{
+	struct timespec *ts;
+	evm_timer_struct *tmr;
+	tmrs_queue_struct *tmrs_queue;
+	pthread_mutex_t *amtx;
+	evm_log_info("(entry) consumer=%p\n", consumer);
+
+	if (consumer != NULL) {
+		tmrs_queue = consumer->tmrs_queue;
+		if (tmrs_queue != NULL)
+			amtx = &tmrs_queue->access_mutex;
+		else
+			return NULL;
+	} else
+		return NULL;
+
+	pthread_mutex_lock(amtx);
+	evm_log_debug("tmrs_queue=%p\n", tmrs_queue);
+	tmr = tmrs_queue->first_tmr;
+	evm_log_debug("tmr=%p\n", tmr);
+	if (tmr == NULL) {
+		pthread_mutex_unlock(amtx);
+		evm_log_debug("No timers set!\n");
+		return NULL;
+	}
+
+	ts = &tmr->tm_stamp;
+	pthread_mutex_unlock(amtx);
+	return ts;
 }
 
 /*
@@ -539,10 +311,11 @@ int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(evmConsumer
  */
 evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tmrid, time_t tv_sec, long tv_nsec, void *ctx)
 {
-	struct itimerspec its;
 	evmTimerStruct *new;
 	evm_timer_struct *prev, *tmr;
-	evm_log_info("(entry)\n");
+	tmrs_queue_struct *tmrs_queue;
+	pthread_mutex_t *tmrs_queue_amtx;
+	evm_log_info("(entry) consumer=%p\n", consumer);
 
 	if (consumer == NULL) {
 		evm_log_error("Event machine consumer object undefined!\n");
@@ -554,13 +327,17 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 		return NULL;
 	}
 
+	tmrs_queue = consumer->tmrs_queue;
+	if (tmrs_queue != NULL)
+		tmrs_queue_amtx = &tmrs_queue->access_mutex;
+	else
+		return NULL;
+
 	new = (evmTimerStruct *)calloc(1, sizeof(evmTimerStruct));
 	if (new == NULL) {
 		errno = ENOMEM;
 		return NULL;
 	}
-
-	evm_log_debug("New timer ptr=%p\n", (void *)new);
 
 	pthread_mutex_init(&new->amtx, NULL);
 	pthread_mutex_unlock(&new->amtx);
@@ -570,24 +347,23 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 	new->stopped = 0;
 	new->ctx = ctx;
 
-	if (clock_gettime(CLOCK_MONOTONIC, &new->tm_stamp) == -1) {
+	if (clock_gettime(CLOCK_REALTIME, &new->tm_stamp) == -1) {
 		evm_log_system_error("clock_gettime()\n");
 		free(new);
 		new = NULL;
 		return NULL;
 	}
 
-	its.it_value.tv_sec = tv_sec;
-	its.it_value.tv_nsec = tv_nsec;
-	its.it_interval.tv_sec = 0;
-	its.it_interval.tv_nsec = 0;
+	new->tm_stamp.tv_sec += tv_sec;
+	new->tm_stamp.tv_nsec += tv_nsec;
 
-	new->tm_stamp.tv_sec += its.it_value.tv_sec;
-	new->tm_stamp.tv_nsec += its.it_value.tv_nsec;
+	evm_log_debug("New timer: ptr=%p, new(sec)=%ld, new(nsec)=%ld\n", (void *)new, new->tm_stamp.tv_sec, new->tm_stamp.tv_nsec);
 
-	pthread_mutex_lock(&global_timer_mutex);
+	pthread_mutex_lock(tmrs_queue_amtx);
 	pthread_mutex_lock(&new->amtx);
-	tmr = global_tmrs_queue.first_tmr;
+	evm_log_debug("tmrs_queue=%p\n", tmrs_queue);
+	tmr = tmrs_queue->first_tmr;
+	evm_log_debug("tmr=%p\n", tmr);
 	prev = NULL;
 	do {
 		if (
@@ -601,17 +377,10 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 			new->next = tmr;
 			/* If first in the list, we are the first to expire -> start it!*/
 			if (prev == NULL) {
-				if (timer_settime(global_timerid, 0, &its, NULL) == -1) {
-					evm_log_system_error("timer_settime timer ID=%p\n", (void *)global_timerid);
-					free(new);
-					new = NULL;
-					pthread_mutex_unlock(&global_timer_mutex);
-					return NULL;
-				}
-				global_tmrs_queue.first_tmr = new;
-				evm_log_debug("New timer start: ptr=%p (first to expire at setup)\n", (void *)new);
+				tmrs_queue->first_tmr = new;
+				evm_log_debug("New timer: ptr=%p (first to expire at setup)\n", (void *)new);
 				pthread_mutex_unlock(&new->amtx);
-				pthread_mutex_unlock(&global_timer_mutex);
+				pthread_mutex_unlock(tmrs_queue_amtx);
 				return new;
 			}
 			break;
@@ -621,47 +390,65 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 		tmr = tmr->next;
 	} while (tmr != NULL);
 
-	/* The last in the list! */
+	/* Not the first in the list! */
 	prev->next = new;
-	evm_log_debug("New timer start: ptr=%p (not the first to expire at setup)\n", (void *)new);
+	evm_log_debug("New timer: ptr=%p (not the first to expire at setup)\n", (void *)new);
 	pthread_mutex_unlock(&new->amtx);
-	pthread_mutex_unlock(&global_timer_mutex);
+	pthread_mutex_unlock(tmrs_queue_amtx);
 
 	return new;
 }
 
 int evm_timer_stop(evmTimerStruct *tmr)
 {
-	evmTimerStruct *curr_tmr = NULL;
-	evmTimerStruct *prev_tmr = NULL;
-	evm_log_info("(entry)\n");
+	evmTimerStruct *curr = NULL;
+	evmTimerStruct *prev = NULL;
+	evmConsumerStruct *consumer = NULL;
+	tmrs_queue_struct *tmrs_queue;
+	pthread_mutex_t *tmrs_queue_amtx;
+	evm_log_info("(entry) tmr=%p\n", tmr);
 
-	if (tmr == NULL)
+	if (tmr == NULL) {
+		evm_log_debug("Stopping NULL timer!\n");
 		return -1;
+	}
 
-	pthread_mutex_lock(&global_timer_mutex);
-	curr_tmr = global_tmrs_queue.first_tmr;
-	while (curr_tmr != NULL) {
-		if (curr_tmr == tmr) {
+	if ((consumer = tmr->consumer) == NULL) {
+		evm_log_debug("Stopping timer without consumer set!\n");
+		return -1;
+	}
+
+	tmrs_queue = consumer->tmrs_queue;
+	if (tmrs_queue != NULL)
+		tmrs_queue_amtx = &tmrs_queue->access_mutex;
+	else {
+		evm_log_debug("Stopping timer for consumer without its timer queue!\n");
+		return -1;
+	}
+
+	pthread_mutex_lock(tmrs_queue_amtx);
+	curr = tmrs_queue->first_tmr;
+	while (curr != NULL) {
+		if (curr == tmr) {
 			/* started timer "tmr" found - remove it from the global timers list */
 			pthread_mutex_lock(&tmr->amtx);
 			tmr->stopped = 1;
 
-			if (prev_tmr == NULL)
-				global_tmrs_queue.first_tmr = tmr->next;
+			if (prev == NULL)
+				tmrs_queue->first_tmr = curr->next;
 			else
-				prev_tmr = tmr->next;
+				prev->next = curr->next;
 
 			tmr->next = NULL;
 			pthread_mutex_unlock(&tmr->amtx);
-			pthread_mutex_unlock(&global_timer_mutex);
+			pthread_mutex_unlock(tmrs_queue_amtx);
 			return 0;
 		}
-		prev_tmr = curr_tmr;
-		curr_tmr = curr_tmr->next;
+		prev = curr;
+		curr = curr->next;
 	}
 
-	pthread_mutex_unlock(&global_timer_mutex);
+	pthread_mutex_unlock(tmrs_queue_amtx);
 	return -1;
 }
 

@@ -40,7 +40,7 @@
 EVMLOG_MODULE_INIT(EVM_MSGS, 1)
 
 static int msg_enqueue(evm_consumer_struct *consumer, evm_message_struct *msg);
-static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer);
+static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer, const struct timespec *ts);
 
 msgs_queue_struct * messages_consumer_queue_init(evm_consumer_struct *consumer)
 {
@@ -107,12 +107,13 @@ static int msg_enqueue(evm_consumer_struct *consumer, evm_message_struct *msg)
 	return rv;
 }
 
-static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer)
+static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer, const struct timespec *ts)
 {
 	evm_message_struct *msg;
 	msgs_queue_struct *msgs_queue;
 	msg_hanger_struct *msg_hanger;
 	sem_t *bsem;
+	int rv;
 	pthread_mutex_t *amtx;
 	evm_log_info("(entry)\n");
 
@@ -126,9 +127,31 @@ static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer)
 	} else
 		return NULL;
 
+	evm_log_info("Wait blocking semaphore (BLOCK, IF LOCKED) until timeout\n");
+	while (EVM_TRUE) {
+		if (ts != NULL) {
+			evm_log_debug("Timed sem_wait.\n");
+			rv = sem_timedwait(bsem, ts);
+		} else {
+			evm_log_debug("Endless sem_wait.\n");
+			rv = sem_wait(bsem);
+		}
+		if (rv == 0) {
+			evm_log_debug("Successfully unlocked: evm message received!\n");
+			break;
+		}
+		if (errno == EINTR) {
+			evm_log_debug("Interrupted by signal!\n");
+			continue; /* Restart if interrupted by signal */
+		}
+		if (errno == ETIMEDOUT) {
+			evm_log_debug("Timed-out: evm timer(s) expired!\n");
+			return NULL;
+		}
+		evm_log_debug("sem_timedwait() / sem_wait(): Unknown error!\n");
+		break;
+	}
 
-	evm_log_info("Wait blocking semaphore (BLOCK, IF LOCKED)\n");
-	sem_wait(bsem);
 	pthread_mutex_lock(amtx);
 	msg_hanger = msgs_queue->first_hanger;
 	if (msg_hanger == NULL) {
@@ -149,7 +172,7 @@ static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer)
 	return msg;
 }
 
-evm_message_struct * messages_check(evm_consumer_struct *consumer)
+evm_message_struct * messages_check(evm_consumer_struct *consumer, const struct timespec *ts)
 {
 	evm_log_info("(entry)\n");
 
@@ -159,7 +182,7 @@ evm_message_struct * messages_check(evm_consumer_struct *consumer)
 	}
 
 	/* Poll the internal message queue first (THE ONLY POTENTIALLY BLOCKING POINT). */
-	return msg_dequeue(consumer);
+	return msg_dequeue(consumer, ts);
 }
 
 /*

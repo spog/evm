@@ -617,6 +617,7 @@ int evm_run_once(evmConsumerStruct *consumer)
 	int rv = 0;
 	evm_timer_struct *expd_tmr;
 	evm_message_struct *rcvd_msg;
+	struct timespec *ts;
 	evm_log_info("(entry)\n");
 
 	if (consumer == NULL) {
@@ -631,12 +632,14 @@ int evm_run_once(evmConsumerStruct *consumer)
 		if ((expd_tmr = timers_check(consumer)) != NULL) {
 			if ((rv = handle_timer(consumer, expd_tmr)) < 0)
 				evm_log_debug("handle_timer() returned %d\n", rv);
-		} else
+		} else {
+			ts = timers_next_ts(consumer);
 			break;
+		}
 	}
 
 	/* Handle handle received message (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
-	if ((rcvd_msg = messages_check(consumer)) != NULL) {
+	if ((rcvd_msg = messages_check(consumer, ts)) != NULL) {
 		if ((rv = handle_message(consumer, rcvd_msg)) < 0)
 			evm_log_debug("handle_message() returned %d\n", rv);
 	}
