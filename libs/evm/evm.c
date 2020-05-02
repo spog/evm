@@ -38,8 +38,8 @@
 #include "messages.h"
 #include "timers.h"
 
-#include "userlog/log_module.h"
-EVMLOG_MODULE_INIT(EVM_CORE, 1)
+#define U2UP_LOG_NAME EVM_CORE
+#include <u2up-log/u2up-log.h>
 
 /*current project version*/
 unsigned int evmVerMajor = EVM_VERSION_MAJOR;
@@ -61,12 +61,12 @@ evmStruct * evm_init(void)
 
 	if ((evm = calloc(1, sizeof(evmStruct))) == NULL) {
 		errno = ENOMEM;
-		evm_log_system_error("calloc(): evm\n");
+		u2up_log_system_error("calloc(): evm\n");
 	}
 	if (evm != NULL) {
 		if ((evm->msgtypes_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): evm->msgtypes_list\n");
+			u2up_log_system_error("calloc(): evm->msgtypes_list\n");
 			free(evm);
 			evm = NULL;
 		} else {
@@ -77,7 +77,7 @@ evmStruct * evm_init(void)
 	if (evm != NULL) {
 		if ((evm->tmrids_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): evm->tmrids_list\n");
+			u2up_log_system_error("calloc(): evm->tmrids_list\n");
 			free(evm->msgtypes_list);
 			evm->msgtypes_list = NULL;
 			free(evm);
@@ -90,7 +90,7 @@ evmStruct * evm_init(void)
 	if (evm != NULL) {
 		if ((evm->consumers_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): evm->consumers_list\n");
+			u2up_log_system_error("calloc(): evm->consumers_list\n");
 			free(evm->tmrids_list);
 			evm->tmrids_list = NULL;
 			free(evm->msgtypes_list);
@@ -105,7 +105,7 @@ evmStruct * evm_init(void)
 	if (evm != NULL) {
 		if ((evm->topics_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): evm->topics_list\n");
+			u2up_log_system_error("calloc(): evm->topics_list\n");
 			free(evm->consumers_list);
 			evm->consumers_list = NULL;
 			free(evm->tmrids_list);
@@ -128,7 +128,7 @@ evmStruct * evm_init(void)
 evmlist_el_struct * evm_search_evmlist(evmlist_head_struct *head, int id)
 {
 	evmlist_el_struct *tmp = NULL;
-	evm_log_info("(entry) head=%p\n", head);
+	u2up_log_info("(entry) head=%p\n", head);
 
 	if (head != NULL) {
 		tmp = head->first;
@@ -146,7 +146,7 @@ evmlist_el_struct * evm_search_evmlist(evmlist_head_struct *head, int id)
 evmlist_el_struct * evm_check_evmlist(evmlist_head_struct *head, void *el)
 {
 	evmlist_el_struct *tmp = NULL;
-	evm_log_info("(entry) head=%p\n", head);
+	u2up_log_info("(entry) head=%p\n", head);
 
 	if (el == NULL)
 		return NULL;
@@ -173,7 +173,7 @@ evmlist_el_struct * evm_new_evmlist_el(int id)
 
 	if ((new = calloc(1, sizeof(evmlist_el_struct))) == NULL) {
 		errno = ENOMEM;
-		evm_log_system_error("calloc(): new\n");
+		u2up_log_system_error("calloc(): new\n");
 	} else {
 		new->id = id;
 		new->next = NULL;
@@ -192,7 +192,7 @@ evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id)
 {
 	evmConsumerStruct *consumer = NULL;
 	evmlist_el_struct *tmp, *new;
-	evm_log_info("(entry) evm=%p, id=%d\n", evm, id);
+	u2up_log_info("(entry) evm=%p, id=%d\n", evm, id);
 
 	if (evm != NULL) {
 		if (evm->consumers_list != NULL) {
@@ -207,7 +207,7 @@ evmConsumerStruct * evm_consumer_add(evmStruct *evm, int id)
 					/* create new consumer */
 					if ((consumer = (evm_consumer_struct *)calloc(1, sizeof(evm_consumer_struct))) == NULL) {
 						errno = ENOMEM;
-						evm_log_system_error("calloc(): consumer\n");
+						u2up_log_system_error("calloc(): consumer\n");
 						free(new);
 						new = NULL;
 					}
@@ -261,7 +261,7 @@ evmConsumerStruct * evm_consumer_get(evmStruct *evm, int id)
 {
 	evmConsumerStruct *consumer = NULL;
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm != NULL) {
 		if (evm->consumers_list != NULL) {
@@ -281,7 +281,7 @@ evmConsumerStruct * evm_consumer_del(evmStruct *evm, int id)
 {
 	evmConsumerStruct *consumer = NULL;
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm != NULL) {
 		if (evm->consumers_list != NULL) {
@@ -315,7 +315,7 @@ evmTopicStruct * evm_topic_add(evmStruct *evm, int id)
 {
 	evmTopicStruct *topic = NULL;
 	evmlist_el_struct *tmp, *new;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm != NULL) {
 		if (evm->topics_list != NULL) {
@@ -330,7 +330,7 @@ evmTopicStruct * evm_topic_add(evmStruct *evm, int id)
 					/* create new topic */
 					if ((topic = (evm_topic_struct *)calloc(1, sizeof(evm_topic_struct))) == NULL) {
 						errno = ENOMEM;
-						evm_log_system_error("calloc(): topic\n");
+						u2up_log_system_error("calloc(): topic\n");
 						free(new);
 						new = NULL;
 					}
@@ -370,7 +370,7 @@ evmTopicStruct * evm_topic_get(evmStruct *evm, int id)
 {
 	evmTopicStruct *topic = NULL;
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm != NULL) {
 		if (evm->topics_list != NULL) {
@@ -390,7 +390,7 @@ evmTopicStruct * evm_topic_del(evmStruct *evm, int id)
 {
 	evmTopicStruct *topic = NULL;
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm != NULL) {
 		if (evm->topics_list != NULL) {
@@ -434,7 +434,7 @@ evmTopicStruct * evm_topic_del(evmStruct *evm, int id)
 static evm_consumer_struct * topic_consumer_add(evm_topic_struct *topic, evm_consumer_struct *consumer)
 {
 	evmlist_el_struct *tmp, *new;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if ((topic != NULL) && (consumer != NULL)) {
 		if (topic->consumers_list != NULL) {
@@ -475,7 +475,7 @@ static evm_consumer_struct * topic_consumer_add(evm_topic_struct *topic, evm_con
 static evm_consumer_struct * topic_consumer_del(evm_topic_struct *topic, evm_consumer_struct *consumer)
 {
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if ((topic != NULL) && (consumer != NULL)) {
 		if (topic->consumers_list != NULL) {
@@ -508,7 +508,7 @@ evmTopicStruct * evm_topic_subscribe(evmConsumerStruct *consumer, int topic_id)
 	evmStruct *evm = NULL;
 	evmTopicStruct *topic = NULL;
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL)
 		return NULL;
@@ -543,7 +543,7 @@ evmTopicStruct * evm_topic_unsubscribe(evmConsumerStruct *consumer, int id)
 	evmStruct *evm = NULL;
 	evmTopicStruct *topic = NULL;
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL)
 		return NULL;
@@ -580,7 +580,7 @@ evmTopicStruct * evm_topic_unsubscribe(evmConsumerStruct *consumer, int id)
 int evm_priv_set(evmStruct *evm, void *priv)
 {
 	int rv = 0;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm == NULL)
 		return -1;
@@ -596,7 +596,7 @@ int evm_priv_set(evmStruct *evm, void *priv)
 
 void * evm_priv_get(evmStruct *evm)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm == NULL)
 		return NULL;
@@ -618,20 +618,20 @@ int evm_run_once(evmConsumerStruct *consumer)
 	evm_timer_struct *expd_tmr;
 	evm_message_struct *rcvd_msg;
 	struct timespec *ts;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL) {
-		evm_log_error("Event machine consumer object undefined!\n");
+		u2up_log_error("Event machine consumer object undefined!\n");
 		abort();
 	}
 
 	/* Loop exclusively over expired timers (non-blocking already)! */
 	for (;;) {
-		evm_log_info("(loop entry) check and handle all expired timers\n");
+		u2up_log_info("(loop entry) check and handle all expired timers\n");
 		/* Handle expired timer (NON-BLOCKING). */
 		if ((expd_tmr = timers_check(consumer)) != NULL) {
 			if ((rv = handle_timer(consumer, expd_tmr)) < 0)
-				evm_log_debug("handle_timer() returned %d\n", rv);
+				u2up_log_debug("handle_timer() returned %d\n", rv);
 		} else {
 			ts = timers_next_ts(consumer);
 			break;
@@ -641,7 +641,7 @@ int evm_run_once(evmConsumerStruct *consumer)
 	/* Handle handle received message (WAIT - THE ONLY POTENTIALLY BLOCKING POINT). */
 	if ((rcvd_msg = messages_check(consumer, ts)) != NULL) {
 		if ((rv = handle_message(consumer, rcvd_msg)) < 0)
-			evm_log_debug("handle_message() returned %d\n", rv);
+			u2up_log_debug("handle_message() returned %d\n", rv);
 	}
 
 	return 0;
@@ -653,15 +653,15 @@ int evm_run_once(evmConsumerStruct *consumer)
 int evm_run_async(evmConsumerStruct *consumer)
 {
 	sem_t *bsem;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL) {
-		evm_log_error("Event machine consumer object undefined!\n");
+		u2up_log_error("Event machine consumer object undefined!\n");
 		abort();
 	}
 
 	bsem = &consumer->blocking_sem;
-	evm_log_info("Post blocking semaphore (UNBLOCK - prevent blocking)\n");
+	u2up_log_info("Post blocking semaphore (UNBLOCK - prevent blocking)\n");
 	sem_post(bsem);
 	return evm_run_once(consumer);
 }
@@ -671,16 +671,16 @@ int evm_run_async(evmConsumerStruct *consumer)
  */
 int evm_run(evmConsumerStruct *consumer)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL) {
-		evm_log_error("Event machine consumer object undefined!\n");
+		u2up_log_error("Event machine consumer object undefined!\n");
 		abort();
 	}
 
 	/* Main protocol loop! */
 	for (;;) {
-		evm_log_info("(main loop entry)\n");
+		u2up_log_info("(main loop entry)\n");
 		evm_run_once(consumer);
 	}
 
@@ -695,7 +695,7 @@ int evm_run(evmConsumerStruct *consumer)
 int evm_consumer_priv_set(evmConsumerStruct *consumer, void *priv)
 {
 	int rv = 0;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL)
 		return -1;
@@ -711,7 +711,7 @@ int evm_consumer_priv_set(evmConsumerStruct *consumer, void *priv)
 
 void * evm_consumer_priv_get(evmConsumerStruct *consumer)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL)
 		return NULL;
@@ -722,26 +722,26 @@ void * evm_consumer_priv_get(evmConsumerStruct *consumer)
 static int handle_message(evm_consumer_struct *consumer, evm_message_struct *msg)
 {
 	int rv = 0;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL) {
-		evm_log_debug("consumer == NULL\n");
+		u2up_log_debug("consumer == NULL\n");
 		return -1;
 	}
 	if (msg == NULL) {
-		evm_log_debug("msg == NULL\n");
+		u2up_log_debug("msg == NULL\n");
 		return -1;
 	}
 	if (msg->msgid == NULL) {
-		evm_log_debug("msgid == NULL\n");
+		u2up_log_debug("msgid == NULL\n");
 		return -1;
 	}
 	if (msg->msgid->msg_handle == NULL) {
-		evm_log_debug("msg_handle == NULL\n");
+		u2up_log_debug("msg_handle == NULL\n");
 		return -1;
 	}
 	if ((rv = msg->msgid->msg_handle(consumer, msg)) < 0)
-		evm_log_debug("msg_handle returned %d\n", rv);
+		u2up_log_debug("msg_handle returned %d\n", rv);
 
 	evm_message_delete(msg);
 
@@ -751,27 +751,27 @@ static int handle_message(evm_consumer_struct *consumer, evm_message_struct *msg
 static int handle_timer(evm_consumer_struct *consumer, evm_timer_struct *tmr)
 {
 	int rv = 0;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL) {
-		evm_log_debug("consumer == NULL\n");
+		u2up_log_debug("consumer == NULL\n");
 		return -1;
 	}
 	if (tmr == NULL) {
-		evm_log_debug("tmr == NULL\n");
+		u2up_log_debug("tmr == NULL\n");
 		return -1;
 	}
 	if (tmr->tmrid == NULL) {
-		evm_log_debug("tmrid == NULL\n");
+		u2up_log_debug("tmrid == NULL\n");
 		return -1;
 	}
 	if (tmr->tmrid->tmr_handle == NULL) {
-		evm_log_debug("tmr_handle == NULL\n");
+		u2up_log_debug("tmr_handle == NULL\n");
 		return -1;
 	}
 	if (tmr->stopped == 0) {
 		if ((rv = tmr->tmrid->tmr_handle(consumer, tmr)) < 0)
-			evm_log_debug("tmr_handle returned %d\n", rv);
+			u2up_log_debug("tmr_handle returned %d\n", rv);
 	}
 
 	evm_timer_delete(tmr);

@@ -42,8 +42,12 @@
 #include <evm/libevm.h>
 #include "hello1_evm.h"
 
-#include <userlog/log_module.h>
-EVMLOG_MODULE_INIT(DEMO1EVM, 2);
+#define U2UP_LOG_NAME DEMO1EVM
+#include <u2up-log/u2up-log.h>
+/* Declare all other used "u2up-log" modules: */
+U2UP_LOG_DECLARE(EVM_CORE);
+U2UP_LOG_DECLARE(EVM_MSGS);
+U2UP_LOG_DECLARE(EVM_TMRS);
 
 enum evm_consumer_ids {
 	EVM_CONSUMER_ID_0 = 0
@@ -92,14 +96,14 @@ static void usage_help(char *argv[])
 	printf("\t-q, --quiet              Disable all output.\n");
 	printf("\t-v, --verbose            Enable verbose output.\n");
 	printf("\t-l, --liveloop           Enable liveloop measurement mode.\n");
-#if (EVMLOG_MODULE_TRACE != 0)
+#if (U2UP_LOG_MODULE_TRACE != 0)
 	printf("\t-t, --trace              Enable trace output.\n");
 #endif
-#if (EVMLOG_MODULE_DEBUG != 0)
+#if (U2UP_LOG_MODULE_DEBUG != 0)
 	printf("\t-g, --debug              Enable debug output.\n");
 #endif
 	printf("\t-s, --syslog             Enable syslog output (instead of stdout, stderr).\n");
-	printf("\t-n, --no-header          No EVMLOG header added to every evm_log_... output.\n");
+	printf("\t-n, --no-header          No EVMLOG header added to every u2up_log_... output.\n");
 	printf("\t-h, --help               Displays this text.\n");
 }
 
@@ -113,10 +117,10 @@ static int usage_check(int argc, char *argv[])
 			{"quiet", 0, 0, 'q'},
 			{"verbose", 0, 0, 'v'},
 			{"liveloop", 0, 0, 'l'},
-#if (EVMLOG_MODULE_TRACE != 0)
+#if (U2UP_LOG_MODULE_TRACE != 0)
 			{"trace", 0, 0, 't'},
 #endif
-#if (EVMLOG_MODULE_DEBUG != 0)
+#if (U2UP_LOG_MODULE_DEBUG != 0)
 			{"debug", 0, 0, 'g'},
 #endif
 			{"no-header", 0, 0, 'n'},
@@ -125,11 +129,11 @@ static int usage_check(int argc, char *argv[])
 			{0, 0, 0, 0}
 		};
 
-#if (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG != 0)
+#if (U2UP_LOG_MODULE_TRACE != 0) && (U2UP_LOG_MODULE_DEBUG != 0)
 		c = getopt_long(argc, argv, "qvltgnsh", long_options, &option_index);
-#elif (EVMLOG_MODULE_TRACE == 0) && (EVMLOG_MODULE_DEBUG != 0)
+#elif (U2UP_LOG_MODULE_TRACE == 0) && (U2UP_LOG_MODULE_DEBUG != 0)
 		c = getopt_long(argc, argv, "qvlgnsh", long_options, &option_index);
-#elif (EVMLOG_MODULE_TRACE != 0) && (EVMLOG_MODULE_DEBUG == 0)
+#elif (U2UP_LOG_MODULE_TRACE != 0) && (U2UP_LOG_MODULE_DEBUG == 0)
 		c = getopt_long(argc, argv, "qvltnsh", long_options, &option_index);
 #else
 		c = getopt_long(argc, argv, "qvlnsh", long_options, &option_index);
@@ -139,10 +143,18 @@ static int usage_check(int argc, char *argv[])
 
 		switch (c) {
 		case 'q':
+			U2UP_LOG_SET_NORMAL(0);
+			U2UP_LOG_SET_NORMAL2(EVM_CORE, 0);
+			U2UP_LOG_SET_NORMAL2(EVM_MSGS, 0);
+			U2UP_LOG_SET_NORMAL2(EVM_TMRS, 0);
 			evmlog_normal = 0;
 			break;
 
 		case 'v':
+			U2UP_LOG_SET_VERBOSE(1);
+			U2UP_LOG_SET_VERBOSE2(EVM_CORE, 1);
+			U2UP_LOG_SET_VERBOSE2(EVM_MSGS, 1);
+			U2UP_LOG_SET_VERBOSE2(EVM_TMRS, 1);
 			evmlog_verbose = 1;
 			break;
 
@@ -150,23 +162,39 @@ static int usage_check(int argc, char *argv[])
 			demo_liveloop = 1;
 			break;
 
-#if (EVMLOG_MODULE_TRACE != 0)
+#if (U2UP_LOG_MODULE_TRACE != 0)
 		case 't':
+			U2UP_LOG_SET_TRACE(1);
+			U2UP_LOG_SET_TRACE2(EVM_CORE, 1);
+			U2UP_LOG_SET_TRACE2(EVM_MSGS, 1);
+			U2UP_LOG_SET_TRACE2(EVM_TMRS, 1);
 			evmlog_trace = 1;
 			break;
 #endif
 
-#if (EVMLOG_MODULE_DEBUG != 0)
+#if (U2UP_LOG_MODULE_DEBUG != 0)
 		case 'g':
+			U2UP_LOG_SET_DEBUG(1);
+			U2UP_LOG_SET_DEBUG2(EVM_CORE, 1);
+			U2UP_LOG_SET_DEBUG2(EVM_MSGS, 1);
+			U2UP_LOG_SET_DEBUG2(EVM_TMRS, 1);
 			evmlog_debug = 1;
 			break;
 #endif
 
 		case 'n':
+			U2UP_LOG_SET_HEADER(0);
+			U2UP_LOG_SET_HEADER2(EVM_CORE, 0);
+			U2UP_LOG_SET_HEADER2(EVM_MSGS, 0);
+			U2UP_LOG_SET_HEADER2(EVM_TMRS, 0);
 			evmlog_add_header = 0;
 			break;
 
 		case 's':
+			U2UP_LOG_SET_SYSLOG(1);
+			U2UP_LOG_SET_SYSLOG2(EVM_CORE, 1);
+			U2UP_LOG_SET_SYSLOG2(EVM_MSGS, 1);
+			U2UP_LOG_SET_SYSLOG2(EVM_TMRS, 1);
 			evmlog_use_syslog = 1;
 			break;
 
@@ -244,7 +272,7 @@ static evmTimerStruct *helloQuitTmr;
 
 static evmTimerStruct * hello_start_timer(evmTimerStruct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evmTmridStruct *tmrid_ptr)
 {
-	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
+	u2up_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
 	evm_timer_stop(tmr);
 	return evm_timer_start(consumer, tmrid_ptr, tv_sec, tv_nsec, ctx_ptr);
 }
@@ -256,7 +284,7 @@ static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg)
 {
 	evmTmridStruct *tmrid_ptr;
 	struct iovec *iov_buff = NULL;
-	evm_log_info("(cb entry) msg_ptr=%p\n", msg);
+	u2up_log_info("(cb entry) msg_ptr=%p\n", msg);
 
 	if (msg == NULL)
 		return -1;
@@ -264,12 +292,12 @@ static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg)
 	if (demo_liveloop == 0) {
 		if ((iov_buff = (struct iovec *)evm_message_data_get(msg)) == NULL)
 			return -1;
-		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
+		u2up_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
 
 		if ((tmrid_ptr = evm_tmrid_get(evm, EV_ID_HELLO_TMR_IDLE)) == NULL)
 			return -1;
 		helloIdleTmr = hello_start_timer(helloIdleTmr, 10, 0, NULL, tmrid_ptr);
-		evm_log_notice("IDLE timer set: 10 s\n");
+		u2up_log_notice("IDLE timer set: 10 s\n");
 	} else {
 		count++;
 		/* liveloop - 100 %CPU usage */
@@ -282,23 +310,23 @@ static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg)
 static int evHelloTmrIdle(evmConsumerStruct *consumer, evmTimerStruct *tmr)
 {
 	int rv = 0;
-	evm_log_info("(cb entry) tmr=%p\n", tmr);
+	u2up_log_info("(cb entry) tmr=%p\n", tmr);
 
-	evm_log_notice("IDLE timer expired!\n");
+	u2up_log_notice("IDLE timer expired!\n");
 
 	count++;
 	sprintf((char *)iov_buff->iov_base, "%s: %u", hello_str, count);
 	evm_message_pass(consumer, helloMsg);
-	evm_log_notice("HELLO msg sent: \"%s\"\n", (char *)iov_buff->iov_base);
+	u2up_log_notice("HELLO msg sent: \"%s\"\n", (char *)iov_buff->iov_base);
 
 	return rv;
 }
 
 static int evHelloTmrQuit(evmConsumerStruct *consumer, evmTimerStruct *tmr)
 {
-	evm_log_info("(cb entry) tmr=%p\n", tmr);
+	u2up_log_info("(cb entry) tmr=%p\n", tmr);
 
-	evm_log_notice("QUIT timer expired (%d messages sent)!\n", count);
+	u2up_log_notice("QUIT timer expired (%d messages sent)!\n", count);
 
 	exit(EXIT_SUCCESS);
 }
@@ -310,28 +338,28 @@ static int hello_evm_init(void)
 	evmMsgtypeStruct *msgtype_ptr;
 	evmMsgidStruct *msgid_ptr;
 
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	/* Initialize event machine... */
 	if ((evm = evm_init()) != NULL) {
 		if ((rv == 0) && ((consumer = evm_consumer_add(evm, EVM_CONSUMER_ID_0)) == NULL)) {
-			evm_log_error("evm_consumer_add() failed!\n");
+			u2up_log_error("evm_consumer_add() failed!\n");
 			rv = -1;
 		}
 		if ((rv == 0) && ((msgtype_ptr = evm_msgtype_add(evm, EV_TYPE_HELLO_MSG)) == NULL)) {
-			evm_log_error("evm_msgtype_add() failed!\n");
+			u2up_log_error("evm_msgtype_add() failed!\n");
 			rv = -1;
 		}
 		if ((rv == 0) && ((msgid_ptr = evm_msgid_add(msgtype_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)) {
-			evm_log_error("evm_msgid_add() failed!\n");
+			u2up_log_error("evm_msgid_add() failed!\n");
 			rv = -1;
 		}
 		if ((rv == 0) && (evm_msgid_cb_handle_set(msgid_ptr, evHelloMsg) < 0)) {
-			evm_log_error("evm_msgid_cb_handle() failed!\n");
+			u2up_log_error("evm_msgid_cb_handle() failed!\n");
 			rv = -1;
 		}
 		if ((rv == 0) && ((helloMsg = evm_message_new(msgtype_ptr, msgid_ptr, sizeof(struct iovec))) == NULL)) {
-			evm_log_error("evm_message_new() failed!\n");
+			u2up_log_error("evm_message_new() failed!\n");
 			rv = -1;
 		}
 		if (rv == 0) {
@@ -342,7 +370,7 @@ static int hello_evm_init(void)
 				iov_buff->iov_base = msg_buff;
 		}
 	} else {
-		evm_log_error("evm_init() failed!\n");
+		u2up_log_error("evm_init() failed!\n");
 		rv = -1;
 	}
 
@@ -360,7 +388,7 @@ static int hello_evm_run(void)
 	if (evm_tmrid_cb_handle_set(tmrid_ptr, evHelloTmrIdle) < 0)
 		return -1;
 	helloIdleTmr = hello_start_timer(NULL, 0, 0, NULL, tmrid_ptr);
-	evm_log_notice("IDLE timer set: 0 s\n");
+	u2up_log_notice("IDLE timer set: 0 s\n");
 
 	/* Set initial QUIT timer */
 	if ((tmrid_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_QUIT)) == NULL)
@@ -368,7 +396,7 @@ static int hello_evm_run(void)
 	if (evm_tmrid_cb_handle_set(tmrid_ptr, evHelloTmrQuit) < 0)
 		return -1;
 	helloQuitTmr = hello_start_timer(NULL, 60, 0, NULL, tmrid_ptr);
-	evm_log_notice("QUIT timer set: 60 s\n");
+	u2up_log_notice("QUIT timer set: 60 s\n");
 
 	/*
 	 * Main EVM processing (event loop)
@@ -378,9 +406,9 @@ static int hello_evm_run(void)
 #else
 	while (1) {
 		evm_run_async(consumer);
-		evm_log_notice("Returned from evm_run_async()\n");
+		u2up_log_notice("Returned from evm_run_async()\n");
 /**/		sleep(15);
-		evm_log_notice("Returned from sleep()\n");
+		u2up_log_notice("Returned from sleep()\n");
 /**/		sleep(2);
 	}
 	return 1;

@@ -38,8 +38,8 @@
 #include "evm.h"
 #include "timers.h"
 
-#include "userlog/log_module.h"
-EVMLOG_MODULE_INIT(EVM_TMRS, 1)
+#define U2UP_LOG_NAME EVM_TMRS
+#include <u2up-log/u2up-log.h>
 
 static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer);
 
@@ -53,17 +53,17 @@ tmrs_queue_struct * timers_queue_init(evm_consumer_struct *consumer)
 {
 	void *ptr = NULL;
 	tmrs_queue_struct *tmrs_queue = NULL;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL) {
-		evm_log_error("Event machine consumer undefined!\n");
+		u2up_log_error("Event machine consumer undefined!\n");
 		return NULL;
 	}
 
 	/* Setup consumer internal timer queue. */
 	if ((tmrs_queue = (tmrs_queue_struct *)calloc(1, sizeof(tmrs_queue_struct))) == NULL) {
 		errno = ENOMEM;
-		evm_log_system_error("calloc(): internal timer queue\n");
+		u2up_log_system_error("calloc(): internal timer queue\n");
 		free(ptr);
 		ptr = NULL;
 		return NULL;
@@ -81,7 +81,7 @@ static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer)
 	evm_timer_struct *tmr;
 	tmrs_queue_struct *tmrs_queue;
 	pthread_mutex_t *amtx;
-	evm_log_info("(entry) consumer=%p\n", consumer);
+	u2up_log_info("(entry) consumer=%p\n", consumer);
 
 	if (consumer != NULL) {
 		tmrs_queue = consumer->tmrs_queue;
@@ -93,14 +93,14 @@ static evm_timer_struct * tmr_dequeue(evm_consumer_struct *consumer)
 		return NULL;
 
 	pthread_mutex_lock(amtx);
-	evm_log_debug("tmrs_queue=%p\n", tmrs_queue);
+	u2up_log_debug("tmrs_queue=%p\n", tmrs_queue);
 	tmr = tmrs_queue->first_tmr;
 	if (tmr == NULL) {
 		pthread_mutex_unlock(amtx);
 		return NULL;
 	}
 
-	evm_log_debug("tmr=%p\n", tmr);
+	u2up_log_debug("tmr=%p\n", tmr);
 	tmrs_queue->first_tmr = tmr->next;
 
 	tmr->consumer = consumer; /*just in case:)*/
@@ -112,21 +112,21 @@ evm_timer_struct * timers_check(evm_consumer_struct *consumer)
 {
 	evm_timer_struct *tmr;
 	struct timespec time_stamp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL)
 		return NULL;
-	evm_log_info("(entry) consumer=%p\n",consumer);
+	u2up_log_info("(entry) consumer=%p\n",consumer);
 
 	if (consumer->tmrs_queue == NULL)
 		return NULL;
 
 	tmr = consumer->tmrs_queue->first_tmr;
-	evm_log_debug("(entry) tmr=%p\n", tmr);
+	u2up_log_debug("(entry) tmr=%p\n", tmr);
 	if (tmr != NULL) {
 		pthread_mutex_lock(&tmr->amtx);
 		if (clock_gettime(CLOCK_REALTIME, &time_stamp) == -1) {
-			evm_log_system_error("clock_gettime()\n");
+			u2up_log_system_error("clock_gettime()\n");
 			pthread_mutex_unlock(&tmr->amtx);
 			return NULL;
 		}
@@ -137,7 +137,7 @@ evm_timer_struct * timers_check(evm_consumer_struct *consumer)
 				(time_stamp.tv_nsec >= tmr->tm_stamp.tv_nsec)
 			)
 		) {
-			evm_log_debug("next(sec)=%ld, stamp(sec)=%ld, next(nsec)=%ld, stamp(nsec)=%ld\n", tmr->tm_stamp.tv_sec, time_stamp.tv_sec, tmr->tm_stamp.tv_nsec, time_stamp.tv_nsec);
+			u2up_log_debug("next(sec)=%ld, stamp(sec)=%ld, next(nsec)=%ld, stamp(nsec)=%ld\n", tmr->tm_stamp.tv_sec, time_stamp.tv_sec, tmr->tm_stamp.tv_nsec, time_stamp.tv_nsec);
 			pthread_mutex_unlock(&tmr->amtx);
 			return tmr_dequeue(consumer); /* Timer expired! */
 		}
@@ -153,7 +153,7 @@ struct timespec * timers_next_ts(evm_consumer_struct *consumer)
 	evm_timer_struct *tmr;
 	tmrs_queue_struct *tmrs_queue;
 	pthread_mutex_t *amtx;
-	evm_log_info("(entry) consumer=%p\n", consumer);
+	u2up_log_info("(entry) consumer=%p\n", consumer);
 
 	if (consumer != NULL) {
 		tmrs_queue = consumer->tmrs_queue;
@@ -165,12 +165,12 @@ struct timespec * timers_next_ts(evm_consumer_struct *consumer)
 		return NULL;
 
 	pthread_mutex_lock(amtx);
-	evm_log_debug("tmrs_queue=%p\n", tmrs_queue);
+	u2up_log_debug("tmrs_queue=%p\n", tmrs_queue);
 	tmr = tmrs_queue->first_tmr;
-	evm_log_debug("tmr=%p\n", tmr);
+	u2up_log_debug("tmr=%p\n", tmr);
 	if (tmr == NULL) {
 		pthread_mutex_unlock(amtx);
-		evm_log_debug("No timers set!\n");
+		u2up_log_debug("No timers set!\n");
 		return NULL;
 	}
 
@@ -189,7 +189,7 @@ evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id)
 {
 	evmTmridStruct *tmrid = NULL;
 	evmlist_el_struct *tmp, *new;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm != NULL) {
 		if (evm->tmrids_list != NULL) {
@@ -204,7 +204,7 @@ evmTmridStruct * evm_tmrid_add(evmStruct *evm, int id)
 					/* create new tmrid */
 					if ((tmrid = (evm_tmrid_struct *)calloc(1, sizeof(evm_tmrid_struct))) == NULL) {
 						errno = ENOMEM;
-						evm_log_system_error("calloc(): tmrid\n");
+						u2up_log_system_error("calloc(): tmrid\n");
 						free(new);
 						new = NULL;
 					}
@@ -235,13 +235,13 @@ evmTmridStruct * evm_tmrid_get(evmStruct *evm, int id)
 {
 	evmTmridStruct *tmrid = NULL;
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm != NULL) {
 		if (evm->tmrids_list != NULL) {
 			pthread_mutex_lock(&evm->tmrids_list->access_mutex);
 			tmp = evm_search_evmlist(evm->tmrids_list, id);
-			evm_log_debug("tmp=%p\n", tmp);
+			u2up_log_debug("tmp=%p\n", tmp);
 			if ((tmp != NULL) && (tmp->id == id)) {
 				/* required id already exists - return existing element */
 				tmrid = (evm_tmrid_struct *)tmp->el;
@@ -249,7 +249,7 @@ evmTmridStruct * evm_tmrid_get(evmStruct *evm, int id)
 			pthread_mutex_unlock(&evm->tmrids_list->access_mutex);
 		}
 	}
-	evm_log_debug("tmrid=%p\n", tmrid);
+	u2up_log_debug("tmrid=%p\n", tmrid);
 	return tmrid;
 }
 
@@ -257,7 +257,7 @@ evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id)
 {
 	evmTmridStruct *tmrid = NULL;
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm != NULL) {
 		if (evm->tmrids_list != NULL) {
@@ -288,7 +288,7 @@ evmTmridStruct * evm_tmrid_del(evmStruct *evm, int id)
 int evm_tmrid_cb_handle_set(evmTmridStruct *tmrid, int (*tmr_handle)(evmConsumerStruct *consumer, evmTimerStruct *tmr))
 {
 	int rv = 0;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (tmrid == NULL)
 		return -1;
@@ -315,15 +315,15 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 	evm_timer_struct *prev, *tmr;
 	tmrs_queue_struct *tmrs_queue;
 	pthread_mutex_t *tmrs_queue_amtx;
-	evm_log_info("(entry) consumer=%p\n", consumer);
+	u2up_log_info("(entry) consumer=%p\n", consumer);
 
 	if (consumer == NULL) {
-		evm_log_error("Event machine consumer object undefined!\n");
+		u2up_log_error("Event machine consumer object undefined!\n");
 		return NULL;
 	}
 
 	if (tmrid == NULL) {
-		evm_log_error("Event machine tmrid object undefined!\n");
+		u2up_log_error("Event machine tmrid object undefined!\n");
 		return NULL;
 	}
 
@@ -348,7 +348,7 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 	new->ctx = ctx;
 
 	if (clock_gettime(CLOCK_REALTIME, &new->tm_stamp) == -1) {
-		evm_log_system_error("clock_gettime()\n");
+		u2up_log_system_error("clock_gettime()\n");
 		free(new);
 		new = NULL;
 		return NULL;
@@ -357,13 +357,13 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 	new->tm_stamp.tv_sec += tv_sec;
 	new->tm_stamp.tv_nsec += tv_nsec;
 
-	evm_log_debug("New timer: ptr=%p, new(sec)=%ld, new(nsec)=%ld\n", (void *)new, new->tm_stamp.tv_sec, new->tm_stamp.tv_nsec);
+	u2up_log_debug("New timer: ptr=%p, new(sec)=%ld, new(nsec)=%ld\n", (void *)new, new->tm_stamp.tv_sec, new->tm_stamp.tv_nsec);
 
 	pthread_mutex_lock(tmrs_queue_amtx);
 	pthread_mutex_lock(&new->amtx);
-	evm_log_debug("tmrs_queue=%p\n", tmrs_queue);
+	u2up_log_debug("tmrs_queue=%p\n", tmrs_queue);
 	tmr = tmrs_queue->first_tmr;
-	evm_log_debug("tmr=%p\n", tmr);
+	u2up_log_debug("tmr=%p\n", tmr);
 	prev = NULL;
 	do {
 		if (
@@ -378,7 +378,7 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 			/* If first in the list, we are the first to expire -> start it!*/
 			if (prev == NULL) {
 				tmrs_queue->first_tmr = new;
-				evm_log_debug("New timer: ptr=%p (first to expire at setup)\n", (void *)new);
+				u2up_log_debug("New timer: ptr=%p (first to expire at setup)\n", (void *)new);
 				pthread_mutex_unlock(&new->amtx);
 				pthread_mutex_unlock(tmrs_queue_amtx);
 				return new;
@@ -392,7 +392,7 @@ evmTimerStruct * evm_timer_start(evmConsumerStruct *consumer, evmTmridStruct *tm
 
 	/* Not the first in the list! */
 	prev->next = new;
-	evm_log_debug("New timer: ptr=%p (not the first to expire at setup)\n", (void *)new);
+	u2up_log_debug("New timer: ptr=%p (not the first to expire at setup)\n", (void *)new);
 	pthread_mutex_unlock(&new->amtx);
 	pthread_mutex_unlock(tmrs_queue_amtx);
 
@@ -406,15 +406,15 @@ int evm_timer_stop(evmTimerStruct *tmr)
 	evmConsumerStruct *consumer = NULL;
 	tmrs_queue_struct *tmrs_queue;
 	pthread_mutex_t *tmrs_queue_amtx;
-	evm_log_info("(entry) tmr=%p\n", tmr);
+	u2up_log_info("(entry) tmr=%p\n", tmr);
 
 	if (tmr == NULL) {
-		evm_log_debug("Stopping NULL timer!\n");
+		u2up_log_debug("Stopping NULL timer!\n");
 		return -1;
 	}
 
 	if ((consumer = tmr->consumer) == NULL) {
-		evm_log_debug("Stopping timer without consumer set!\n");
+		u2up_log_debug("Stopping timer without consumer set!\n");
 		return -1;
 	}
 
@@ -422,7 +422,7 @@ int evm_timer_stop(evmTimerStruct *tmr)
 	if (tmrs_queue != NULL)
 		tmrs_queue_amtx = &tmrs_queue->access_mutex;
 	else {
-		evm_log_debug("Stopping timer for consumer without its timer queue!\n");
+		u2up_log_debug("Stopping timer for consumer without its timer queue!\n");
 		return -1;
 	}
 
@@ -454,7 +454,7 @@ int evm_timer_stop(evmTimerStruct *tmr)
 
 int evm_timer_ctx_set(evmTimerStruct *tmr, void *ctx)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (tmr == NULL)
 		return -1;
@@ -471,7 +471,7 @@ int evm_timer_ctx_set(evmTimerStruct *tmr, void *ctx)
 void * evm_timer_ctx_get(evmTimerStruct *tmr)
 {
 	void *ctx;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (tmr == NULL)
 		return NULL;
@@ -488,7 +488,7 @@ void * evm_timer_ctx_get(evmTimerStruct *tmr)
  */
 void evm_timer_delete(evmTimerStruct *tmr)
 {
-	evm_log_info("(entry) tmr=%p\n", tmr);
+	u2up_log_info("(entry) tmr=%p\n", tmr);
 
 	if (tmr != NULL) {
 		pthread_mutex_lock(&tmr->amtx);

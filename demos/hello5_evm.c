@@ -49,8 +49,12 @@
 #include <evm/libevm.h>
 #include "hello5_evm.h"
 
-#include <userlog/log_module.h>
-EVMLOG_MODULE_INIT(DEMO4EVM, 2);
+#define U2UP_LOG_NAME DEMO5EVM
+#include <u2up-log/u2up-log.h>
+/* Declare all other used "u2up-log" modules: */
+U2UP_LOG_DECLARE(EVM_CORE);
+U2UP_LOG_DECLARE(EVM_MSGS);
+U2UP_LOG_DECLARE(EVM_TMRS);
 
 enum evm_consumer_ids {
 	EVM_CONSUMER_ID_0 = 0
@@ -111,7 +115,7 @@ static void usage_help(char *argv[])
 	printf("\t-g, --debug              Enable debug output.\n");
 #endif
 	printf("\t-s, --syslog             Enable syslog output (instead of stdout, stderr).\n");
-	printf("\t-n, --no-header          No EVMLOG header added to every evm_log_... output.\n");
+	printf("\t-n, --no-header          No EVMLOG header added to every u2up_log_... output.\n");
 	printf("\t-h, --help               Displays this text.\n");
 }
 
@@ -151,10 +155,18 @@ static int usage_check(int argc, char *argv[])
 
 		switch (c) {
 		case 'q':
+			U2UP_LOG_SET_NORMAL(0);
+			U2UP_LOG_SET_NORMAL2(EVM_CORE, 0);
+			U2UP_LOG_SET_NORMAL2(EVM_MSGS, 0);
+			U2UP_LOG_SET_NORMAL2(EVM_TMRS, 0);
 			evmlog_normal = 0;
 			break;
 
 		case 'v':
+			U2UP_LOG_SET_VERBOSE(1);
+			U2UP_LOG_SET_VERBOSE2(EVM_CORE, 1);
+			U2UP_LOG_SET_VERBOSE2(EVM_MSGS, 1);
+			U2UP_LOG_SET_VERBOSE2(EVM_TMRS, 1);
 			evmlog_verbose = 1;
 			break;
 
@@ -164,21 +176,37 @@ static int usage_check(int argc, char *argv[])
 
 #if (EVMLOG_MODULE_TRACE != 0)
 		case 't':
+			U2UP_LOG_SET_TRACE(1);
+			U2UP_LOG_SET_TRACE2(EVM_CORE, 1);
+			U2UP_LOG_SET_TRACE2(EVM_MSGS, 1);
+			U2UP_LOG_SET_TRACE2(EVM_TMRS, 1);
 			evmlog_trace = 1;
 			break;
 #endif
 
 #if (EVMLOG_MODULE_DEBUG != 0)
 		case 'g':
+			U2UP_LOG_SET_DEBUG(1);
+			U2UP_LOG_SET_DEBUG2(EVM_CORE, 1);
+			U2UP_LOG_SET_DEBUG2(EVM_MSGS, 1);
+			U2UP_LOG_SET_DEBUG2(EVM_TMRS, 1);
 			evmlog_debug = 1;
 			break;
 #endif
 
 		case 'n':
+			U2UP_LOG_SET_HEADER(0);
+			U2UP_LOG_SET_HEADER2(EVM_CORE, 0);
+			U2UP_LOG_SET_HEADER2(EVM_MSGS, 0);
+			U2UP_LOG_SET_HEADER2(EVM_TMRS, 0);
 			evmlog_add_header = 0;
 			break;
 
 		case 's':
+			U2UP_LOG_SET_SYSLOG(1);
+			U2UP_LOG_SET_SYSLOG2(EVM_CORE, 1);
+			U2UP_LOG_SET_SYSLOG2(EVM_MSGS, 1);
+			U2UP_LOG_SET_SYSLOG2(EVM_TMRS, 1);
 			evmlog_use_syslog = 1;
 			break;
 
@@ -266,7 +294,7 @@ static evmTimerStruct *helloQuitTmr;
 
 static evmTimerStruct * hello_start_timer(evmConsumerStruct *consumer_ptr, evmTimerStruct *tmr, time_t tv_sec, long tv_nsec, void *ctx_ptr, evmTmridStruct *tmrid_ptr)
 {
-	evm_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
+	u2up_log_info("(entry) tmr=%p, sec=%ld, nsec=%ld, ctx_ptr=%p\n", tmr, tv_sec, tv_nsec, ctx_ptr);
 	evm_timer_stop(tmr);
 	return evm_timer_start(consumer_ptr, tmrid_ptr, tv_sec, tv_nsec, ctx_ptr);
 }
@@ -277,7 +305,7 @@ static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg_ptr)
 	struct iovec *iov_buff = NULL;
 	evmMessageStruct *msg = (evmMessageStruct *)msg_ptr;
 	evmConsumerStruct *rem_consumer_ptr;
-	evm_log_info("(cb entry) msg_ptr=%p\n", msg_ptr);
+	u2up_log_info("(cb entry) msg_ptr=%p\n", msg_ptr);
 
 	if (msg == NULL)
 		return -1;
@@ -288,7 +316,7 @@ static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg_ptr)
 	rem_consumer_ptr = (evmConsumerStruct *)evm_message_ctx_get(msg);
 
 	if (demo_liveloop == 0) {
-		evm_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
+		u2up_log_notice("HELLO msg received: \"%s\"\n", (char *)iov_buff->iov_base);
 
 		if (consumer == consumers[0]) {
 			consumer0_count++;
@@ -298,7 +326,7 @@ static int evHelloMsg(evmConsumerStruct *consumer, evmMessageStruct *msg_ptr)
 				consumer0_count = 0;
 		}
 		helloIdleTmr = hello_start_timer(consumer, NULL, 10, 0, (void *)rem_consumer_ptr, tmrid_idle_ptr);
-		evm_log_notice("IDLE timer set: 10 s\n");
+		u2up_log_notice("IDLE timer set: 10 s\n");
 	} else {
 		/* liveloop - 100 %CPU usage */
 		if (consumer == consumers[0]) {
@@ -319,12 +347,12 @@ static int evHelloTmrIdle(evmConsumerStruct *consumer, evmTimerStruct *tmr)
 {
 	int status = 0;
 	evmConsumerStruct *rem_consumer;
-	evm_log_info("(cb entry) tmr=%p\n", tmr);
+	u2up_log_info("(cb entry) tmr=%p\n", tmr);
 
 	if (tmr == NULL)
 		return -1;
 
-	evm_log_notice("IDLE timer expired!\n");
+	u2up_log_notice("IDLE timer expired!\n");
 	rem_consumer = (evmConsumerStruct *)evm_timer_ctx_get(tmr);
 
 	hello5_send_hello(consumer, rem_consumer);
@@ -335,12 +363,12 @@ static int evHelloTmrIdle(evmConsumerStruct *consumer, evmTimerStruct *tmr)
 static int evHelloTmrQuit(evmConsumerStruct *consumer, evmTimerStruct *tmr)
 {
 	int *count = (int*)evm_consumer_priv_get(consumers[0]);
-	evm_log_info("(cb entry) tmr=%p\n", tmr);
+	u2up_log_info("(cb entry) tmr=%p\n", tmr);
 
 	if (tmr == NULL)
 		return -1;
 
-	evm_log_notice("QUIT timer expired (%d messages sent)!\n", (*count) * 2);
+	u2up_log_notice("QUIT timer expired (%d messages sent)!\n", (*count) * 2);
 	//printf("QUIT timer expired (%d messages sent)!\n", (*count) * 2);
 
 	exit(EXIT_SUCCESS);
@@ -352,10 +380,10 @@ static int hello5_send_hello(evmConsumerStruct *loc_consumer_ptr, evmConsumerStr
 	struct iovec *iov_buff = NULL;
 	int *count = (int*)evm_consumer_priv_get(loc_consumer_ptr);
 
-	evm_log_info("(entry) loc_consumer_ptr=%p, rem_consumer_ptr=%p\n", loc_consumer_ptr, rem_consumer_ptr);
+	u2up_log_info("(entry) loc_consumer_ptr=%p, rem_consumer_ptr=%p\n", loc_consumer_ptr, rem_consumer_ptr);
 
 	if ((msg = evm_message_new(msgtype_hello_ptr, msgid_hello_ptr, sizeof(struct iovec))) == NULL) {
-		evm_log_error("evm_message_new() failed!\n");
+		u2up_log_error("evm_message_new() failed!\n");
 		return -1;
 	}
 
@@ -376,11 +404,11 @@ static int hello5_send_hello(evmConsumerStruct *loc_consumer_ptr, evmConsumerStr
 	/* Send HELLO message to another thread. */
 	if (loc_consumer_ptr == consumers[0]) {
 		if (demo_liveloop == 0)
-			evm_log_notice("HELLO msg post: %s\n", (char *)iov_buff->iov_base);
+			u2up_log_notice("HELLO msg post: %s\n", (char *)iov_buff->iov_base);
 		evm_message_post(topic, msg);
 	} else {
 		if (demo_liveloop == 0)
-			evm_log_notice("HELLO msg pass: %s\n", (char *)iov_buff->iov_base);
+			u2up_log_notice("HELLO msg pass: %s\n", (char *)iov_buff->iov_base);
 		evm_message_pass(rem_consumer_ptr, msg);
 	}
 
@@ -392,7 +420,7 @@ static int hello5_evm_init(void)
 {
 	int rv = 0;
 
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	/* Prepare consumers table */
 	if ((consumers = (evmConsumerStruct **)calloc(num_additional_threads + 1, sizeof(evmConsumerStruct *))) == NULL)
@@ -401,47 +429,47 @@ static int hello5_evm_init(void)
 	/* Initialize event machine... */
 	if ((evm = evm_init()) != NULL) {
 		if ((rv == 0) && ((consumers[0] = evm_consumer_add(evm, EVM_CONSUMER_ID_0)) == NULL)) {
-			evm_log_error("evm_consumer_add() failed!\n");
+			u2up_log_error("evm_consumer_add() failed!\n");
 			rv = -1;
 		}
 		if ((rv == 0) && ((topic = evm_topic_add(evm, EVM_TOPIC_ID_0)) == NULL)) {
-			evm_log_error("evm_topic_add() failed!\n");
+			u2up_log_error("evm_topic_add() failed!\n");
 			rv = -1;
 		}
 		if ((rv == 0) && ((msgtype_hello_ptr = evm_msgtype_add(evm, EV_TYPE_HELLO_MSG)) == NULL)) {
-			evm_log_error("evm_msgtype_add() failed!\n");
+			u2up_log_error("evm_msgtype_add() failed!\n");
 			rv = -1;
 		}
 		if ((rv == 0) && ((msgid_hello_ptr = evm_msgid_add(msgtype_hello_ptr, EV_ID_HELLO_MSG_HELLO)) == NULL)) {
-			evm_log_error("evm_msgid_add() failed!\n");
+			u2up_log_error("evm_msgid_add() failed!\n");
 			rv = -1;
 		}
 		if ((rv == 0) && (evm_msgid_cb_handle_set(msgid_hello_ptr, evHelloMsg) < 0)) {
-			evm_log_error("evm_msgid_cb_handle() failed!\n");
+			u2up_log_error("evm_msgid_cb_handle() failed!\n");
 			rv = -1;
 		}
 		if ((rv == 0) && ((tmrid_idle_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_IDLE)) == NULL)) {
-			evm_log_error("evm_tmrid_add() failed!\n");
+			u2up_log_error("evm_tmrid_add() failed!\n");
 			return -1;
 		}
 		if ((rv == 0) && (evm_tmrid_cb_handle_set(tmrid_idle_ptr, evHelloTmrIdle) < 0)) {
-			evm_log_error("evm_tmrid_cb_handle() failed!\n");
+			u2up_log_error("evm_tmrid_cb_handle() failed!\n");
 			return -1;
 		}
 		if ((rv == 0) && ((tmrid_quit_ptr = evm_tmrid_add(evm, EV_ID_HELLO_TMR_QUIT)) == NULL)) {
-			evm_log_error("evm_tmrid_add() failed!\n");
+			u2up_log_error("evm_tmrid_add() failed!\n");
 			return -1;
 		}
 		if ((rv == 0) && (evm_tmrid_cb_handle_set(tmrid_quit_ptr, evHelloTmrQuit) < 0)) {
-			evm_log_error("evm_tmrid_cb_handle() failed!\n");
+			u2up_log_error("evm_tmrid_cb_handle() failed!\n");
 			return -1;
 		}
 	} else {
-		evm_log_error("evm_init() failed!\n");
+		u2up_log_error("evm_init() failed!\n");
 		rv = -1;
 	}
 
-	evm_log_info("(exit)\n");
+	u2up_log_info("(exit)\n");
 	return rv;
 }
 
@@ -451,7 +479,7 @@ static void * hello5_new_thread_start(void *arg)
 	evmConsumerStruct *consumer_ptr;
 	int count = 0;
 
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (arg == NULL)
 		return NULL;
@@ -479,26 +507,26 @@ static int hello5_evm_run(void)
 	int i;
 	pthread_attr_t attr;
 	pthread_t new_thread;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	evm_consumer_priv_set(consumers[0], (void *)&count);
 
 	/* Start initial QUIT timer */
 	helloQuitTmr = hello_start_timer(consumers[0], NULL, 60, 0, NULL, tmrid_quit_ptr);
-	evm_log_notice("QUIT timer set: 60 s\n");
+	u2up_log_notice("QUIT timer set: 60 s\n");
 
 	if ((rv = pthread_attr_init(&attr)) != 0)
-		evm_log_return_system_err("pthread_attr_init()\n");
+		u2up_log_return_system_err("pthread_attr_init()\n");
 
 	for (i = 1; i <= (num_additional_threads); i++) {
-		evm_log_debug("i=%d, rv=%d\n", i, rv);
+		u2up_log_debug("i=%d, rv=%d\n", i, rv);
 		if ((rv == 0) && ((consumers[i] = evm_consumer_add(evm, i)) == NULL)) {
-			evm_log_error("evm_consumer_add() failed!\n");
+			u2up_log_error("evm_consumer_add() failed!\n");
 			rv = -1;
 		}
 		if ((rv = pthread_create(&new_thread, &attr, hello5_new_thread_start, (void *)consumers[i])) != 0)
-			evm_log_return_system_err("pthread_create()\n");
-		evm_log_debug("pthread_create() rv=%d\n", rv);
+			u2up_log_return_system_err("pthread_create()\n");
+		u2up_log_debug("pthread_create() rv=%d\n", rv);
 	}
 
 	/*

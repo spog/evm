@@ -19,6 +19,13 @@
  *  limitations under the License.
 */
 
+/*
+ * Provides "u2up-log" module names:
+ * - EVM_CORE
+ * - EVM_MSGS
+ * - EVM_TMRS
+*/
+
 #ifndef EVM_FILE_libevm_h
 #define EVM_FILE_libevm_h
 

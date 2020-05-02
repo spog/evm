@@ -24,7 +24,6 @@ _INSTDIR_ := $(_INSTALL_PREFIX_)/lib
 #TPATH := $(_BUILDIR_)/$(SUBPATH)
 #IPATH := $(_INSTALL_PREFIX_)/lib
 HPATH := $(_INSTALL_PREFIX_)/include/evm
-HPATH2 := $(_INSTALL_PREFIX_)/include/userlog
 
 # Files to be compiled:
 SRCS := evm.c messages.c timers.c
@@ -44,7 +43,7 @@ clean:
 	rm -f $(_OBJDIR_)/$(TARGET)  $(_OBJDIR_)/*.o $(_OBJDIR_)/*.d
 
 .PHONY: install
-install: $(_INSTDIR_) $(_INSTDIR_)/$(TARGET) $(HPATH) $(HPATH)/libevm.h $(HPATH2) $(HPATH2)/log_module.h
+install: $(_INSTDIR_) $(_INSTDIR_)/$(TARGET) $(HPATH) $(HPATH)/libevm.h
 
 $(_INSTDIR_):
 	install -d $@
@@ -57,12 +56,5 @@ $(HPATH):
 
 $(HPATH)/libevm.h:\
  $(_SRCDIR_)/include/evm/libevm.h
-	install $< $@
-
-$(HPATH2):
-	install -d $@
-
-$(HPATH2)/log_module.h:\
- $(_SRCDIR_)/include/userlog/log_module.h
 	install $< $@
 

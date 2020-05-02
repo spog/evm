@@ -36,8 +36,8 @@
 #include "evm.h"
 #include "messages.h"
 
-#include "userlog/log_module.h"
-EVMLOG_MODULE_INIT(EVM_MSGS, 1)
+#define U2UP_LOG_NAME EVM_MSGS
+#include <u2up-log/u2up-log.h>
 
 static int msg_enqueue(evm_consumer_struct *consumer, evm_message_struct *msg);
 static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer, const struct timespec *ts);
@@ -45,17 +45,17 @@ static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer, const str
 msgs_queue_struct * messages_consumer_queue_init(evm_consumer_struct *consumer)
 {
 	msgs_queue_struct *msgs_queue = NULL;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL) {
-		evm_log_error("Event machine consumer object undefined!\n");
+		u2up_log_error("Event machine consumer object undefined!\n");
 		return NULL;
 	}
 
 	/* Setup internal message queue. */
 	if ((msgs_queue = calloc(1, sizeof(msgs_queue_struct))) == NULL) {
 		errno = ENOMEM;
-		evm_log_system_error("calloc(): internal message queue\n");
+		u2up_log_system_error("calloc(): internal message queue\n");
 		return NULL;
 	}
 	consumer->msgs_queue = msgs_queue;
@@ -72,7 +72,7 @@ static int msg_enqueue(evm_consumer_struct *consumer, evm_message_struct *msg)
 	msg_hanger_struct *msg_hanger;
 	sem_t *bsem;
 	pthread_mutex_t *amtx;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer != NULL) {
 		msgs_queue = consumer->msgs_queue;
@@ -88,7 +88,7 @@ static int msg_enqueue(evm_consumer_struct *consumer, evm_message_struct *msg)
 		pthread_mutex_lock(amtx);
 		if ((msg_hanger = (msg_hanger_struct *)calloc(1, sizeof(msg_hanger_struct))) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("calloc(): message hanger\n");
+			u2up_log_system_error("calloc(): message hanger\n");
 			pthread_mutex_unlock(amtx);
 			return -1;
 		}
@@ -101,7 +101,7 @@ static int msg_enqueue(evm_consumer_struct *consumer, evm_message_struct *msg)
 		msgs_queue->last_hanger = msg_hanger;
 		msg_hanger->next = NULL;
 		pthread_mutex_unlock(amtx);
-		evm_log_info("Post blocking semaphore (UNBLOCK)\n");
+		u2up_log_info("Post blocking semaphore (UNBLOCK)\n");
 		sem_post(bsem);
 	}
 	return rv;
@@ -115,7 +115,7 @@ static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer, const str
 	sem_t *bsem;
 	int rv;
 	pthread_mutex_t *amtx;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer != NULL) {
 		msgs_queue = (msgs_queue_struct *)consumer->msgs_queue;
@@ -127,28 +127,28 @@ static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer, const str
 	} else
 		return NULL;
 
-	evm_log_info("Wait blocking semaphore (BLOCK, IF LOCKED) until timeout\n");
+	u2up_log_info("Wait blocking semaphore (BLOCK, IF LOCKED) until timeout\n");
 	while (EVM_TRUE) {
 		if (ts != NULL) {
-			evm_log_debug("Timed sem_wait.\n");
+			u2up_log_debug("Timed sem_wait.\n");
 			rv = sem_timedwait(bsem, ts);
 		} else {
-			evm_log_debug("Endless sem_wait.\n");
+			u2up_log_debug("Endless sem_wait.\n");
 			rv = sem_wait(bsem);
 		}
 		if (rv == 0) {
-			evm_log_debug("Successfully unlocked: evm message received!\n");
+			u2up_log_debug("Successfully unlocked: evm message received!\n");
 			break;
 		}
 		if (errno == EINTR) {
-			evm_log_debug("Interrupted by signal!\n");
+			u2up_log_debug("Interrupted by signal!\n");
 			continue; /* Restart if interrupted by signal */
 		}
 		if (errno == ETIMEDOUT) {
-			evm_log_debug("Timed-out: evm timer(s) expired!\n");
+			u2up_log_debug("Timed-out: evm timer(s) expired!\n");
 			return NULL;
 		}
-		evm_log_debug("sem_timedwait() / sem_wait(): Unknown error!\n");
+		u2up_log_debug("sem_timedwait() / sem_wait(): Unknown error!\n");
 		break;
 	}
 
@@ -174,10 +174,10 @@ static evm_message_struct * msg_dequeue(evm_consumer_struct *consumer, const str
 
 evm_message_struct * messages_check(evm_consumer_struct *consumer, const struct timespec *ts)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (consumer == NULL) {
-		evm_log_error("Event machine consumer object undefined!\n");
+		u2up_log_error("Event machine consumer object undefined!\n");
 		abort();
 	}
 
@@ -192,12 +192,12 @@ evm_message_struct * messages_check(evm_consumer_struct *consumer, const struct 
  */
 int evm_message_pass(evmConsumerStruct *consumer, evmMessageStruct *msg)
 {
-	evm_log_info("(entry) consumer=%p, msg=%p\n", consumer, msg);
+	u2up_log_info("(entry) consumer=%p, msg=%p\n", consumer, msg);
 
 	if ((consumer != NULL) && (msg != NULL)) {
 		pthread_mutex_lock(&msg->amtx);
 		if (msg_enqueue(consumer, msg) != 0) {
-			evm_log_error("Message enqueuing failed!\n");
+			u2up_log_error("Message enqueuing failed!\n");
 			pthread_mutex_unlock(&msg->amtx);
 			return -1;
 		}
@@ -213,7 +213,7 @@ int evm_message_post(evmTopicStruct *topic, evmMessageStruct *msg)
 	int rv = 0;
 	evmlist_el_struct *tmp;
 	evmConsumerStruct *consumer;
-	evm_log_info("(entry) topic=%p, msg=%p\n", topic, msg);
+	u2up_log_info("(entry) topic=%p, msg=%p\n", topic, msg);
 
 	if ((topic != NULL) && (msg != NULL)) {
 		pthread_mutex_lock(&topic->consumers_list->access_mutex);
@@ -225,7 +225,7 @@ int evm_message_post(evmTopicStruct *topic, evmMessageStruct *msg)
 		) {
 			consumer = (evm_consumer_struct *)tmp->el;
 			if (msg_enqueue(consumer, msg) != 0) {
-				evm_log_error("Message enqueuing failed!\n");
+				u2up_log_error("Message enqueuing failed!\n");
 				rv++;
 			}
 			msg->consumers++;
@@ -246,7 +246,7 @@ evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int id)
 {
 	evmMsgtypeStruct *msgtype = NULL;
 	evmlist_el_struct *tmp, *new;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (evm != NULL) {
 		if (evm->msgtypes_list != NULL) {
@@ -261,7 +261,7 @@ evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int id)
 					/* create new msgtype */
 					if ((msgtype = (evm_msgtype_struct *)calloc(1, sizeof(evm_msgtype_struct))) == NULL) {
 						errno = ENOMEM;
-						evm_log_system_error("calloc(): msgtype\n");
+						u2up_log_system_error("calloc(): msgtype\n");
 						free(new);
 						new = NULL;
 					}
@@ -271,7 +271,7 @@ evmMsgtypeStruct * evm_msgtype_add(evmStruct *evm, int id)
 						msgtype->msgtype_parse = NULL;
 						if ((msgtype->msgids_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
 							errno = ENOMEM;
-							evm_log_system_error("calloc(): msgtype->msgids_list\n");
+							u2up_log_system_error("calloc(): msgtype->msgids_list\n");
 							free(msgtype);
 							msgtype = NULL;
 							free(new);
@@ -352,7 +352,7 @@ evmMsgtypeStruct * evm_msgtype_del(evmStruct *evm, int id)
 int evm_msgtype_cb_parse_set(evmMsgtypeStruct *msgtype, int (*msgtype_parse)(void *ptr))
 {
 	int rv = 0;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (msgtype == NULL)
 		return -1;
@@ -376,7 +376,7 @@ evmMsgidStruct * evm_msgid_add(evmMsgtypeStruct *msgtype, int id)
 {
 	evmMsgidStruct *msgid = NULL;
 	evmlist_el_struct *tmp, *new;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (msgtype != NULL) {
 		if (msgtype->msgids_list != NULL) {
@@ -391,7 +391,7 @@ evmMsgidStruct * evm_msgid_add(evmMsgtypeStruct *msgtype, int id)
 					/* create new msgid */
 					if ((msgid = (evm_msgid_struct *)calloc(1, sizeof(evm_msgid_struct))) == NULL) {
 						errno = ENOMEM;
-						evm_log_system_error("calloc(): msgid\n");
+						u2up_log_system_error("calloc(): msgid\n");
 						free(new);
 						new = NULL;
 					}
@@ -472,7 +472,7 @@ evmMsgidStruct * evm_msgid_del(evmMsgtypeStruct *msgtype, int id)
 int evm_msgid_cb_handle_set(evmMsgidStruct *msgid, int (*msg_handle)(evmConsumerStruct *consumer, evmMessageStruct *msg))
 {
 	int rv = 0;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (msgid == NULL)
 		return -1;
@@ -502,11 +502,11 @@ int evm_msgid_cb_handle_set(evmMsgidStruct *msgid, int (*msg_handle)(evmConsumer
 evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *msgid, size_t size)
 {
 	evmMessageStruct *msg = NULL;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if ((msg = (evmMessageStruct *)calloc(1, sizeof(evmMessageStruct))) == NULL) {
 		errno = ENOMEM;
-		evm_log_system_error("calloc(): msg\n");
+		u2up_log_system_error("calloc(): msg\n");
 		return NULL;
 	}
 	if ((msg->allocs_list = calloc(1, sizeof(evmlist_head_struct))) == NULL) {
@@ -523,7 +523,7 @@ evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *ms
 	if (size > 0)
 		if ((msg->data = malloc(size)) == NULL) {
 			errno = ENOMEM;
-			evm_log_system_error("malloc(): data\n");
+			u2up_log_system_error("malloc(): data\n");
 			free(msg);
 			msg = NULL;
 		}
@@ -534,7 +534,7 @@ evmMessageStruct * evm_message_new(evmMsgtypeStruct *msgtype, evmMsgidStruct *ms
 void evm_message_delete(evmMessageStruct *msg)
 {
 	evmlist_el_struct *tmp;
-	evm_log_info("(entry) msg=%p\n", msg);
+	u2up_log_info("(entry) msg=%p\n", msg);
 
 	if (msg != NULL) {
 		pthread_mutex_lock(&msg->amtx);
@@ -576,7 +576,7 @@ void evm_message_delete(evmMessageStruct *msg)
 int evm_message_alloc_add(evmMessageStruct *msg, void *alloc)
 {
 	evmlist_el_struct *new, *tmp;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if ((msg == NULL) || (alloc == NULL))
 		return -1;
@@ -602,7 +602,7 @@ int evm_message_alloc_add(evmMessageStruct *msg, void *alloc)
 
 int evm_message_persistent_set(evmMessageStruct *msg)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (msg == NULL)
 		return -1;
@@ -613,7 +613,7 @@ int evm_message_persistent_set(evmMessageStruct *msg)
 
 int evm_message_ctx_set(evmMessageStruct *msg, void *ctx)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (msg == NULL)
 		return -1;
@@ -627,7 +627,7 @@ int evm_message_ctx_set(evmMessageStruct *msg, void *ctx)
 
 void * evm_message_ctx_get(evmMessageStruct *msg)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (msg == NULL)
 		return NULL;
@@ -637,7 +637,7 @@ void * evm_message_ctx_get(evmMessageStruct *msg)
 
 void * evm_message_data_get(evmMessageStruct *msg)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (msg == NULL)
 		return NULL;
@@ -648,7 +648,7 @@ void * evm_message_data_get(evmMessageStruct *msg)
 void * evm_message_data_takeover(evmMessageStruct *msg)
 {
 	void *ptr;
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (msg == NULL)
 		return NULL;
@@ -661,7 +661,7 @@ void * evm_message_data_takeover(evmMessageStruct *msg)
 
 int evm_message_lock(evmMessageStruct *msg)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (msg == NULL)
 		return -1;
@@ -671,7 +671,7 @@ int evm_message_lock(evmMessageStruct *msg)
 
 int evm_message_unlock(evmMessageStruct *msg)
 {
-	evm_log_info("(entry)\n");
+	u2up_log_info("(entry)\n");
 
 	if (msg == NULL)
 		return -1;
