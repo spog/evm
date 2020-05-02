@@ -80,12 +80,6 @@ static int hello_evm_run(void);
  * The MAIN part.
  */
 unsigned int log_mask;
-unsigned int evmlog_normal = 1;
-unsigned int evmlog_verbose = 0;
-unsigned int evmlog_trace = 0;
-unsigned int evmlog_debug = 0;
-unsigned int evmlog_use_syslog = 0;
-unsigned int evmlog_add_header = 1;
 unsigned int demo_liveloop = 0;
 
 static void usage_help(char *argv[])
@@ -103,7 +97,7 @@ static void usage_help(char *argv[])
 	printf("\t-g, --debug              Enable debug output.\n");
 #endif
 	printf("\t-s, --syslog             Enable syslog output (instead of stdout, stderr).\n");
-	printf("\t-n, --no-header          No EVMLOG header added to every u2up_log_... output.\n");
+	printf("\t-n, --no-header          No U2UP_LOG header added to every u2up_log_... output.\n");
 	printf("\t-h, --help               Displays this text.\n");
 }
 
@@ -147,7 +141,6 @@ static int usage_check(int argc, char *argv[])
 			U2UP_LOG_SET_NORMAL2(EVM_CORE, 0);
 			U2UP_LOG_SET_NORMAL2(EVM_MSGS, 0);
 			U2UP_LOG_SET_NORMAL2(EVM_TMRS, 0);
-			evmlog_normal = 0;
 			break;
 
 		case 'v':
@@ -155,7 +148,6 @@ static int usage_check(int argc, char *argv[])
 			U2UP_LOG_SET_VERBOSE2(EVM_CORE, 1);
 			U2UP_LOG_SET_VERBOSE2(EVM_MSGS, 1);
 			U2UP_LOG_SET_VERBOSE2(EVM_TMRS, 1);
-			evmlog_verbose = 1;
 			break;
 
 		case 'l':
@@ -168,7 +160,6 @@ static int usage_check(int argc, char *argv[])
 			U2UP_LOG_SET_TRACE2(EVM_CORE, 1);
 			U2UP_LOG_SET_TRACE2(EVM_MSGS, 1);
 			U2UP_LOG_SET_TRACE2(EVM_TMRS, 1);
-			evmlog_trace = 1;
 			break;
 #endif
 
@@ -178,7 +169,6 @@ static int usage_check(int argc, char *argv[])
 			U2UP_LOG_SET_DEBUG2(EVM_CORE, 1);
 			U2UP_LOG_SET_DEBUG2(EVM_MSGS, 1);
 			U2UP_LOG_SET_DEBUG2(EVM_TMRS, 1);
-			evmlog_debug = 1;
 			break;
 #endif
 
@@ -187,7 +177,6 @@ static int usage_check(int argc, char *argv[])
 			U2UP_LOG_SET_HEADER2(EVM_CORE, 0);
 			U2UP_LOG_SET_HEADER2(EVM_MSGS, 0);
 			U2UP_LOG_SET_HEADER2(EVM_TMRS, 0);
-			evmlog_add_header = 0;
 			break;
 
 		case 's':
@@ -195,7 +184,6 @@ static int usage_check(int argc, char *argv[])
 			U2UP_LOG_SET_SYSLOG2(EVM_CORE, 1);
 			U2UP_LOG_SET_SYSLOG2(EVM_MSGS, 1);
 			U2UP_LOG_SET_SYSLOG2(EVM_TMRS, 1);
-			evmlog_use_syslog = 1;
 			break;
 
 		case 'h':
@@ -230,13 +218,13 @@ int main(int argc, char *argv[])
 	log_mask = LOG_MASK(LOG_EMERG) | LOG_MASK(LOG_ALERT) | LOG_MASK(LOG_CRIT) | LOG_MASK(LOG_ERR);
 
 	/* Setup LOG_MASK according to startup arguments! */
-	if (evmlog_normal) {
+	if (U2UP_LOG_GET_NORMAL()) {
 		log_mask |= LOG_MASK(LOG_WARNING);
 		log_mask |= LOG_MASK(LOG_NOTICE);
 	}
-	if ((evmlog_verbose) || (evmlog_trace))
+	if ((U2UP_LOG_GET_VERBOSE()) || (U2UP_LOG_GET_TRACE()))
 		log_mask |= LOG_MASK(LOG_INFO);
-	if (evmlog_debug)
+	if (U2UP_LOG_GET_DEBUG())
 		log_mask |= LOG_MASK(LOG_DEBUG);
 
 	setlogmask(log_mask);
