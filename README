@@ -19,12 +19,90 @@ Features:
 Building:
 =========
 
+Prepare sources:
+----------------
+$ 
+$ git clone https://github.com/spog/evm.git
+Cloning into 'evm'...
+remote: Enumerating objects: 553, done.
+remote: Counting objects: 100% (553/553), done.
+remote: Compressing objects: 100% (209/209), done.
+remote: Total 1035 (delta 348), reused 511 (delta 313), pack-reused 482
+Receiving objects: 100% (1035/1035), 235.85 KiB | 973.00 KiB/s, done.
+Resolving deltas: 100% (623/623), done.
+$ 
+
+$ 
+$ git clone https://github.com/spog/automk.git
+Cloning into 'automk'...
+remote: Enumerating objects: 139, done.
+remote: Total 139 (delta 0), reused 0 (delta 0), pack-reused 139
+Receiving objects: 100% (139/139), 21.47 KiB | 785.00 KiB/s, done.
+Resolving deltas: 100% (87/87), done.
+$ 
+
+$ 
+$ cd evm
+evm$ 
+
+evm$ 
+evm$ ln -s ../automk/automk
+evm$ 
+
+evm$ 
+evm$ ls -la
+skupno 60
+drwxr-xr-x  7 samo samo  4096 maj  2 12:23 .
+drwxr-xr-x 19 samo samo  4096 maj  2 12:22 ..
+lrwxrwxrwx  1 samo samo    16 maj  2 12:23 automk -> ../automk/automk
+-rw-r--r--  1 samo samo  1218 maj  2 12:22 config.mk
+lrwxrwxrwx  1 samo samo    16 maj  2 12:22 configure -> automk/configure
+drwxr-xr-x  2 samo samo  4096 maj  2 12:22 demos
+drwxr-xr-x  2 samo samo  4096 maj  2 12:22 docs
+drwxr-xr-x  8 samo samo  4096 maj  2 12:22 .git
+drwxr-xr-x  3 samo samo  4096 maj  2 12:22 include
+drwxr-xr-x  3 samo samo  4096 maj  2 12:22 libs
+-rw-r--r--  1 samo samo 10175 maj  2 12:22 LICENSE
+lrwxrwxrwx  1 samo samo    15 maj  2 12:22 Makefile -> automk/Makefile
+-rw-r--r--  1 samo samo  8787 maj  2 12:22 README
+-rw-r--r--  1 samo samo    20 maj  2 12:22 TODO
+evm$ 
+
+evm$ 
+evm$ cd include/
+evm/include$ 
+
+evm/include$ 
+evm/include$ git clone https://github.com/spog/u2up-log.git
+Cloning into 'u2up-log'...
+remote: Enumerating objects: 17, done.
+remote: Counting objects: 100% (17/17), done.
+remote: Compressing objects: 100% (13/13), done.
+remote: Total 17 (delta 8), reused 13 (delta 4), pack-reused 0
+Unpacking objects: 100% (17/17), done.
+evm/include$ 
+
+evm/include$ 
+evm/include$ ls -la
+skupno 16
+drwxr-xr-x 4 samo samo 4096 maj  2 12:23 .
+drwxr-xr-x 7 samo samo 4096 maj  2 12:23 ..
+drwxr-xr-x 2 samo samo 4096 maj  2 12:22 evm
+drwxr-xr-x 3 samo samo 4096 maj  2 12:23 u2up-log
+evm/include$ 
+
+evm/include$ 
+evm/include$ cd ..
+evm$ 
+
+evm$ 
+
 Configure:
 ----------
-samo@hp450g3:~/Code/U2UP/evm$ 
-samo@hp450g3:~/Code/U2UP/evm$ env BUILDIR=./build PREFIX=/usr/local ./configure
-Sources absolute path (_SRCDIR_): /home/samo/Code/U2UP/evm
-Build absolute path (_BUILDIR_): /home/samo/Code/U2UP/evm/build
+evm$ 
+evm$ env BUILDIR=./build PREFIX=/usr/local ./configure
+Sources absolute path (_SRCDIR_): .../evm
+Build absolute path (_BUILDIR_): .../evm/build
 Sources relative path (SRCDIR): .
 Build relative path (BUILDIR): .build/
 Target absolute installation prefix path (PREFIX): /usr/local
@@ -36,126 +114,174 @@ Creating the build directory...
 
 No extra environment shell script provided to configure!
 
-make: Entering directory '/home/samo/Code/U2UP/evm'
-/home/samo/Code/U2UP/evm/automk/default.sh generate_makefile .
-generate_makefile: /home/samo/Code/U2UP/evm/.build/./auto.mk
+make: Entering directory '.../evm'
+.../evm/automk/default.sh generate_makefile .
+generate_makefile: .../evm/.build/./auto.mk
 Done!
-/home/samo/Code/U2UP/evm/automk/default.sh submakes_config .
-submakes_config: /home/samo/Code/U2UP/evm/automk/configure.mk configure
-make[1]: Entering directory '/home/samo/Code/U2UP/evm/libs'
-/home/samo/Code/U2UP/evm/automk/default.sh generate_makefile libs
-generate_makefile: /home/samo/Code/U2UP/evm/.build/libs/auto.mk
+.../evm/automk/default.sh submakes_config .
+submakes_config: .../evm/automk/configure.mk configure
+make[1]: Entering directory '.../evm/libs'
+.../evm/automk/default.sh generate_makefile libs
+generate_makefile: .../evm/.build/libs/auto.mk
 Done!
-/home/samo/Code/U2UP/evm/automk/default.sh submakes_config libs
-submakes_config: /home/samo/Code/U2UP/evm/automk/configure.mk configure
-make[2]: Entering directory '/home/samo/Code/U2UP/evm/libs/evm'
-/home/samo/Code/U2UP/evm/automk/default.sh generate_makefile libs/evm
-generate_makefile: /home/samo/Code/U2UP/evm/.build/libs/evm/auto.mk
+.../evm/automk/default.sh submakes_config libs
+submakes_config: .../evm/automk/configure.mk configure
+make[2]: Entering directory '.../evm/libs/evm'
+.../evm/automk/default.sh generate_makefile libs/evm
+generate_makefile: .../evm/.build/libs/evm/auto.mk
 Done!
-/home/samo/Code/U2UP/evm/automk/default.sh submakes_config libs/evm
-make[2]: Leaving directory '/home/samo/Code/U2UP/evm/libs/evm'
-make[1]: Leaving directory '/home/samo/Code/U2UP/evm/libs'
-submakes_config: /home/samo/Code/U2UP/evm/automk/configure.mk configure
-make[1]: Entering directory '/home/samo/Code/U2UP/evm/demos'
-/home/samo/Code/U2UP/evm/automk/default.sh generate_makefile demos
-generate_makefile: /home/samo/Code/U2UP/evm/.build/demos/auto.mk
+.../evm/automk/default.sh submakes_config libs/evm
+make[2]: Leaving directory '.../evm/libs/evm'
+make[1]: Leaving directory '.../evm/libs'
+submakes_config: .../evm/automk/configure.mk configure
+make[1]: Entering directory '.../evm/demos'
+.../evm/automk/default.sh generate_makefile demos
+generate_makefile: .../evm/.build/demos/auto.mk
 Done!
-/home/samo/Code/U2UP/evm/automk/default.sh submakes_config demos
-make[1]: Leaving directory '/home/samo/Code/U2UP/evm/demos'
-make: Leaving directory '/home/samo/Code/U2UP/evm'
-samo@hp450g3:~/Code/U2UP/evm$ 
+.../evm/automk/default.sh submakes_config demos
+make[1]: Leaving directory '.../evm/demos'
+make: Leaving directory '.../evm'
+evm$ 
 
 Make:
 -----
-samo@hp450g3:~/Code/U2UP/evm$ 
-samo@hp450g3:~/Code/U2UP/evm$ make
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make all
-Sources absolute path (_SRCDIR_): /home/samo/Code/U2UP/evm
-Build absolute path (_BUILDIR_): /home/samo/Code/U2UP/evm/.build
+evm$ 
+evm$ make
+.../evm/automk/default.sh targets_make all
+Sources absolute path (_SRCDIR_): .../evm
+Build absolute path (_BUILDIR_): .../evm/.build
 Target absolute installation prefix path (PREFIX): /usr/local
 Additional absolute target installation path prefix (DESTDIR): 
 
 No extra environment shell script provided to configure!
 
-targets_make: /home/samo/Code/U2UP/evm/.build/./libs/auto.mk all
-make[1]: Entering directory '/home/samo/Code/U2UP/evm/libs'
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make all
-targets_make: /home/samo/Code/U2UP/evm/.build/libs/evm/auto.mk all
-make[2]: Entering directory '/home/samo/Code/U2UP/evm/libs/evm'
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make all
-targets_make: /home/samo/Code/U2UP/evm/libs/evm/libevm.mk all
-make[3]: Entering directory '/home/samo/Code/U2UP/evm/libs/evm'
+targets_make: .../evm/.build/./libs/auto.mk all
+make[1]: Entering directory '.../evm/libs'
+.../evm/automk/default.sh targets_make all
+targets_make: .../evm/.build/libs/evm/auto.mk all
+make[2]: Entering directory '.../evm/libs/evm'
+.../evm/automk/default.sh targets_make all
+targets_make: .../evm/libs/evm/libevm.mk all
+make[3]: Entering directory '.../evm/libs/evm'
 ...
-make[3]: Leaving directory '/home/samo/Code/U2UP/evm/libs/evm'
-make[2]: Leaving directory '/home/samo/Code/U2UP/evm/libs/evm'
-make[1]: Leaving directory '/home/samo/Code/U2UP/evm/libs'
-targets_make: /home/samo/Code/U2UP/evm/.build/./demos/auto.mk all
-make[1]: Entering directory '/home/samo/Code/U2UP/evm/demos'
+make[3]: Leaving directory '.../evm/libs/evm'
+make[2]: Leaving directory '.../evm/libs/evm'
+make[1]: Leaving directory '.../U2UP/evm/libs'
+targets_make: .../evm/.build/./demos/auto.mk all
+make[1]: Entering directory '.../evm/demos'
 ...
-make[1]: Leaving directory '/home/samo/Code/U2UP/evm/demos'
-samo@hp450g3:~/Code/U2UP/evm$ 
+make[1]: Leaving directory '.../evm/demos'
+evm$ 
 
-Install:
---------
-samo@hp450g3:~/Code/U2UP/evm$ 
-samo@hp450g3:~/Code/U2UP/evm$ env DESTDIR=$(pwd)/install make install
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make install
-Sources absolute path (_SRCDIR_): /home/samo/Code/U2UP/evm
-Build absolute path (_BUILDIR_): /home/samo/Code/U2UP/evm/.build
+Install (user):
+---------------
+evm$ 
+evm$ env DESTDIR=$(pwd)/install make install
+.../evm/automk/default.sh targets_make install
+Sources absolute path (_SRCDIR_): .../evm
+Build absolute path (_BUILDIR_): .../evm/.build
 Target absolute installation prefix path (PREFIX): /usr/local
-Additional absolute target installation path prefix (DESTDIR): /home/samo/Code/U2UP/evm/install
+Additional absolute target installation path prefix (DESTDIR): .../evm/install
 
 No extra environment shell script provided to configure!
 
-targets_make: /home/samo/Code/U2UP/evm/.build/./libs/auto.mk install
-make[1]: Entering directory '/home/samo/Code/U2UP/evm/libs'
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make install
-targets_make: /home/samo/Code/U2UP/evm/.build/libs/evm/auto.mk install
-make[2]: Entering directory '/home/samo/Code/U2UP/evm/libs/evm'
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make install
-targets_make: /home/samo/Code/U2UP/evm/libs/evm/libevm.mk install
-make[3]: Entering directory '/home/samo/Code/U2UP/evm/libs/evm'
+targets_make: .../evm/.build/./libs/auto.mk install
+make[1]: Entering directory '.../evm/libs'
+.../evm/automk/default.sh targets_make install
+targets_make: .../evm/.build/libs/evm/auto.mk install
+make[2]: Entering directory '.../evm/libs/evm'
+.../evm/automk/default.sh targets_make install
+targets_make: .../evm/libs/evm/libevm.mk install
+make[3]: Entering directory '.../evm/libs/evm'
+install -d .../evm/install/usr/local/lib
+install .../evm/.build/libs/evm/libevm.so .../evm/install/usr/local/lib/libevm.so
+install -d .../evm/install/usr/local/include/evm
+install .../evm/include/evm/libevm.h .../evm/install/usr/local/include/evm/libevm.h
+make[3]: Leaving directory '.../evm/libs/evm'
+make[2]: Leaving directory '.../evm/libs/evm'
+make[1]: Leaving directory '../evm/libs'
+targets_make: .../evm/.build/./demos/auto.mk install
+make[1]: Entering directory '.../evm/demos'
+.../evm/automk/default.sh targets_make install
+targets_make: .../evm/demos/hello1.mk install
+install -d .../evm/install/usr/local/bin
+install .../evm/.build/demos/hello1_evm .../evm/install/usr/local/bin/hello1_evm
 ...
-make[3]: Leaving directory '/home/samo/Code/U2UP/evm/libs/evm'
-make[2]: Leaving directory '/home/samo/Code/U2UP/evm/libs/evm'
-make[1]: Leaving directory '/home/samo/Code/U2UP/evm/libs'
-targets_make: /home/samo/Code/U2UP/evm/.build/./demos/auto.mk install
-make[1]: Entering directory '/home/samo/Code/U2UP/evm/demos'
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make install
+make[1]: Leaving directory '.../evm/demos'
+evm$ 
+
+Install (system-local):
+-----------------------
+evm$ 
+evm$ sudo su
+evm# 
+
+evm# 
+evm# make install
+.../evm/automk/default.sh targets_make install
+Sources absolute path (_SRCDIR_): .../evm
+Build absolute path (_BUILDIR_): .../evm/.build
+Target absolute installation prefix path (PREFIX): /usr/local
+Additional absolute target installation path prefix (DESTDIR): 
+
+No extra environment shell script provided to configure!
+
+targets_make: .../evm/.build/./libs/auto.mk install
+make[1]: Entering directory '.../evm/libs'
+.../evm/automk/default.sh targets_make install
+targets_make: .../evm/.build/libs/evm/auto.mk install
+make[2]: Entering directory '.../evm/libs/evm'
+.../evm/automk/default.sh targets_make install
+targets_make: .../evm/libs/evm/libevm.mk install
+make[3]: Entering directory '.../evm/libs/evm'
+install .../evm/.build/libs/evm/libevm.so /usr/local/lib/libevm.so
+install .../evm/include/evm/libevm.h /usr/local/include/evm/libevm.h
+make[3]: Leaving directory '.../evm/libs/evm'
+make[2]: Leaving directory '.../evm/libs/evm'
+make[1]: Leaving directory '.../evm/libs'
+targets_make: .../evm/.build/./demos/auto.mk install
+make[1]: Entering directory '.../evm/demos'
+.../evm/automk/default.sh targets_make install
+targets_make: .../evm/demos/hello1.mk install
+install .../evm/.build/demos/hello1_evm /usr/local/bin/hello1_evm
 ...
-make[1]: Leaving directory '/home/samo/Code/U2UP/evm/demos'
-samo@hp450g3:~/Code/U2UP/evm$ 
+make[1]: Leaving directory '.../evm/demos'
+evm# 
+
+evm# 
+evm# exit
+evm$ 
 
 Clean:
 ------
-samo@hp450g3:~/Code/U2UP/evm$ 
-samo@hp450g3:~/Code/U2UP/evm$ make clean
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make clean
-Sources absolute path (_SRCDIR_): /home/samo/Code/U2UP/evm
-Build absolute path (_BUILDIR_): /home/samo/Code/U2UP/evm/.build
+evm$ 
+evm$ make clean
+.../evm/automk/default.sh targets_make clean
+Sources absolute path (_SRCDIR_): .../evm
+Build absolute path (_BUILDIR_): .../evm/.build
 Target absolute installation prefix path (PREFIX): /usr/local
 Additional absolute target installation path prefix (DESTDIR): 
 
 No extra environment shell script provided to configure!
 
-targets_make: /home/samo/Code/U2UP/evm/.build/./libs/auto.mk clean
-make[1]: Entering directory '/home/samo/Code/U2UP/evm/libs'
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make clean
-targets_make: /home/samo/Code/U2UP/evm/.build/libs/evm/auto.mk clean
-make[2]: Entering directory '/home/samo/Code/U2UP/evm/libs/evm'
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make clean
-targets_make: /home/samo/Code/U2UP/evm/libs/evm/libevm.mk clean
-make[3]: Entering directory '/home/samo/Code/U2UP/evm/libs/evm'
+targets_make: .../evm/.build/./libs/auto.mk clean
+make[1]: Entering directory '.../evm/libs'
+.../evm/automk/default.sh targets_make clean
+targets_make: .../evm/.build/libs/evm/auto.mk clean
+make[2]: Entering directory '.../evm/libs/evm'
+.../evm/automk/default.sh targets_make clean
+targets_make: .../evm/libs/evm/libevm.mk clean
+make[3]: Entering directory '.../evm/libs/evm'
 ...
-make[3]: Leaving directory '/home/samo/Code/U2UP/evm/libs/evm'
-make[2]: Leaving directory '/home/samo/Code/U2UP/evm/libs/evm'
-make[1]: Leaving directory '/home/samo/Code/U2UP/evm/libs'
-targets_make: /home/samo/Code/U2UP/evm/.build/./demos/auto.mk clean
-make[1]: Entering directory '/home/samo/Code/U2UP/evm/demos'
-/home/samo/Code/U2UP/evm/automk/default.sh targets_make clean
+make[3]: Leaving directory '.../evm/libs/evm'
+make[2]: Leaving directory '.../evm/libs/evm'
+make[1]: Leaving directory '.../evm/libs'
+targets_make: .../evm/.build/./demos/auto.mk clean
+make[1]: Entering directory '.../evm/demos'
+.../evm/automk/default.sh targets_make clean
 ...
-make[1]: Leaving directory '/home/samo/Code/U2UP/evm/demos'
-samo@hp450g3:~/Code/U2UP/evm$ 
+make[1]: Leaving directory '.../evm/demos'
+evm$ 
 
 If you want to remove all files not under version control and you are using git:
 --------------------------------------------------------------------------------
