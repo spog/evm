@@ -33,20 +33,7 @@ Resolving deltas: 100% (623/623), done.
 $ 
 
 $ 
-$ git clone https://github.com/spog/automk.git
-Cloning into 'automk'...
-remote: Enumerating objects: 139, done.
-remote: Total 139 (delta 0), reused 0 (delta 0), pack-reused 139
-Receiving objects: 100% (139/139), 21.47 KiB | 785.00 KiB/s, done.
-Resolving deltas: 100% (87/87), done.
-$ 
-
-$ 
 $ cd evm
-evm$ 
-
-evm$ 
-evm$ ln -s ../automk/automk
 evm$ 
 
 evm$ 
@@ -54,7 +41,7 @@ evm$ ls -la
 skupno 60
 drwxr-xr-x  7 samo samo  4096 maj  2 12:23 .
 drwxr-xr-x 19 samo samo  4096 maj  2 12:22 ..
-lrwxrwxrwx  1 samo samo    16 maj  2 12:23 automk -> ../automk/automk
+drwxr-xr-x  2 samo samo  4096 maj  2 18:22 automk
 -rw-r--r--  1 samo samo  1218 maj  2 12:22 config.mk
 lrwxrwxrwx  1 samo samo    16 maj  2 12:22 configure -> automk/configure
 drwxr-xr-x  2 samo samo  4096 maj  2 12:22 demos
@@ -66,35 +53,6 @@ drwxr-xr-x  3 samo samo  4096 maj  2 12:22 libs
 lrwxrwxrwx  1 samo samo    15 maj  2 12:22 Makefile -> automk/Makefile
 -rw-r--r--  1 samo samo  8787 maj  2 12:22 README
 -rw-r--r--  1 samo samo    20 maj  2 12:22 TODO
-evm$ 
-
-evm$ 
-evm$ cd include/
-evm/include$ 
-
-evm/include$ 
-evm/include$ git clone https://github.com/spog/u2up-log.git
-Cloning into 'u2up-log'...
-remote: Enumerating objects: 17, done.
-remote: Counting objects: 100% (17/17), done.
-remote: Compressing objects: 100% (13/13), done.
-remote: Total 17 (delta 8), reused 13 (delta 4), pack-reused 0
-Unpacking objects: 100% (17/17), done.
-evm/include$ 
-
-evm/include$ 
-evm/include$ ls -la
-skupno 16
-drwxr-xr-x 4 samo samo 4096 maj  2 12:23 .
-drwxr-xr-x 7 samo samo 4096 maj  2 12:23 ..
-drwxr-xr-x 2 samo samo 4096 maj  2 12:22 evm
-drwxr-xr-x 3 samo samo 4096 maj  2 12:23 u2up-log
-evm/include$ 
-
-evm/include$ 
-evm/include$ cd ..
-evm$ 
-
 evm$ 
 
 Configure:
